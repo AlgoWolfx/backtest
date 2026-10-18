@@ -2,9 +2,9 @@
 // (dukascopy-node'un kullandığı jetta.dukascopy.com servisi; tarayıcıdaki Dukascopy grafiğiyle aynı istek.)
 //
 // Kullanım:
-//   npm run data:dukascopy                     -> tüm semboller: indir + derle
-//   npm run data:dukascopy -- EURUSD XAUUSD
-//   npm run data:dukascopy -- --build-only     -> indirmeden yeniden derle
+//   npm run data                     -> tüm semboller: indir + derle
+//   npm run data -- EURUSD XAUUSD
+//   npm run data -- --build-only     -> indirmeden yeniden derle
 //
 // Ham veri:  data/raw/dukascopy-full/<SEMBOL>/<BID|ASK>/<YYYY-MM>.json.gz  (gün -> orijinal JSON yanıtı)
 //            Ay ay kaydedilir; yarıda kalırsa kaldığı aydan devam eder.

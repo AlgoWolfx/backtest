@@ -71,7 +71,6 @@ interface State {
   /** Grafikte seçilmekte olan emir (giriş / SL / TP noktaları tıklanır) */
   ticket: Ticket | null;
   /** data haritasındaki verinin kaynağı */
-  dataSource: DataSource;
 }
 
 export const useStore = create<State>(() => ({
@@ -101,7 +100,6 @@ export const useStore = create<State>(() => ({
   orderKind: 'market',
   sizing: 'risk',
   ticket: null,
-  dataSource: 'histdata',
 }));
 
 const get = useStore.getState;
@@ -187,26 +185,20 @@ export async function refreshSessions() {
   set({ sessions: await fetch('/api/sessions').then((r) => r.json()) });
 }
 
-/** İstenen kaynakta sembol yoksa HistData'ya düşer (ör. DXY OANDA'da yok). */
-export function resolveSource(symbol: string, wanted: DataSource): DataSource | null {
-  const info = get().symbols.find((s) => s.id === symbol);
-  if (!info) return null;
-  if (info.sources?.[wanted]) return wanted;
-  // Yedek sırası: Dukascopy (boşluksuz, bid+ask) -> HistData
-  return info.sources?.dukascopy ? 'dukascopy' : info.sources?.histdata ? 'histdata' : null;
+/** Tek kaynak var: Dukascopy. Sembolün verisi indirilmemişse null. */
+export function resolveSource(symbol: string): DataSource | null {
+  return get().symbols.find((s) => s.id === symbol)?.sources?.dukascopy ? 'dukascopy' : null;
 }
 
-export async function ensureData(symbol: string, wanted?: DataSource): Promise<M1Data | null> {
+export async function ensureData(symbol: string): Promise<M1Data | null> {
   const have = get().data[symbol];
   if (have) return have;
   const info = get().symbols.find((s) => s.id === symbol);
-  const want = wanted ?? get().session?.source ?? 'histdata';
-  const source = resolveSource(symbol, want);
+  const source = resolveSource(symbol);
   if (!info || !source) {
     toast(`${symbol} için veri yok. "npm run data" ile indirin.`, 'error');
     return null;
   }
-  if (source !== want) toast(`${symbol} ${want.toUpperCase()} kaynağında yok; ${source} verisi kullanılıyor.`);
   set({ loading: { symbol, progress: 0 } });
   try {
     const d = await loadSymbol(info, source, (p) => set({ loading: { symbol, progress: p } }));
@@ -255,25 +247,12 @@ export async function createSession(p: { name: string; symbol: string; startTime
 export async function openSession(id: string, preloaded?: Session) {
   const session: Session = preloaded ?? (await fetch(`/api/sessions/${id}`).then((r) => r.json()));
   session.fibDefaults ??= DEFAULT_FIB;
-  session.source ??= 'histdata';
-  if (get().dataSource !== session.source) set({ data: {}, dataSource: session.source });
+  session.source = 'dukascopy'; // eski oturumlar (HistData / OANDA) aynı Dukascopy verisiyle açılır
   const needed = new Set([session.symbol, ...(session.panes ?? []).map((p) => p.symbol), ...activeTrades(session).map((t) => t.symbol)]);
-  for (const sym of needed) await ensureData(sym, session.source);
+  for (const sym of needed) await ensureData(sym);
   set({ session, selectedId: null, editingId: null, tool: 'cursor', playing: false });
   const bad = chronologyIssue(session.trades, session.replayTime);
   if (bad != null) toast(`Bu oturumun kronolojisi tutarsız: replay zamanından sonraya ait işlem kaydı var (${fmtNyShort(bad)} NY). Eski sürümde geri sarılmış olabilir; bakiye gelecekteki kapanışları içerir. Kayıtlar silinmedi; ölçüm için yeni oturum açın.`, 'error');
-}
-
-/** Oturumun veri kaynağını değiştirir (açık işlem yokken). Fiyatlar kaynağa göre farklı olabilir. */
-export async function setDataSource(source: DataSource) {
-  const s = get().session;
-  if (!s || s.source === source) return;
-  if (activeTrades(s).length) return toast('Açık pozisyon veya bekleyen emir varken veri kaynağı değiştirilemez.', 'error');
-  if (!resolveSource(s.symbol, source)) return;
-  stopPlay();
-  set({ data: {}, dataSource: source });
-  const d = await ensureData(s.symbol, source);
-  if (d) patchSession(() => ({ source }));
 }
 
 export async function closeSession() {

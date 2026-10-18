@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getSymbol } from '../../shared/symbols.js';
 import { TIMEFRAMES } from '../core/timeframes';
-import { DATA_SOURCES, type DataSource } from '../core/data';
 import { liquidationPnl } from '../core/trading';
 import { snapshot } from '../core/account';
 import { LAYOUTS, type LayoutId, type Tool } from '../core/types';
@@ -18,7 +17,6 @@ import {
   marketOrder,
   startTicket,
   type OrderKind,
-  setDataSource,
   setChartTheme,
   setLayout,
   setLots,
@@ -113,7 +111,6 @@ export function TopBar() {
         {name}
       </span>
       <SymbolPicker symbol={symbol} />
-      <SourcePicker symbol={symbol} />
       <div className="tf-group">
         {TIMEFRAMES.map((t) => (
           <button key={t.id} className={`tf ${tf === t.id ? 'on' : ''}`} onClick={() => setTf(t.id)}>
@@ -177,28 +174,6 @@ function SymbolPicker({ symbol }: { symbol: string }) {
         </div>
       )}
     </div>
-  );
-}
-
-/** Veri kaynağı: aynı mumu farklı akışta karşılaştırmak için değiştirilebilir (açık işlem yokken). */
-function SourcePicker({ symbol }: { symbol: string }) {
-  const source = useStore((s) => s.session?.source ?? 'histdata');
-  const actual = useStore((s) => s.data[symbol]?.source);
-  const info = useStore((s) => s.symbols.find((x) => x.id === symbol));
-  return (
-    <select
-      className="select source-select"
-      value={source}
-      title={actual && actual !== source ? `${symbol} bu kaynakta yok; ${actual} kullanılıyor` : 'Veri kaynağı'}
-      onChange={(e) => setDataSource(e.target.value as DataSource)}
-    >
-      {DATA_SOURCES.map((d) => (
-        <option key={d.id} value={d.id} disabled={!info?.sources?.[d.id]}>
-          {d.label}
-          {actual && actual !== source && d.id === source ? ` → ${actual}` : ''}
-        </option>
-      ))}
-    </select>
   );
 }
 

@@ -1,9 +1,9 @@
 // Emir / pozisyon simülasyonu. Her açıklanan 1m mum için çalışır.
 //
 // Varsayımlar (muhafazakâr):
-//   - Grafik bid fiyatıdır. Kaynakta ask varsa (OANDA) gerçek spread uygulanır:
+//   - Grafik bid fiyatıdır. Kaynakta ask varsa (Dukascopy) gerçek spread uygulanır:
 //     long ask'tan açılır / bid ile kapanır, short bid'den açılır / ask ile kapanır.
-//     Ask yoksa (HistData) spread 0 kabul edilir. Komisyon uygulanmaz.
+//     Ask yoksa spread 0 kabul edilir. Komisyon uygulanmaz.
 //   - Aynı 1m mumda hem SL hem TP görülürse önce SL vurulmuş sayılır (işlem `flags`'ine 'sl-tp-same-bar' yazılır).
 //   - Fiyat SL/TP'nin ötesinde açılırsa (gap) çıkış açılış fiyatından olur. Hiçbir çıkış, mumun
 //     işlem görmediği bir fiyattan yazılmaz.

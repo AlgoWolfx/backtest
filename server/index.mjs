@@ -11,7 +11,7 @@ import { SYMBOLS } from '../shared/symbols.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA_DIR = process.env.BACKTEST_DATA_DIR || path.join(ROOT, 'data');
-const BARS_DIRS = { dukascopy: path.join(DATA_DIR, 'bars-dukascopy'), histdata: path.join(DATA_DIR, 'bars'), oanda: path.join(DATA_DIR, 'bars-oanda') };
+const BARS_DIR = path.join(DATA_DIR, 'bars-dukascopy');
 const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
 const DIST_DIR = path.join(ROOT, 'dist');
 const PORT = Number(process.env.PORT || 3737);
@@ -72,23 +72,16 @@ function removeDir(dir) {
 const validId =(id) => /^[a-zA-Z0-9_-]{1,64}$/.test(id);
 const sessionPath = (id) => path.join(SESSIONS_DIR, `${id}.json`);
 
-function readMeta(source, id) {
-  const dir = BARS_DIRS[source];
-  const metaPath = path.join(dir, `${id}.json`);
-  if (!fs.existsSync(metaPath) || !fs.existsSync(path.join(dir, `${id}.bin`))) return null;
+function readMeta(id) {
+  const metaPath = path.join(BARS_DIR, `${id}.json`);
+  if (!fs.existsSync(metaPath) || !fs.existsSync(path.join(BARS_DIR, `${id}.bin`))) return null;
   return JSON.parse(fs.readFileSync(metaPath, 'utf8'));
 }
 
 function listSymbols() {
   return SYMBOLS.map((s) => {
-    const sources = {};
-    for (const src of Object.keys(BARS_DIRS)) {
-      const m = readMeta(src, s.id);
-      if (m) sources[src] = m;
-    }
-    // available/meta: uygulamanın tercih ettiği kaynak (Dukascopy varsa o, yoksa HistData)
-    const best = sources.dukascopy ?? sources.histdata ?? null;
-    return { ...s, available: !!best, meta: best, sources };
+    const meta = readMeta(s.id);
+    return { ...s, available: !!meta, meta, sources: meta ? { dukascopy: meta } : {} };
   });
 }
 
@@ -117,9 +110,7 @@ async function handleApi(req, res, url) {
   if (parts[1] === 'bars' && req.method === 'GET') {
     const id = parts[2];
     if (!SYMBOLS.some((s) => s.id === id)) return sendJson(res, 404, { error: 'Sembol yok' });
-    const source = url.searchParams.get('source') || 'histdata';
-    if (!BARS_DIRS[source]) return sendJson(res, 400, { error: 'Geçersiz kaynak' });
-    const file = path.join(BARS_DIRS[source], `${id}.bin`);
+    const file = path.join(BARS_DIR, `${id}.bin`);
     if (!fs.existsSync(file)) return sendJson(res, 404, { error: 'Veri indirilmemiş. "npm run data" çalıştırın.' });
     const { size } = fs.statSync(file);
     res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': size, 'Cache-Control': 'no-cache' });
