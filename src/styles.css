@@ -2534,3 +2534,17 @@ tbody tr:hover {
 .tool-fly-star.on {
   color: var(--orange);
 }
+
+/* ---------------------------------------------------------------- pozisyon boyutu (risk % / lot) */
+.size-ctl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.size-ctl .num {
+  width: 64px;
+}
+.size-info {
+  font-size: 11px;
+  white-space: nowrap;
+}

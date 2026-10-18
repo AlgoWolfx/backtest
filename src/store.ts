@@ -726,13 +726,17 @@ export function updateDrawing(id: string, patch: Partial<Drawing>, record = true
         if (t.status === 'open') return { ...t, sl: u.sl, tp: u.tp };
         if (t.status === 'pending') {
           const price = entryPriceNow(t.symbol, t.side) ?? u.entry.p;
-          // Risk % ile açılmış bekleyen emirde SL / giriş değişince lot, risk yüzdesini koruyacak şekilde yeniden hesaplanır.
+          // Bekleyen emir çizimle birlikte yeniden boyutlanır: sabit lot veya risk % (SL / giriş değişince lot yeniden hesaplanır).
           let lots = t.lots;
-          if (t.riskPct != null) {
-            const dec = decideLots(getSymbol(t.symbol), { mode: 'risk', lots: 0, riskPct: t.riskPct, balance: balanceOf(s), entry: u.entry.p, sl: u.sl, commissionPerLot: t.commissionPerLot });
-            if (dec.error == null) lots = dec.lots;
+          let riskPct = t.riskPct;
+          {
+            const dec = decideLots(getSymbol(t.symbol), { mode: u.lots != null ? 'lots' : 'risk', lots: u.lots ?? 0, riskPct: u.riskPct, balance: balanceOf(s), entry: u.entry.p, sl: u.sl, commissionPerLot: t.commissionPerLot });
+            if (dec.error == null) {
+              lots = dec.lots;
+              riskPct = u.lots != null ? undefined : u.riskPct;
+            }
           }
-          return { ...t, sl: u.sl, tp: u.tp, initialSl: u.sl, entry: u.entry.p, lots, orderType: pendingType(t.side, u.entry.p, price) };
+          return { ...t, sl: u.sl, tp: u.tp, initialSl: u.sl, entry: u.entry.p, lots, riskPct, orderType: pendingType(t.side, u.entry.p, price) };
         }
         return t;
       });
@@ -800,7 +804,7 @@ export function placePendingAt(side: Side, price: number, t: number, tEnd: numbe
   const entry = round(price);
   const sl = bufferedSl(s, side, round(entry - dir * dist));
   const tp = round(entry + dir * Math.abs(entry - sl) * 2);
-  const id = addDrawing({ type: side, ...TOOL_DEFAULTS[side], entry: { t, p: entry }, sl, tp, tEnd, riskPct: s.riskPct, ...loadTemplate(side) } as NewDrawing);
+  const id = addDrawing({ type: side, ...TOOL_DEFAULTS[side], entry: { t, p: entry }, sl, tp, tEnd, riskPct: s.riskPct, ...(get().sizing === 'lots' ? { lots: s.lots } : {}), ...loadTemplate(side) } as NewDrawing);
   if (!placeOrderFromDrawing(id, false)) {
     deleteDrawing(id, false);
     return null;
@@ -841,7 +845,8 @@ export function placeOrderFromDrawing(drawingId: string, market: boolean, lotsOv
     toast(side === 'long' ? 'Long için SL girişin altında, TP üstünde olmalı.' : 'Short için SL girişin üstünde, TP altında olmalı.', 'error');
     return false;
   }
-  const dec = decideLots(spec, { mode: lotsOverride != null ? 'lots' : 'risk', lots: lotsOverride ?? 0, riskPct: d.riskPct, balance: balanceOf(s), entry, sl: d.sl, commissionPerLot: s.commissionPerLot });
+  const fixedLots = lotsOverride ?? d.lots; // elle verilen lot (alt çubuk / çizimdeki sabit lot) risk %'sinden önceliklidir
+  const dec = decideLots(spec, { mode: fixedLots != null ? 'lots' : 'risk', lots: fixedLots ?? 0, riskPct: d.riskPct, balance: balanceOf(s), entry, sl: d.sl, commissionPerLot: s.commissionPerLot });
   if (dec.error != null) {
     toast(dec.error, 'error');
     return false;
@@ -862,7 +867,7 @@ export function placeOrderFromDrawing(drawingId: string, market: boolean, lotsOv
     tp: d.tp,
     initialSl: d.sl,
     lots,
-    ...(lotsOverride == null ? { riskPct: d.riskPct } : {}),
+    ...(fixedLots == null ? { riskPct: d.riskPct } : {}),
     drawingId,
     ...(s.commissionPerLot ? { commissionPerLot: s.commissionPerLot } : {}),
   };
@@ -871,7 +876,7 @@ export function placeOrderFromDrawing(drawingId: string, market: boolean, lotsOv
     session: {
       ...s2,
       trades: [...s2.trades, trade],
-      drawings: mapDrawing(s2.drawings, s.symbol, drawingId, (x) => ({ ...(x as Position), tradeId: id, entry: entryPt })),
+      drawings: mapDrawing(s2.drawings, s.symbol, drawingId, (x) => ({ ...(x as Position), tradeId: id, entry: entryPt, ...(fixedLots != null ? { lots: fixedLots } : {}) })),
       account: market && s2.account ? noteTradingDay(s2.account, s.replayTime) : s2.account,
       updatedAt: Date.now(),
     },

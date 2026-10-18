@@ -156,6 +156,8 @@ export interface Position extends Base {
   tp: number;
   tEnd: number;
   riskPct: number;
+  /** Sabit lot (yok = risk % ile hesaplanır) */
+  lots?: number;
   tradeId?: string;
   /** Kâr (hedef) ve zarar (stop) bölgelerinin renkleri ve arkaplan opaklığı (yok = yeşil / kırmızı, 0.2) */
   profitColor?: string;

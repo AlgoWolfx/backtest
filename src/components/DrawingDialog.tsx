@@ -14,6 +14,7 @@ import { fmtDistance, fmtMoney } from '../format';
 import { balanceOf, placeOrderFromDrawing, recordUndo, setFibDefaults, toast, updateDrawing, useStore } from '../store';
 import { useWindow } from '../useWindow';
 import { NumberInput } from './Bars';
+import { SizeControl } from './SizeControl';
 import { Icons } from './icons';
 
 type Editable = Rect | TrendLine | HLine | Fib | Position;
@@ -389,7 +390,7 @@ function PositionInputs({ d, digits }: { d: Position; digits: number }) {
   const locked = trade && (trade.status === 'closed' || trade.status === 'cancelled');
   const risk = Math.abs(d.entry.p - d.sl);
   const rr = risk ? Math.abs(d.tp - d.entry.p) / risk : 0;
-  const sized = trade ? trade.lots : lotsForRisk(spec, balanceOf(session), d.riskPct, d.entry.p, d.sl, session.commissionPerLot);
+  const sized = trade ? trade.lots : d.lots != null ? d.lots : lotsForRisk(spec, balanceOf(session), d.riskPct, d.entry.p, d.sl, session.commissionPerLot);
   const lots = sized ?? 0; // null: risk bütçesine sığan lot yok
   const r = (v: number) => Math.round(v * 10 ** digits) / 10 ** digits;
   const long = d.type === 'long';
@@ -410,10 +411,10 @@ function PositionInputs({ d, digits }: { d: Position; digits: number }) {
         {locked ? <b>{d.tp.toFixed(digits)}</b> : <NumberInput value={d.tp} onChange={(tp) => updateDrawing(d.id, { tp: r(tp) }, false)} />}
         <span className="muted">{fmtDistance(d.tp - d.entry.p, spec)}</span>
       </div>
-      {!trade && (
+      {(!trade || trade.status === 'pending') && (
         <div className="form-row">
-          <span>Risk %</span>
-          <NumberInput value={d.riskPct} min={0.01} onChange={(riskPct) => updateDrawing(d.id, { riskPct }, false)} />
+          <span>Boyut</span>
+          <SizeControl d={d} record={false} />
         </div>
       )}
       <div className="pos-summary">

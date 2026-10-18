@@ -1,6 +1,7 @@
 import { chartRef } from '../chartRef';
 import { hexToRgba } from '../chart/drawUtil';
-import type { LineStyleName } from '../core/types';
+import type { LineStyleName, Position } from '../core/types';
+import { SizeControl } from './SizeControl';
 import { closeTradeManual, cloneDrawing, deleteDrawing, drawingsOf, placeOrderFromDrawing, updateDrawing, useStore } from '../store';
 import { TvColor } from './DrawingDialog';
 import { Icons } from './icons';
@@ -65,6 +66,7 @@ export function DrawingToolbar() {
           Orta nokta
         </button>
       )}
+      {isPos && (!trade || trade.status === 'pending') && <SizeControl d={d as Position} record />}
       {isPos && !trade && (
         <>
           <button className="btn small primary" onClick={() => placeOrderFromDrawing(d.id, true)} title="Anlık fiyattan pozisyon aç (SL/TP çizimdeki gibi)">

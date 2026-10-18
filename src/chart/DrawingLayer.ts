@@ -920,6 +920,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
         tp: this.c.roundPrice(pt.p + dir * dist * 2),
         tEnd: this.c.logicalToTime(pt.L + 25),
         riskPct: s.riskPct,
+        // Alt çubukta "Lot" seçiliyse çizim sabit lotla başlar (ayarlardan / araç çubuğundan değiştirilir)
+        ...(st.sizing === 'lots' ? { lots: s.lots } : {}),
         ...loadTemplate(tool),
       } as NewDrawing);
       // FX Replay gibi: araç bırakıldığı fiyatta bekleyen limit / stop emri olur (kapatılabilir: alt çubuk "Çizince emir")
