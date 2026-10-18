@@ -144,6 +144,7 @@ export function LeftToolbar() {
   const magnetMode = useStore((s) => s.magnetMode);
   const stayInDraw = useStore((s) => s.stayInDraw);
   const hide = useStore((s) => s.hideDrawings);
+  const objectsOpen = useStore((s) => s.objectsOpen);
   const allLocked = useStore((s) => {
     const list = drawingsOf(s.session);
     return list.length > 0 && list.every((d) => d.locked);
@@ -172,6 +173,9 @@ export function LeftToolbar() {
       </button>
       <button className={`tool ${allLocked ? 'on' : ''}`} title={allLocked ? 'Tüm çizimlerin kilidini aç' : 'Tüm çizimleri kilitle'} onClick={() => setAllLocked(!allLocked)}>
         {allLocked ? <Icons.lock /> : <Icons.unlock />}
+      </button>
+      <button className={`tool ${objectsOpen ? 'on' : ''}`} title="Çizim listesi: çizimleri seç, gizle, kilitle, sil" onClick={() => useStore.setState({ objectsOpen: !objectsOpen })}>
+        <Icons.layers />
       </button>
       <button className={`tool ${hide ? 'on' : ''}`} title="Çizimleri gizle / göster" onClick={() => useStore.setState({ hideDrawings: !hide })}>
         {hide ? <Icons.eyeOff /> : <Icons.eye />}

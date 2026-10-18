@@ -42,6 +42,11 @@ export const Icons = {
       <path d="M5 7V4.5h14V7M12 4.5v15M9 19.5h6" />
     </Svg>
   ),
+  layers: () => (
+    <Svg>
+      <path d="M12 3 3 8l9 5 9-5-9-5ZM3 13l9 5 9-5M3 17.5l9 5 9-5" />
+    </Svg>
+  ),
   rect: () => (
     <Svg>
       <rect x="4" y="6" width="16" height="12" rx="1" />

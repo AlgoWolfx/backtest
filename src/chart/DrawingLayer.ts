@@ -136,6 +136,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       views.push({ coordinate: () => y, text: () => fmtPrice(p, spec), textColor: () => '#fff', backColor: () => bg });
     };
     for (const d of this.drawings(st.session)) {
+      if (d.hidden) continue;
       const sel = d.id === st.selectedId || d.id === this.hoverId;
       if (d.type === 'hline') {
         if (d.showPriceLabel !== false) label(d.p, d.color);
@@ -191,7 +192,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.textBaseline = 'middle';
       for (const d of drawings) {
-        if (d.hiddenTfs?.includes(this.c.tf)) continue; // Görünürlük: bu zaman diliminde gizli
+        if (d.hidden || d.hiddenTfs?.includes(this.c.tf)) continue; // gizlenmiş (liste) veya bu zaman diliminde gizli
         const active = d.id === st.selectedId || d.id === this.hoverId;
         ctx.save();
         switch (d.type) {
@@ -788,7 +789,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
   hitTestAt(x: number, y: number): Hit | null {
     const st = useStore.getState();
     if (st.hideDrawings || !st.session || !this.c.agg || this.c.lastK < 0) return null;
-    const list = this.drawings(st.session).filter((d) => !d.hiddenTfs?.includes(this.c.tf));
+    const list = this.drawings(st.session).filter((d) => !d.hidden && !d.hiddenTfs?.includes(this.c.tf));
     const near = (ax: number, ay: number) => Math.hypot(x - ax, y - ay) <= HANDLE_R + 3;
     // Önce seçili çizimin tutamaçları, sonra üstten alta diğerleri.
     const ordered = [...list].reverse().sort((a, b) => (b.id === st.selectedId ? 1 : 0) - (a.id === st.selectedId ? 1 : 0));

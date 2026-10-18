@@ -5,6 +5,7 @@ import { closeSession, setChartTheme, setSymbol, setTf, useStore, setSessionSett
 import { Icons } from '../common/icons';
 import { LayoutMenu } from '../chart/LayoutMenu';
 import { toggleFullscreen, useFullscreen } from '../../lib/fullscreen';
+import { saveChartImage } from '../../lib/chartShot';
 import { AccountInfo } from './AccountMeters';
 
 function ChartTypePicker() {
@@ -89,6 +90,9 @@ export function TopBar() {
       <AccountInfo />
       <SessionToggle />
       <FullscreenButton />
+      <button className="btn ghost" onClick={saveChartImage} title="Grafiğin görüntüsünü indir ve panoya kopyala">
+        <Icons.camera />
+      </button>
       <button className="btn ghost" onClick={() => useStore.setState({ chartSettingsOpen: true })} title="Grafik renkleri ve görünüm ayarları">
         <Icons.settings />
       </button>

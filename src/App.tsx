@@ -13,6 +13,7 @@ import { Toast } from './components/common/Toast';
 import { SessionScreen } from './components/session/SessionScreen';
 import { TradePanel } from './components/trades/TradePanel';
 import { PerformancePage } from './components/performance/PerformancePage';
+import { ObjectList } from './components/drawing/ObjectList';
 import { TradeReviewModal } from './components/trades/TradeReview';
 import { toggleFullscreen } from './lib/fullscreen';
 import { cancelTicket, copySelected, deleteDrawing, forwardToBarClose, forwardToNextSessionBoundary, init, pasteClipboard, redo, setTf, stepBack, stepForward, toast, toggleMaxPane, togglePlay, undo, useStore } from './store';
@@ -161,6 +162,7 @@ export function App() {
       {panelOpen && <TradePanel />}
       <BottomBar />
       <DrawingEditor />
+      <ObjectList />
       <JumpDialog />
       <ChartSettings />
       <PerformancePage />

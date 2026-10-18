@@ -60,6 +60,8 @@ interface State {
   /** Grafikte tıklanan mumdan replay başlatma modu */
   pickingStart: boolean;
   perfOpen: boolean;
+  /** Çizim listesi penceresi açık mı */
+  objectsOpen: boolean;
   chartSettingsOpen: boolean;
   /** Grafik ayarları açılırken gösterilecek sekme (tek seferlik istek) */
   chartSettingsTab: string | null;
@@ -99,6 +101,7 @@ export const useStore = create<State>(() => ({
   jumpOpen: false,
   pickingStart: false,
   perfOpen: false,
+  objectsOpen: false,
   chartSettingsOpen: false,
   chartSettingsTab: null,
   chartTheme: loadTheme(),

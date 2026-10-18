@@ -28,6 +28,8 @@ interface Base {
   hiddenTfs?: TF[];
   /** Kilitli çizim seçilebilir ama taşınamaz / düzenlenemez (TradingView "Kilitle") */
   locked?: boolean;
+  /** Çizim listesinden gizlendi: çizilmez, tıklanamaz (silinmez) */
+  hidden?: boolean;
   /** Çizgi opaklığı 0-1 (yok = 1): TradingView renk seçicisindeki opaklık */
   lineAlpha?: number;
 }
