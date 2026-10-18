@@ -5,9 +5,9 @@ import { useEffect, useState } from 'react';
 import type { Tool } from '../core/types';
 
 /** Favoriye eklenebilen araçlar (imleç hariç). */
-export const FAV_CANDIDATES: Tool[] = ['trend', 'hline', 'rect', 'fib', 'long', 'short', 'measure'];
+export const FAV_CANDIDATES: Tool[] = ['trend', 'ray', 'hline', 'vline', 'rect', 'fib', 'long', 'short', 'text', 'measure'];
 /** İlk açılışta çubukta görünenler. */
-export const DEFAULT_FAVS: Tool[] = ['trend', 'hline', 'rect', 'fib', 'long', 'short'];
+export const DEFAULT_FAVS: Tool[] = ['trend', 'hline', 'rect', 'fib', 'long', 'short', 'text'];
 
 export interface FavBarPos {
   /** Çubuğun, grafik alanının sol üst köşesine göre konumu (px); null = üstte ortalı */

@@ -4,11 +4,13 @@
 import { hexToRgba } from '../chart/drawUtil';
 import type { Drawing, FibLevel, Rect } from '../core/types';
 
-type TemplateType = 'rect' | 'trend' | 'hline' | 'fib' | 'long' | 'short';
+type TemplateType = 'rect' | 'trend' | 'hline' | 'vline' | 'text' | 'fib' | 'long' | 'short';
 
 /** Her aracın fabrika rengi / kalınlığı. */
 export const TOOL_DEFAULTS: Record<TemplateType, { color: string; width: number }> = {
   hline: { color: '#2962ff', width: 1 },
+  vline: { color: '#787b86', width: 1 },
+  text: { color: '#d1d4dc', width: 1 },
   trend: { color: '#2962ff', width: 2 },
   rect: { color: '#2962ff', width: 1 },
   fib: { color: '#9598a1', width: 1 },
@@ -29,6 +31,8 @@ export const STYLE_KEYS: Record<TemplateType, readonly string[]> = {
     'statsMode', 'statPrice', 'statPct', 'statBars', 'statTime', 'statDist', 'statAngle', ...TEXT_STYLE,
   ],
   hline: ['color', 'width', 'style', 'lineAlpha', 'showPriceLabel', 'extendLeft', ...TEXT_STYLE],
+  vline: ['color', 'width', 'style', 'lineAlpha', ...TEXT_STYLE],
+  text: ['color', 'textColor', 'textSize', 'bold', 'italic', 'bgOn', 'bgColor', 'bgAlpha'],
   fib: [
     'color', 'width', 'bgOn', 'bgAlpha', 'bgColor', 'showTrend', 'trendColor', 'trendWidth', 'trendStyle', 'levelWidth', 'levelStyle',
     'extendLeft', 'extendRight', 'reverse', 'showPrices', 'showLevels', 'labelH', 'labelV', 'oneColor', 'levels',

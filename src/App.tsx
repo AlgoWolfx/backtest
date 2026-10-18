@@ -17,7 +17,7 @@ import { TradeReviewModal } from './components/trades/TradeReview';
 import { toggleFullscreen } from './lib/fullscreen';
 import { cancelTicket, copySelected, deleteDrawing, forwardToBarClose, forwardToNextSessionBoundary, init, pasteClipboard, redo, setTf, stepBack, stepForward, toast, toggleMaxPane, togglePlay, undo, useStore } from './store';
 
-const TOOL_KEYS: Record<string, Tool> = { KeyT: 'trend', KeyH: 'hline', KeyR: 'rect', KeyF: 'fib', KeyL: 'long', KeyS: 'short', KeyM: 'measure' };
+const TOOL_KEYS: Record<string, Tool> = { KeyT: 'trend', KeyY: 'ray', KeyH: 'hline', KeyV: 'vline', KeyX: 'text', KeyR: 'rect', KeyF: 'fib', KeyL: 'long', KeyS: 'short', KeyM: 'measure' };
 
 /** TradingView gibi yazılan zaman dilimi: "15" -> 15m, "60" -> 1H, "4h" -> 4H, "D" -> 1D ... */
 export function parseTfInput(s: string): TF | null {

@@ -1,14 +1,14 @@
 import { type ReactNode } from 'react';
 import { nyLocalToUtc, toNyLocal } from '../../../shared/nytime.js';
-import { type Fib, HLine, LineEnd, LineStyleName, Position, Rect, RectExtend, TrendLine } from '../../core/types';
+import { type Fib, HLine, LineEnd, LineStyleName, Position, Rect, RectExtend, TextNote, TrendLine, VLine } from '../../core/types';
 
-export type Editable = Rect | TrendLine | HLine | Fib | Position;
+export type Editable = Rect | TrendLine | HLine | VLine | TextNote | Fib | Position;
 
 export type Tab = 'style' | 'text' | 'inputs' | 'coords' | 'vis';
 
 export type Any = Record<string, unknown>;
 
-export const TITLES: Record<Editable['type'], string> = { rect: 'Dikdörtgen', trend: 'Trend çizgisi', hline: 'Yatay ışın', fib: 'Fib düzeltme', long: 'Long pozisyon', short: 'Short pozisyon' };
+export const TITLES: Record<Editable['type'], string> = { rect: 'Dikdörtgen', trend: 'Trend çizgisi', hline: 'Yatay ışın', vline: 'Dikey çizgi', text: 'Metin notu', fib: 'Fib düzeltme', long: 'Long pozisyon', short: 'Short pozisyon' };
 
 const LINE_STYLES: LineStyleName[] = ['solid', 'dashed', 'dotted'];
 

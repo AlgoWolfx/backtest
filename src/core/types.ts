@@ -60,6 +60,29 @@ export interface HLine extends Base, LineText {
   showPriceLabel?: boolean;
 }
 
+/** Dikey çizgi: tek bir zamanı işaretler (seans açılışı, haber saati, önemli mum vb.); metin çizginin yanında durur. */
+export interface VLine extends Base, LineText {
+  type: 'vline';
+  /** UTC saniye */
+  t: number;
+}
+
+/** Serbest metin notu: grafikte bir fiyat/zaman noktasına yazılır, isteğe bağlı arkaplanlı. */
+export interface TextNote extends Base {
+  type: 'text';
+  a: Pt;
+  text: string;
+  /** Metin rengi (yok = color) ve yazı tipi */
+  textColor?: string;
+  textSize?: number;
+  bold?: boolean;
+  italic?: boolean;
+  /** Arkaplan kutusu */
+  bgOn?: boolean;
+  bgColor?: string;
+  bgAlpha?: number;
+}
+
 export type LineEnd = 'normal' | 'arrow';
 export type StatsMode = 'hidden' | 'always' | 'selected';
 export interface TrendLine extends Base, LineText {
@@ -174,11 +197,12 @@ export interface Position extends Base {
   compact?: boolean;
 }
 
-export type Drawing = HLine | TrendLine | Rect | Fib | Position;
+export type Drawing = HLine | VLine | TrendLine | Rect | Fib | Position | TextNote;
 /** Kimliği henüz atanmamış çizim (birleşim tipine dağıtılmış Omit). */
 export type NewDrawing = Drawing extends infer D ? (D extends Drawing ? Omit<D, 'id'> : never) : never;
 export type DrawingType = Drawing['type'];
-export type Tool = 'cursor' | 'measure' | DrawingType;
+/** 'ray' ayrı bir çizim tipi değil: sağa uzayan trend çizgisi olarak oluşturulur. */
+export type Tool = 'cursor' | 'measure' | 'ray' | DrawingType;
 
 /** Çoklu ekranda bir grafiğin sembolü ve zaman dilimi. */
 export interface PaneCfg {

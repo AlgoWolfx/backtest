@@ -29,7 +29,7 @@ describe('rectFillCss', () => {
 });
 
 describe('factoryReset', () => {
-  it.each(['rect', 'trend', 'hline', 'fib', 'long', 'short'] as const)('%s: renk ve kalınlık tanımsız kalmaz', (type) => {
+  it.each(['rect', 'trend', 'hline', 'vline', 'text', 'fib', 'long', 'short'] as const)('%s: renk ve kalınlık tanımsız kalmaz', (type) => {
     const r = factoryReset(type, DEFAULT_FIB);
     expect(r.color).toBe(TOOL_DEFAULTS[type].color);
     expect(r.width).toBe(TOOL_DEFAULTS[type].width);

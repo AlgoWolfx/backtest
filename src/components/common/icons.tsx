@@ -25,6 +25,23 @@ export const Icons = {
       <circle cx="5" cy="12" r="2.2" fill="currentColor" />
     </Svg>
   ),
+  ray: () => (
+    <Svg>
+      <circle cx="5" cy="18" r="2.2" fill="currentColor" />
+      <path d="M6.6 16.4 21 5" />
+    </Svg>
+  ),
+  vline: () => (
+    <Svg>
+      <path d="M12 2v20" />
+      <circle cx="12" cy="12" r="1.8" fill="currentColor" />
+    </Svg>
+  ),
+  text: () => (
+    <Svg>
+      <path d="M5 7V4.5h14V7M12 4.5v15M9 19.5h6" />
+    </Svg>
+  ),
   rect: () => (
     <Svg>
       <rect x="4" y="6" width="16" height="12" rx="1" />

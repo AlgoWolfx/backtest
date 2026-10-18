@@ -8,7 +8,7 @@ import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import type { IPrimitivePaneView, ISeriesPrimitive, ISeriesPrimitiveAxisView, PrimitiveHoveredItem, SeriesAttachedParameter, Time } from 'lightweight-charts';
 import { getSymbol } from '../../shared/symbols.js';
 import { lotsForRisk, liquidationPnl, openR, stopRiskPerLot, usdPerPriceUnit, widenStop, type Trade } from '../core/trading';
-import type { Drawing, Fib, HLine, LineStyleName, LineText, NewDrawing, Position, Pt, Rect, Session, TextHAlign, Tool, TrendLine } from '../core/types';
+import type { Drawing, Fib, HLine, LineStyleName, LineText, NewDrawing, Position, Pt, Rect, Session, TextHAlign, TextNote, Tool, TrendLine, VLine } from '../core/types';
 import { loadRectTemplate, loadTemplate } from '../prefs/drawingTemplates';
 import { dashOf, hexToRgba, rectFillCss } from './drawUtil';
 import { TOOL_DEFAULTS } from '../prefs/drawingTemplates';
@@ -284,6 +284,23 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
             }
             break;
           }
+          case 'vline': {
+            const x = Math.round(this.X(d.t)) + 0.5;
+            ctx.strokeStyle = hexToRgba(d.color, d.lineAlpha ?? 1);
+            ctx.lineWidth = d.width;
+            ctx.setLineDash(dashOf(d.style, d.width));
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, mediaSize.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            if (d.text) this.drawVLineText(ctx, d, x, mediaSize.height);
+            if (active) this.handle(ctx, x, mediaSize.height / 2, d.color);
+            break;
+          }
+          case 'text':
+            this.drawTextNote(ctx, d, active);
+            break;
           case 'fib':
             this.drawFib(ctx, d, active, mediaSize.width);
             break;
@@ -362,6 +379,64 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     this.label(ctx, `${hint} · Esc: iptal`, w / 2, 24, '#2a2e39');
     void h;
     ctx.restore();
+  }
+
+  private measureCtx: CanvasRenderingContext2D | null = null;
+
+  private fontOf(size: number, bold?: boolean, italic?: boolean) {
+    return `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  }
+
+  /** Metin notunun ekrandaki kutusu: noktanın sağında, dikeyde ortalı (isabet testi ve çizim ortak kullanır). */
+  private textBox(d: TextNote) {
+    const size = d.textSize ?? 14;
+    this.measureCtx ??= document.createElement('canvas').getContext('2d')!;
+    const m = this.measureCtx;
+    m.font = this.fontOf(size, d.bold, d.italic);
+    const lines = (d.text || ' ').split('\n');
+    const lh = size * 1.25;
+    const w = Math.max(...lines.map((l) => m.measureText(l).width)) + 12;
+    const h = lines.length * lh + 8;
+    return { left: this.X(d.a.t), top: this.Y(d.a.p) - h / 2, w, h, lines, size, lh };
+  }
+
+  private drawTextNote(ctx: CanvasRenderingContext2D, d: TextNote, active: boolean) {
+    const b = this.textBox(d);
+    if (d.bgOn) {
+      ctx.fillStyle = hexToRgba(d.bgColor ?? '#2a2e39', d.bgAlpha ?? 0.85);
+      ctx.beginPath();
+      ctx.roundRect(b.left, b.top, b.w, b.h, 4);
+      ctx.fill();
+    }
+    ctx.font = this.fontOf(b.size, d.bold, d.italic);
+    ctx.fillStyle = d.textColor ?? d.color;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    b.lines.forEach((ln, i) => ctx.fillText(ln, b.left + 6, b.top + 4 + b.lh * (i + 0.5)));
+    if (active) {
+      ctx.strokeStyle = d.color;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.strokeRect(b.left + 0.5, b.top + 0.5, b.w, b.h);
+      ctx.setLineDash([]);
+      this.handle(ctx, b.left, this.Y(d.a.p), d.color);
+    }
+  }
+
+  /** Dikey çizginin yanındaki metin: yatay hizalama çizginin sağı / solu, dikey hizalama üst / orta / alt. */
+  private drawVLineText(ctx: CanvasRenderingContext2D, d: VLine, x: number, h: number) {
+    const size = d.textSize ?? 12;
+    ctx.font = this.fontOf(size, d.bold, d.italic);
+    ctx.fillStyle = d.textColor ?? d.color;
+    ctx.textBaseline = 'middle';
+    const left = d.hAlign === 'left';
+    ctx.textAlign = left ? 'right' : 'left';
+    const lines = d.text!.split('\n');
+    const lh = size * 1.25;
+    const total = lines.length * lh;
+    const v = d.vAlign ?? 'top';
+    const y0 = v === 'top' ? 8 : v === 'bottom' ? h - total - 8 : h / 2 - total / 2;
+    lines.forEach((ln, i) => ctx.fillText(ln, x + (left ? -6 : 6), y0 + lh * (i + 0.5)));
   }
 
   /** Dikdörtgenin içindeki metin (TradingView "Metin" sekmesi): renk, boyut, kalın/italik, dikey ve yatay hizalama. */
@@ -755,6 +830,14 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
           }
           break;
         }
+        case 'vline':
+          if (Math.abs(x - this.X(d.t)) <= HIT_PX) return { id: d.id, part: 'body' };
+          break;
+        case 'text': {
+          const b = this.textBox(d);
+          if (x >= b.left - HIT_PX && x <= b.left + b.w + HIT_PX && y >= b.top - HIT_PX && y <= b.top + b.h + HIT_PX) return { id: d.id, part: 'body' };
+          break;
+        }
         default: {
           const x0 = this.X(d.entry.t), x1 = Math.max(this.X(d.tEnd), x0 + 24);
           const yE = this.Y(d.entry.p), ySL = this.Y(d.sl), yTP = this.Y(d.tp);
@@ -902,12 +985,19 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
   private create(tool: DrawTool, pt: { L: number; p: number }, x: number, y: number) {
     const st = useStore.getState();
     const s = st.session!;
-    const def = TOOL_DEFAULTS[tool];
+    const def = TOOL_DEFAULTS[tool === 'ray' ? 'trend' : tool]; // ışın = sağa uzayan trend çizgisi
     const P: Pt = { t: this.c.logicalToTime(pt.L), p: pt.p };
     let id: string;
     if (tool === 'hline') {
       id = addDrawing({ type: 'hline', p: pt.p, t: P.t, ...def, ...loadTemplate('hline') } as NewDrawing);
       useStore.setState({ selectedId: id, ...(useStore.getState().stayInDraw ? {} : { tool: 'cursor' as const }) });
+    } else if (tool === 'vline') {
+      id = addDrawing({ type: 'vline', t: P.t, ...def, ...loadTemplate('vline') } as NewDrawing);
+      useStore.setState({ selectedId: id, ...(useStore.getState().stayInDraw ? {} : { tool: 'cursor' as const }) });
+    } else if (tool === 'text') {
+      // Metin notu: tıklanan noktaya konur ve hemen yazı penceresi açılır (boş bırakılırsa silinir)
+      id = addDrawing({ type: 'text', a: P, text: '', ...def, ...loadTemplate('text') } as NewDrawing);
+      useStore.setState({ selectedId: id, editingId: id, tool: 'cursor' as const });
     } else if (tool === 'long' || tool === 'short') {
       const dir = tool === 'long' ? 1 : -1;
       const p40 = this.c.yToPrice(y + 40);
@@ -937,7 +1027,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
           ? addDrawing({ type: 'rect', ...base, fill: hexToRgba(def.color, 0.15), ...loadRectTemplate() })
           : tool === 'fib'
             ? addDrawing({ type: 'fib', ...base, levels: s.fibDefaults.map((l) => ({ ...l })), ...loadTemplate('fib') } as NewDrawing)
-            : addDrawing({ type: 'trend', ...base, ...loadTemplate('trend') } as NewDrawing);
+            : addDrawing({ type: 'trend', ...base, ...loadTemplate('trend'), ...(tool === 'ray' ? { extendRight: true } : {}) } as NewDrawing);
       this.creating = { id, downX: x, downY: y };
       useStore.setState({ selectedId: id });
     }
@@ -950,7 +1040,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     if (!c) return;
     const d = drawingsOf(useStore.getState().session).find((x) => x.id === c.id);
     // Tek tıklamayla bırakılmış (sıfır boyutlu) çizimleri sil.
-    if (d && 'a' in d && d.a.t === d.b.t && d.a.p === d.b.p) deleteDrawing(c.id, false);
+    if (d && 'a' in d && 'b' in d && d.a.t === d.b.t && d.a.p === d.b.p) deleteDrawing(c.id, false);
     if (!useStore.getState().stayInDraw) useStore.setState({ tool: 'cursor' });
     this.requestUpdate();
   }
@@ -1056,6 +1146,12 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
         else if (hit.part === 'c1') patch = { a: { t: at().t, p: orig.a.p }, b: { t: orig.b.t, p: pt.p } };
         else if (hit.part === 'c2') patch = { a: { t: orig.a.t, p: pt.p }, b: { t: at().t, p: orig.b.p } };
         else patch = { a: { t: shiftT(orig.a.t), p: r(orig.a.p + dp) }, b: { t: shiftT(orig.b.t), p: r(orig.b.p + dp) } };
+        break;
+      case 'vline':
+        patch = { t: shiftT(orig.t) };
+        break;
+      case 'text':
+        patch = { a: { t: shiftT(orig.a.t), p: r(orig.a.p + dp) } };
         break;
       default: {
         const long = orig.type === 'long';

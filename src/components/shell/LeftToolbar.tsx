@@ -7,7 +7,10 @@ import { FAV_CANDIDATES, setFavBarVisible, toggleFavTool, useFavBar } from '../.
 const TOOLS: { id: Tool; label: string; key: string; icon: () => React.JSX.Element }[] = [
   { id: 'cursor', label: 'İmleç', key: 'Esc', icon: Icons.cursor },
   { id: 'trend', label: 'Trend çizgisi', key: 'Alt+T', icon: Icons.trend },
+  { id: 'ray', label: 'Işın (sağa uzayan çizgi)', key: 'Alt+Y', icon: Icons.ray },
   { id: 'hline', label: 'Yatay ışın', key: 'Alt+H', icon: Icons.hline },
+  { id: 'vline', label: 'Dikey çizgi', key: 'Alt+V', icon: Icons.vline },
+  { id: 'text', label: 'Metin notu', key: 'Alt+X', icon: Icons.text },
   { id: 'rect', label: 'Dikdörtgen (FVG / OB)', key: 'Alt+R', icon: Icons.rect },
   { id: 'fib', label: 'Fibonacci düzeltme', key: 'Alt+F', icon: Icons.fib },
   { id: 'long', label: 'Long pozisyon', key: 'Alt+L', icon: Icons.long },
@@ -18,8 +21,9 @@ const TOOLS: { id: Tool; label: string; key: string; icon: () => React.JSX.Eleme
 /** Sol çubuk grupları (TradingView gibi): tıkla = grubun son aracını seç, küçük ok = grubu aç, seçtiğin araç grubun simgesi olur. */
 const TOOL_GROUPS: { id: string; label: string; tools: Tool[] }[] = [
   { id: 'cursor', label: 'İmleç', tools: ['cursor'] },
-  { id: 'lines', label: 'Çizgiler', tools: ['trend', 'hline'] },
+  { id: 'lines', label: 'Çizgiler', tools: ['trend', 'ray', 'hline', 'vline'] },
   { id: 'shapes', label: 'Fibonacci ve şekiller', tools: ['fib', 'rect'] },
+  { id: 'text', label: 'Metin', tools: ['text'] },
   { id: 'positions', label: 'Pozisyon', tools: ['long', 'short'] },
   { id: 'measure', label: 'Ölçüm', tools: ['measure'] },
 ];

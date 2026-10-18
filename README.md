@@ -83,7 +83,8 @@ oluşturulur. Örneğin 1H mumun bitmesine 20 dakika varsa mum 40 dakikalık ver
 | Oynat / duraklat | Boşluk |
 | Adım büyüklüğü | alt çubuk → "Adım": varsayılan **Grafikle eş** (5m grafikteyken adım 5m); elle bir süre seçersen eşleme kapanır, "Grafikle eş" ile geri açılır |
 | Zaman dilimi | yazıp Enter: `1` `5` `15` `60` `240` `4h` `D` `W` `M` |
-| Trend / Yatay / Dikdörtgen / Fib | Alt+T / Alt+H / Alt+R / Alt+F |
+| Trend / Işın / Yatay ışın / Dikey çizgi | Alt+T / Alt+Y / Alt+H / Alt+V |
+| Dikdörtgen / Fib / Metin notu | Alt+R / Alt+F / Alt+X |
 | Long / Short pozisyon | Alt+L / Alt+S, grafiğe tek tık |
 | Ölçüm (fiyat, pip, mum, süre) | Shift + sürükle (veya Alt+M) |
 | Geri al / yinele (çizimler) | Ctrl+Z / Ctrl+Y (veya Ctrl+Shift+Z) |

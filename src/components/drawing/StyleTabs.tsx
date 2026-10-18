@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { hexToRgba } from '../../chart/drawUtil';
-import { type Fib, FibLevel, HLine, Position, Rect, StatsMode, TextHAlign, TextVAlign, TrendLine } from '../../core/types';
+import { type Fib, FibLevel, HLine, Position, Rect, StatsMode, TextHAlign, TextNote, TextVAlign, TrendLine, VLine } from '../../core/types';
 import { setFibDefaults } from '../../store';
 import { NumberInput } from '../common/NumberInput';
 import { Icons } from '../common/icons';
@@ -8,12 +8,12 @@ import { type Any, StyleButton, Row, Check, WidthSelect, ExtendSelect, SIZES, EN
 import { TvColor } from '../common/TvColor';
 
 /** Metin ayarları: renk, boyut, B / I, metin kutusu, hizalama (dikdörtgen, trend ve yatay çizgi ortak). */
-export function TextTab({ d, set, aligns }: { d: Rect | TrendLine | HLine; set: (p: Any) => void; aligns: { h: TextHAlign; v: TextVAlign } }) {
+export function TextTab({ d, set, aligns }: { d: Rect | TrendLine | HLine | VLine | TextNote; set: (p: Any) => void; aligns?: { h: TextHAlign; v: TextVAlign } }) {
   return (
     <>
       <div className="tvd-textbar">
         <TvColor color={d.textColor ?? (d.type === 'rect' ? '#ffffff' : d.color)} onChange={(c) => set({ textColor: c })} withAlpha={false} />
-        <select className="tvd-select sm" value={d.textSize ?? (d.type === 'rect' ? 14 : 12)} onChange={(e) => set({ textSize: Number(e.target.value) })}>
+        <select className="tvd-select sm" value={d.textSize ?? (d.type === 'rect' || d.type === 'text' ? 14 : 12)} onChange={(e) => set({ textSize: Number(e.target.value) })}>
           {SIZES.map((s) => (
             <option key={s} value={s}>
               {s}
@@ -28,18 +28,20 @@ export function TextTab({ d, set, aligns }: { d: Rect | TrendLine | HLine; set: 
         </button>
       </div>
       <textarea className="tvd-textarea" placeholder="Metin ekle" value={d.text ?? ''} onChange={(e) => set({ text: e.target.value })} />
-      <Row label="Metin hizalama">
-        <select className="tvd-select" value={d.vAlign ?? aligns.v} onChange={(e) => set({ vAlign: e.target.value as TextVAlign })}>
-          <option value="top">Üst</option>
-          <option value="middle">{d.type === 'rect' ? 'İçeri' : 'Orta'}</option>
-          <option value="bottom">Alt</option>
-        </select>
-        <select className="tvd-select" value={d.hAlign ?? aligns.h} onChange={(e) => set({ hAlign: e.target.value as TextHAlign })}>
-          <option value="left">Sol</option>
-          <option value="center">Orta</option>
-          <option value="right">Sağ</option>
-        </select>
-      </Row>
+      {aligns && d.type !== 'text' && (
+        <Row label="Metin hizalama">
+          <select className="tvd-select" value={d.vAlign ?? aligns.v} onChange={(e) => set({ vAlign: e.target.value as TextVAlign })}>
+            <option value="top">Üst</option>
+            <option value="middle">{d.type === 'rect' ? 'İçeri' : 'Orta'}</option>
+            <option value="bottom">Alt</option>
+          </select>
+          <select className="tvd-select" value={d.hAlign ?? aligns.h} onChange={(e) => set({ hAlign: e.target.value as TextHAlign })}>
+            <option value="left">Sol</option>
+            <option value="center">Orta</option>
+            <option value="right">Sağ</option>
+          </select>
+        </Row>
+      )}
     </>
   );
 }
@@ -120,6 +122,29 @@ export function RectStyle({ d, set }: { d: Rect; set: (p: Any) => void }) {
       </Row>
       <Row label="Arkaplan" check={<Check checked={d.fillOn ?? (d.fillAlpha ?? 0.15) > 0} onChange={(v) => set({ fillOn: v, fillAlpha: v && !(d.fillAlpha ?? 0.15) ? 0.15 : d.fillAlpha })} />}>
         <TvColor color={d.fillColor ?? d.color} alpha={d.fillAlpha ?? 0.15} onChange={(c, a) => set({ fillColor: c, fillAlpha: a, fillOn: a > 0, fill: hexToRgba(c, a) })} />
+      </Row>
+    </>
+  );
+}
+
+export function VLineStyle({ d, set }: { d: VLine; set: (p: Any) => void }) {
+  return (
+    <Row label="Çizgi">
+      <TvColor color={d.color} alpha={d.lineAlpha ?? 1} onChange={(c, a) => set({ color: c, lineAlpha: a })} />
+      <WidthSelect value={d.width} onChange={(width) => set({ width })} />
+      <StyleButton value={d.style ?? 'solid'} onChange={(style) => set({ style })} />
+    </Row>
+  );
+}
+
+export function TextNoteStyle({ d, set }: { d: TextNote; set: (p: Any) => void }) {
+  return (
+    <>
+      <Row label="Metin rengi">
+        <TvColor color={d.textColor ?? d.color} onChange={(c) => set({ textColor: c, color: c })} withAlpha={false} />
+      </Row>
+      <Row label="Arkaplan" check={<Check checked={!!d.bgOn} onChange={(v) => set({ bgOn: v })} />}>
+        <TvColor color={d.bgColor ?? '#2a2e39'} alpha={d.bgAlpha ?? 0.85} onChange={(c, a) => set({ bgColor: c, bgAlpha: a, bgOn: a > 0 })} />
       </Row>
     </>
   );

@@ -26,13 +26,14 @@ export function DrawingToolbar() {
   const set = (patch: Record<string, unknown>) => updateDrawing(d.id, patch as never);
 
   const color = d.type === 'rect' ? d.fillColor ?? d.color : isPos ? '#2962ff' : d.color;
-  const alpha = d.type === 'rect' ? d.fillAlpha ?? 0.15 : d.type === 'trend' || d.type === 'hline' ? d.lineAlpha ?? 1 : 1;
+  const alpha = d.type === 'rect' ? d.fillAlpha ?? 0.15 : d.type === 'trend' || d.type === 'hline' || d.type === 'vline' ? d.lineAlpha ?? 1 : 1;
   const onColor = (c: string, a: number) => {
     if (d.type === 'rect') set({ color: d.borderColor ? d.color : c, fillColor: c, fillAlpha: a, fillOn: a > 0, fill: hexToRgba(c, a) });
-    else if (d.type === 'trend' || d.type === 'hline') set({ color: c, lineAlpha: a });
+    else if (d.type === 'trend' || d.type === 'hline' || d.type === 'vline') set({ color: c, lineAlpha: a });
+    else if (d.type === 'text') set({ color: c, textColor: c });
     else set({ color: c });
   };
-  const hasStyle = d.type === 'trend' || d.type === 'hline' || d.type === 'rect';
+  const hasStyle = d.type === 'trend' || d.type === 'hline' || d.type === 'vline' || d.type === 'rect';
   const style = (d as { style?: LineStyleName }).style ?? 'solid';
 
   return (
@@ -42,7 +43,7 @@ export function DrawingToolbar() {
           <TvColor color={color} alpha={alpha} onChange={onColor} withAlpha={d.type !== 'fib'} />
         </span>
       )}
-      {!isPos && (
+      {!isPos && d.type !== 'text' && (
         <select className="dt-select" disabled={locked} title="Kalınlık" value={d.width} onChange={(e) => set({ width: Number(e.target.value) })}>
           {[1, 2, 3, 4].map((w) => (
             <option key={w} value={w}>

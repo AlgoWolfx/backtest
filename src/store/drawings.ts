@@ -105,8 +105,12 @@ export function pasteClipboard(shiftTime: (t: number) => number) {
   let d: Drawing = src;
   if ('entry' in src) {
     d = { ...src, tradeId: undefined, entry: { ...src.entry, t: shiftTime(src.entry.t) }, tEnd: shiftTime(src.tEnd) };
+  } else if (src.type === 'text') {
+    d = { ...src, a: { ...src.a, t: shiftTime(src.a.t) } };
   } else if ('a' in src) {
     d = { ...src, a: { ...src.a, t: shiftTime(src.a.t) }, b: { ...src.b, t: shiftTime(src.b.t) } };
+  } else if (src.type === 'vline') {
+    d = { ...src, t: shiftTime(src.t) };
   } else if (src.type === 'hline' && src.t != null) {
     d = { ...src, t: shiftTime(src.t) };
   }
@@ -125,7 +129,9 @@ export function cloneDrawing(id: string, shiftTime: (t: number) => number): stri
   const c: Drawing = structuredClone(src);
   let d: Drawing = c;
   if ('entry' in c) d = { ...c, tradeId: undefined, entry: { ...c.entry, t: shiftTime(c.entry.t) }, tEnd: shiftTime(c.tEnd) };
+  else if (c.type === 'text') d = { ...c, a: { ...c.a, t: shiftTime(c.a.t) } };
   else if ('a' in c) d = { ...c, a: { ...c.a, t: shiftTime(c.a.t) }, b: { ...c.b, t: shiftTime(c.b.t) } };
+  else if (c.type === 'vline') d = { ...c, t: shiftTime(c.t) };
   else if (c.type === 'hline' && c.t != null) d = { ...c, t: shiftTime(c.t) };
   const { id: _id, locked: _l, ...rest } = d as Drawing & { locked?: boolean };
   void _id;

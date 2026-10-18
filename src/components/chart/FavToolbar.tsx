@@ -8,7 +8,10 @@ import { Icons } from '../common/icons';
 
 const ICONS: Partial<Record<Tool, () => React.JSX.Element>> = {
   trend: Icons.trend,
+  ray: Icons.ray,
   hline: Icons.hline,
+  vline: Icons.vline,
+  text: Icons.text,
   rect: Icons.rect,
   fib: Icons.fib,
   long: Icons.long,
@@ -17,7 +20,10 @@ const ICONS: Partial<Record<Tool, () => React.JSX.Element>> = {
 };
 const LABELS: Partial<Record<Tool, string>> = {
   trend: 'Trend çizgisi (Alt+T)',
+  ray: 'Işın (Alt+Y)',
   hline: 'Yatay ışın (Alt+H)',
+  vline: 'Dikey çizgi (Alt+V)',
+  text: 'Metin notu (Alt+X)',
   rect: 'Dikdörtgen (Alt+R)',
   fib: 'Fibonacci düzeltme (Alt+F)',
   long: 'Long pozisyon (Alt+L)',
