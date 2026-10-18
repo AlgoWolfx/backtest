@@ -22,7 +22,7 @@ export function DrawingToolbar() {
             className={`swatch ${d.color === c ? 'on' : ''}`}
             style={{ background: c }}
             title={c}
-            onClick={() => updateDrawing(d.id, d.type === 'rect' ? { color: c, fill: hexToRgba(c, d.fillAlpha ?? 0.15) } : { color: c })}
+            onClick={() => updateDrawing(d.id, d.type === 'rect' ? { color: c, fill: hexToRgba(c, d.fillAlpha ?? 0.15), borderColor: undefined, fillColor: undefined } : { color: c })}
           />
         ))}
       {d.type === 'rect' && (

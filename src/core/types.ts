@@ -12,6 +12,8 @@ export interface Pt {
 export interface FibLevel {
   v: number;
   on: boolean;
+  /** Bu seviyenin çizgi/yazı rengi ve kendinden önceki seviye arasındaki arkaplanın rengi (yok = çizim rengi) */
+  color?: string;
 }
 
 export type LineStyleName = 'solid' | 'dashed' | 'dotted';
@@ -22,7 +24,13 @@ interface Base {
   width: number;
   /** Çizgi stili (yoksa düz) */
   style?: LineStyleName;
+  /** Görünürlük: bu zaman dilimlerinde çizim gizlenir (TradingView "Görünürlük" sekmesi); yoksa hepsinde görünür */
+  hiddenTfs?: TF[];
 }
+
+export type TextHAlign = 'left' | 'center' | 'right';
+export type TextVAlign = 'top' | 'middle' | 'bottom';
+export type RectExtend = 'none' | 'left' | 'right' | 'both';
 
 export interface HLine extends Base {
   type: 'hline';
@@ -48,6 +56,27 @@ export interface Rect extends Base {
   extendRight?: boolean;
   /** Orta çizgi (%50 / denge seviyesi) ve fiyat etiketi */
   midline?: boolean;
+  // --- TradingView benzeri ayrıntılı stil (hepsi isteğe bağlı; yoksa eski davranış) ---
+  /** Kenarlık görünsün mü (yok = evet) ve rengi/saydamlığı (yok = color, 1) */
+  borderOn?: boolean;
+  borderColor?: string;
+  borderAlpha?: number;
+  /** Arkaplan görünsün mü (yok = fillAlpha > 0) ve rengi (yok = fill / color) */
+  fillOn?: boolean;
+  fillColor?: string;
+  /** Orta çizgi rengi / stili / kalınlığı (yok = kenarlık rengi, kesik, 1) */
+  midColor?: string;
+  midStyle?: LineStyleName;
+  midWidth?: number;
+  // --- Metin ---
+  text?: string;
+  textColor?: string;
+  textSize?: number;
+  bold?: boolean;
+  italic?: boolean;
+  /** Metin hizalama: dikey (üst/orta/alt) ve yatay (sol/orta/sağ); yok = orta / sağ */
+  vAlign?: TextVAlign;
+  hAlign?: TextHAlign;
 }
 export interface Fib extends Base {
   type: 'fib';
@@ -55,6 +84,9 @@ export interface Fib extends Base {
   b: Pt;
   levels: FibLevel[];
   extendRight?: boolean;
+  /** Seviyeler arasındaki arkaplan dolgusu (TradingView "Arkaplan"): açık mı ve opaklığı (yok = kapalı / 0.15) */
+  bgOn?: boolean;
+  bgAlpha?: number;
 }
 export interface Position extends Base {
   type: 'long' | 'short';
@@ -64,6 +96,10 @@ export interface Position extends Base {
   tEnd: number;
   riskPct: number;
   tradeId?: string;
+  /** Kâr (hedef) ve zarar (stop) bölgelerinin renkleri ve arkaplan opaklığı (yok = yeşil / kırmızı, 0.2) */
+  profitColor?: string;
+  lossColor?: string;
+  zoneAlpha?: number;
 }
 
 export type Drawing = HLine | TrendLine | Rect | Fib | Position;

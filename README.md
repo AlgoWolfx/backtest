@@ -174,6 +174,26 @@ da Pine'daki gibi 0 = opak, 100 = görünmez). Sinyal, bias, FVG/BOS/MSS yok; ya
 
 Üst çubuktaki **Ekran düzeni** menüsünden 1, 2 (yan yana / alt alta), 3 veya 4 ekran seçin. Her grafiğin sembolü ve zaman dilimi ayrıdır (ör. solda EURUSD 15m, sağda 4H, altta US100). Bir grafiğe tıklayınca **aktif** olur (mavi çerçeve): üst çubuktaki sembol / zaman dilimi, çizim araçları, Buy/Sell ve işlem paneli o grafiğe göre çalışır. Tüm grafikler aynı replay zamanını paylaşır (ileri sarma hepsini birlikte ilerletir). Çizimler sembole bağlıdır; aynı sembol iki grafikte görünüyorsa çizim ikisinde de çıkar. Düzen oturumla birlikte kaydedilir.
 
+## Çizim ayarları (TradingView tarzı)
+
+Dikdörtgen, trend çizgisi ve yatay çizgiye çift tıklayınca TradingView'daki gibi sekmeli bir pencere açılır
+(**Stil / Metin / Kordinatlar / Görünürlük**, altta **Şablon**, **İptal** ve **Tamam**). Değişiklikler canlı uygulanır;
+**İptal** (veya Esc / ×) pencere açıldığı hâle döndürür, **Tamam** korur, Ctrl+Z hepsini geri alır.
+
+- **Dikdörtgen > Stil:** Uzat (yok / sola / sağa / iki yana), Kenar (renk + opaklık seçici, kalınlık, çizgi stili),
+  Orta çizgi (onay kutusu + renk + stil), **Arkaplan** (onay kutusu + renk + opaklık). Renk seçici TradingView'daki gibi palet,
+  özel renk ve opaklık kaydırıcısı içerir.
+- **Metin:** renk, boyut, kalın, italik, metin kutusu, metin hizalama (üst / içeri / alt ve sol / orta / sağ).
+- **Kordinatlar:** fiyat ve zaman (NY) değerleri elle düzenlenir. **Görünürlük:** çizimin hangi zaman dilimlerinde
+  görüneceği.
+- **Şablon:** stil alanlarını varsayılan olarak kaydet / varsayılanı uygula / fabrika ayarlarına dön (yeni dikdörtgenler
+  kayıtlı şablonla başlar; koordinat, metin ve görünürlük şablona girmez).
+- **Long / Short pozisyon:** kâr ve zarar bölgelerinin arkaplan rengi ve opaklığı. **Fibonacci:** seviyeler arası arkaplan
+  (opaklık) ve her seviye için ayrı renk.
+
+Bu pencerenin düzeni ve alanları, paylaştığınız TradingView ekran görüntülerine göre kurulmuştur; TradingView'ın tüm araçları
+ve seçenekleri henüz yoktur (ör. sonraki adımlar: diğer çizim araçları, çizgi uç okları, aralık bazlı görünürlük kaydırıcıları).
+
 ## Grafik görünümü ve yenileme
 
 - **Sağ tık → "Grafiği yenile":** elle yapılan fiyat/zaman ölçeklemesini sıfırlar (otomatik ölçek, varsayılan mum aralığı, son muma gider).
