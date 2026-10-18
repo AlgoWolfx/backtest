@@ -4,7 +4,7 @@ import { aggregate, aggIndexOfM1, loadSymbol, revealedCount, type DataSource, ty
 import { bucketKey, type TF } from './core/timeframes';
 import { bucketEndAfter, nextNyTime } from './core/replay';
 import { loadTheme, saveTheme, type ChartTheme } from './chartTheme';
-import { closeTrade, decideLots, pendingType, rewindBlockedBy, type Side, type Trade } from './core/trading';
+import { chronologyIssue, closeTrade, decideLots, EXECUTION_MODEL, pendingType, rewindBlockedBy, type Side, type Trade } from './core/trading';
 import { afterBalanceChange, newAccount, noteTradingDay, rollDay, type AccountRules } from './core/account';
 import { activeTrades, balanceOf, simulate as simulateRange, type SimResult } from './core/simulate';
 import { DEFAULT_FIB, LAYOUTS, type Drawing, type LayoutId, type NewDrawing, type PaneCfg, type Position, type Session, type Tool } from './core/types';
@@ -197,6 +197,9 @@ export async function ensureData(symbol: string, wanted?: DataSource): Promise<M
   try {
     const d = await loadSymbol(info, source, (p) => set({ loading: { symbol, progress: p } }));
     set({ data: { ...get().data, [symbol]: d } });
+    // Ask'ı olmayan dakikalarda ask=bid yazılır: sessiz sıfır spread yerine kullanıcı uyarılır.
+    const noAsk = d.meta.askMissingMinutes ?? 0;
+    if (noAsk > 0) toast(`${symbol}: ${noAsk.toLocaleString('tr-TR')} dakikada ask verisi yok (ask = bid, spread 0 sayılır); bu dakikalardaki işlemlerde spread maliyeti eksik olabilir.`, 'error');
     return d;
   } catch (err) {
     toast((err as Error).message, 'error');
@@ -224,6 +227,7 @@ export async function createSession(p: { name: string; symbol: string; startTime
     speed: 4,
     riskPct: 1,
     lots: 1,
+    executionModel: EXECUTION_MODEL,
     ...(p.commissionPerLot ? { commissionPerLot: p.commissionPerLot } : {}),
     trades: [],
     drawings: {},
@@ -242,6 +246,8 @@ export async function openSession(id: string, preloaded?: Session) {
   const needed = new Set([session.symbol, ...(session.panes ?? []).map((p) => p.symbol), ...activeTrades(session).map((t) => t.symbol)]);
   for (const sym of needed) await ensureData(sym, session.source);
   set({ session, selectedId: null, editingId: null, tool: 'cursor', playing: false });
+  const bad = chronologyIssue(session.trades, session.replayTime);
+  if (bad != null) toast(`Bu oturumun kronolojisi tutarsız: replay zamanından sonraya ait işlem kaydı var (${fmtNyShort(bad)} NY). Eski sürümde geri sarılmış olabilir; bakiye gelecekteki kapanışları içerir. Kayıtlar silinmedi; ölçüm için yeni oturum açın.`, 'error');
 }
 
 /** Oturumun veri kaynağını değiştirir (açık işlem yokken). Fiyatlar kaynağa göre farklı olabilir. */

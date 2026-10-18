@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getSymbol } from '../../shared/symbols.js';
 import { breakdown, computeStats, sessionOf, SESSIONS, weekdayOf, WEEKDAYS, closedTrades, type BreakdownRow, type EquityPoint } from '../core/stats';
-import { entryTime, type Trade } from '../core/trading';
+import { chronologyIssue, entryTime, EXECUTION_MODEL, type Trade } from '../core/trading';
 import { ACCOUNT_PRESETS, type Account } from '../core/account';
 import { describeRules } from './SessionScreen';
 import { flagLabel, fmtMoney, fmtNy, fmtPrice, fmtR, reasonLabel } from '../format';
@@ -46,6 +46,8 @@ export function PerformancePage() {
           <Icons.close />
         </button>
       </div>
+
+      <ModelNotes session={session} />
 
       {stats.trades === 0 ? (
         <div className="empty">Henüz kapanmış işlem yok. İşlem açıp kapattıkça burada istatistikler ve giriş/çıkış ekran görüntüleri birikir.</div>
@@ -98,6 +100,21 @@ export function PerformancePage() {
   );
 }
 
+/** Hangi modelle ölçüldüğü ve simüle EDİLMEYENLER: sonuçların kapsamı açıkça görünür. */
+function ModelNotes({ session }: { session: NonNullable<ReturnType<typeof useStore.getState>['session']> }) {
+  const bad = chronologyIssue(session.trades, session.replayTime);
+  const v = session.executionModel ?? 1;
+  return (
+    <section className="card model-notes">
+      <p className="hint">
+        Yürütme modeli v{v}
+        {v < EXECUTION_MODEL ? ` (güncel v${EXECUTION_MODEL}; bu oturumdaki kapanmış işlemler eski kurallarla hesaplandı, yeniden hesaplanmaz)` : ''}. Komisyon: {session.commissionPerLot ? `${fmtMoney(session.commissionPerLot)} / lot, gidiş-dönüş` : 'yok'}. Simüle edilmeyenler: slippage, swap / gece taşıma maliyeti, margin kontrolü ve stop-out.
+      </p>
+      {bad != null && <p className="hint neg">Eski kronoloji tutarsız: replay zamanından sonraya ait işlem kaydı var ({fmtNy(bad)} NY); bakiye gelecekteki kapanışları içerir. Kayıtlar silinmedi; ölçüm için yeni oturum açın.</p>}
+    </section>
+  );
+}
+
 /** Hesap kuralları ve sonucu. */
 function AccountCard({ account: a, initial }: { account: Account; initial: number }) {
   const st = a.state;
@@ -122,8 +139,10 @@ function AccountCard({ account: a, initial }: { account: Account; initial: numbe
         <Tile label="En düşük equity" value={fmtMoney(st.minEquity)} sub={`${(((st.minEquity - initial) / initial) * 100).toFixed(2)}% başlangıca göre`} />
         <Tile label="İşlem günü" value={String(st.tradingDays.length)} sub={r.minTradingDays ? `en az ${r.minTradingDays} gerekli` : 'şart yok'} />
         {st.ddClose && <Tile label="Maks. düşüş (equity, dakika sonu)" value={fmtMoney(-st.ddClose.abs)} sub={`en büyük %${st.ddClose.pct.toFixed(2)} · açık P&L dahil, her dakika kapanışında ölçülür`} tone={st.ddClose.abs > 0 ? 'neg' : undefined} />}
-        {st.ddLow && <Tile label="Maks. düşüş (equity, mum içi en kötü)" value={fmtMoney(-st.ddLow.abs)} sub={`en büyük %${st.ddLow.pct.toFixed(2)} · mum dibine/tepesine göre muhafazakâr tahmin`} tone={st.ddLow.abs > 0 ? 'neg' : undefined} />}
+        {st.ddLow && <Tile label="Maks. düşüş (equity, mum içi muhafazakâr tahmin)" value={fmtMoney(-st.ddLow.abs)} sub={`en büyük %${st.ddLow.pct.toFixed(2)} · aynı sembol ortak fiyatla, farklı semboller bağımsız alt sınır; aynı dakikada TP ile kapananların olası dibi dahil değil`} tone={st.ddLow.abs > 0 ? 'neg' : undefined} />}
       </div>
+      {st.equityMetricsSince != null && <p className="hint">Equity metrikleri {fmtNy(st.equityMetricsSince)} NY'den itibaren ölçülür; öncesi (eski oturumlar) ölçülmemiştir.</p>}
+      {st.status === 'passed' && st.warnings?.length ? <p className="hint amb">Geçildi, ancak belirsiz mum uyarıları var: sonuç kesin olarak doğrulanamadı (aşağıya bakın).</p> : null}
       {st.warnings?.length ? (
         <ul className="hint amb">
           {st.warnings.map((w, i) => (

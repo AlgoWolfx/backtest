@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { getSymbol } from '../../shared/symbols.js';
 import { nyLocalToUtc, toNyLocal } from '../../shared/nytime.js';
 import { hexToRgba } from '../chart/DrawingLayer';
-import { lotsForRisk, usdPerPriceUnit } from '../core/trading';
+import { lotsForRisk, stopRiskPerLot, usdPerPriceUnit } from '../core/trading';
 import type { Drawing, FibLevel, Position } from '../core/types';
 import { fmtDistance, fmtMoney, fmtNy, pad } from '../format';
 import { balanceOf, currentData, deleteDrawing, drawingsOf, jumpTo, placeOrderFromDrawing, setChartTheme, setFibDefaults, updateDrawing, useStore } from '../store';
@@ -242,7 +242,7 @@ function PositionFields({ d, digits }: { d: Position; digits: number }) {
           Lot <b>{sized == null ? 'yok' : lots.toFixed(2)}</b>
         </div>
         <div>
-          Risk <b>{fmtMoney(risk * lots * usdPerPriceUnit(spec, d.entry.p))}</b>
+          Risk <b>{fmtMoney(stopRiskPerLot(spec, d.entry.p, d.sl) * lots)}</b>
         </div>
         <div>
           Hedef <b>{fmtMoney(Math.abs(d.tp - d.entry.p) * lots * usdPerPriceUnit(spec, d.tp))}</b>

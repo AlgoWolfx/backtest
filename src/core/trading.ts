@@ -9,8 +9,16 @@
 //     işlem görmediği bir fiyattan yazılmaz.
 //   - Bekleyen emir mumun AÇILIŞINDA doluyorsa (gap veya açılış = giriş) mumun tamamı dolumdan sonradır:
 //     açık pozisyonla aynı kurallar uygulanır (TP de sayılır).
-//   - Bekleyen emir mum İÇİNDE doluyorsa high/low sırası 1m OHLC'den bilinemez: SL görüldüyse zarar
-//     yazılır (muhafazakâr), TP sayılmaz; TP görülmüşse işlem 'fill-bar-tp-unknown' ile işaretlenir.
+//   - Bekleyen emir mum İÇİNDE doluyorsa high/low sırası 1m OHLC'den bilinemez. Yalnızca KANITLANABİLİR
+//     durumlar sayılır: dolumdan sonra TP'ye ulaşıldığı, fiyatın sürekliliğiyle zorunluysa (stop emri: TP > giriş
+//     olduğundan önce giriş aşılır; limit emri: mum TP'nin ötesinde kapanıyorsa) TP yazılır. Kanıtlanamayan TP
+//     sayılmaz ve 'fill-bar-tp-unknown' ile işaretlenir. SL görüldüyse muhafazakâr olarak zarar yazılır; stop
+//     emrinde SL'nin dolumdan ÖNCE görülmüş olması da mümkündür ('fill-bar-sl-unknown').
+//   - SL dolum anında zaten tetiklenmişse (bid/ask aralığı SL'yi kapsamıyorsa) çıkış, SL'ye en yakın
+//     ERİŞİLEBİLİR fiyattan yazılır; mumun işlem görmediği fiyattan çıkış uydurulmaz.
+//   - Komisyon (varsa) kapanışta pnl'den düşülür; açık pozisyonun equity'si 'şimdi likide edilirse net' değeridir
+//     (komisyon rezerve edilmiş, kapanışta çift düşülmez).
+//   - Model sürümü: EXECUTION_MODEL (oturumda saklanır; kural değişince artar).
 
 import type { SymbolSpec } from '../../shared/symbols.js';
 
@@ -21,9 +29,17 @@ export type TradeResult = 'win' | 'loss' | 'be';
 /**
  * 1m OHLC'den sıra bilinemediği için varsayım yapılan durumlar:
  *   sl-tp-same-bar:       aynı mumda SL ve TP ikisi de görüldü, SL-önce varsayıldı.
- *   fill-bar-tp-unknown:  emir mum içinde doldu; aynı mumda TP seviyesi de görüldü ama sayılmadı.
+ *   fill-bar-tp-unknown:  emir mum içinde doldu; aynı mumda TP seviyesi de görüldü ama kanıtlanamadığı için sayılmadı.
+ *   fill-bar-sl-unknown:  stop emri mum içinde doldu; SL aynı mumda görüldü ama dolumdan önce mi sonra mı bilinemez (SL sayıldı).
  */
-export type TradeFlag = 'sl-tp-same-bar' | 'fill-bar-tp-unknown';
+export type TradeFlag = 'sl-tp-same-bar' | 'fill-bar-tp-unknown' | 'fill-bar-sl-unknown';
+
+/**
+ * Yürütme (mum içi emir/çıkış) modeli sürümü. Oturum açılırken saklanır; eski oturumlarda yok = 1.
+ *   1: ilk sürüm (3727f4a)
+ *   2: açılış dolumu açık-pozisyon kurallarıyla; erişilebilir çıkış; kanıtlanabilir TP; net komisyon equity
+ */
+export const EXECUTION_MODEL = 2;
 
 export interface Trade {
   id: string;
@@ -89,27 +105,36 @@ export function lotRules(spec: SymbolSpec): { minLot: number; lotStep: number } 
   return { minLot: spec.minLot ?? 0.01, lotStep: spec.lotStep ?? 0.01 };
 }
 
+/** minLot / lotStep geçerli (sonlu ve > 0) mi? */
+const validLotRules = (r: { minLot: number; lotStep: number }) => Number.isFinite(r.minLot) && r.minLot > 0 && Number.isFinite(r.lotStep) && r.lotStep > 0;
+
+/** Stop'ta 1 lotun USD zararı. JPY dönüşümü, gerçekleşen SL P&L'sinin (calcPnl) kullandığı çıkış kuruyla (SL) yapılır. */
+export const stopRiskPerLot = (spec: SymbolSpec, entry: number, sl: number): number => Math.abs(entry - sl) * usdPerPriceUnit(spec, sl);
+
 /**
- * Risk yüzdesine göre lot: lot adımına AŞAĞI yuvarlanır, risk bütçesini aşmaz.
- * Bütçeye sığan en küçük lot bile yoksa (veya girdi geçersizse) null döner; emir engellenmelidir.
+ * Risk yüzdesine göre lot: lot adımına AŞAĞI yuvarlanır; stop zararı + komisyon bütçeyi aşmaz.
+ * Stop geometrisi (entry != sl) komisyondan bağımsız doğrulanır. Bütçeye sığan en küçük lot bile yoksa
+ * (veya girdi geçersizse) null döner; emir engellenmelidir.
  */
 export function lotsForRisk(spec: SymbolSpec, balance: number, riskPct: number, entry: number, sl: number, commissionPerLot = 0): number | null {
-  if (![balance, riskPct, entry, sl].every(Number.isFinite) || balance <= 0 || riskPct <= 0 || entry <= 0) return null;
-  // Komisyon da lot başına riske dahildir: stop riski + komisyon bütçeyi aşmamalı.
-  const perLot = Math.abs(entry - sl) * usdPerPriceUnit(spec, entry) + Math.max(0, commissionPerLot);
-  if (!(perLot > 0) || !Number.isFinite(perLot)) return null;
-  const { minLot, lotStep } = lotRules(spec);
+  const rules = lotRules(spec);
+  if (!validLotRules(rules)) return null;
+  if (![balance, riskPct, entry, sl, commissionPerLot].every(Number.isFinite) || balance <= 0 || riskPct <= 0 || entry <= 0 || sl <= 0 || commissionPerLot < 0) return null;
+  const stop = stopRiskPerLot(spec, entry, sl);
+  if (!(stop > 0) || !Number.isFinite(stop)) return null; // sıfır stop mesafesi komisyonla bile geçerli olmaz
+  const perLot = stop + commissionPerLot;
   // 1e-6 adım toleransı: 1.1 - 1.099 gibi kayan nokta farkları 10 lotu 9.99'a düşürmesin
   // (bütçe aşımı en çok 1e-6 lot adımı kadardır, yani kuruşun çok altında).
-  const steps = Math.floor((balance * riskPct) / 100 / perLot / lotStep + 1e-6);
-  const lots = Math.round(steps * lotStep * 1e6) / 1e6;
-  return lots >= minLot - 1e-9 ? lots : null;
+  const steps = Math.floor((balance * riskPct) / 100 / perLot / rules.lotStep + 1e-6);
+  const lots = Math.round(steps * rules.lotStep * 1e6) / 1e6;
+  return lots >= rules.minLot - 1e-9 ? lots : null;
 }
 
 /** Elle girilen lotu lot adımına aşağı yuvarlar; geçersiz veya minimumun altındaysa null. */
 export function normalizeLots(spec: SymbolSpec, lots: number): number | null {
   if (!Number.isFinite(lots)) return null;
   const { minLot, lotStep } = lotRules(spec);
+  if (!validLotRules({ minLot, lotStep })) return null;
   const q = Math.round(Math.floor(lots / lotStep + 1e-6) * lotStep * 1e6) / 1e6;
   return q >= minLot - 1e-9 ? q : null;
 }
@@ -136,12 +161,19 @@ export function decideLots(
 
 /** lotsForRisk null döndüğünde kullanıcıya gösterilecek açıklama. */
 export function noLotReason(spec: SymbolSpec, balance: number, riskPct: number, entry: number, sl: number, commissionPerLot = 0): string {
-  const perLot = Math.abs(entry - sl) * usdPerPriceUnit(spec, entry) + Math.max(0, commissionPerLot);
-  if (!(perLot > 0) || !Number.isFinite(perLot)) return 'Stop mesafesi geçersiz (giriş ile SL aynı veya sayı değil).';
+  const stop = stopRiskPerLot(spec, entry, sl);
+  const perLot = stop + Math.max(0, commissionPerLot);
+  if (!(stop > 0) || !Number.isFinite(stop)) return 'Stop mesafesi geçersiz (giriş ile SL aynı veya sayı değil).';
   if (!(balance > 0) || !(riskPct > 0)) return 'Bakiye ve risk % sıfırdan büyük olmalı.';
   const { minLot } = lotRules(spec);
   return `Risk bütçesine ($${((balance * riskPct) / 100).toFixed(2)}) sığan lot yok: en küçük işlem (${minLot} lot) bu stopla $${(perLot * minLot).toFixed(2)} riske eder. Stopu daralt veya risk %'sini artır.`;
 }
+
+/** İşleme yazılı komisyonun toplamı (USD, gidiş-dönüş). */
+export const commissionOf = (tr: Pick<Trade, 'commissionPerLot' | 'lots'>): number => (tr.commissionPerLot ?? 0) * tr.lots;
+
+/** Açık pozisyonun şimdi px fiyatından likide edilirse NET K/Z'si: komisyon rezerve edilir (kapanışta çift düşülmez). */
+export const liquidationPnl = (spec: SymbolSpec, tr: Trade, px: number): number => calcPnl(spec, tr.side, tr.entry, px, tr.lots) - commissionOf(tr);
 
 /**
  * İşlemi kapatır. pnl ve r NET'tir: komisyon (varsa) pnl'den düşülür; R, ilk parasal riske göre
@@ -153,7 +185,7 @@ export function closeTrade(spec: SymbolSpec, tr: Trade, exit: number, time: numb
   const pnl = gross - commission;
   let r = calcR(tr.side, tr.entry, exit, tr.initialSl);
   if (r != null && commission > 0 && tr.initialSl != null) {
-    const riskUsd = Math.abs(tr.entry - tr.initialSl) * tr.lots * usdPerPriceUnit(spec, tr.entry);
+    const riskUsd = stopRiskPerLot(spec, tr.entry, tr.initialSl) * tr.lots;
     r -= commission / riskUsd;
   }
   const costs = commission > 0 ? { grossPnl: gross, commission } : {};
@@ -175,6 +207,15 @@ export function lastTradeEvent(trades: Trade[]): number | null {
     for (const x of [tr.createdAt, tr.openedAt, tr.closedAt]) if (x != null && (t == null || x > t)) t = x;
   }
   return t;
+}
+
+/**
+ * Replay zamanından SONRAYA ait işlem kaydı var mı (eski sürümde geri sarılmış, tutarsız kronoloji)?
+ * Varsa en geç olayın zamanını döndürür. Otomatik düzeltme/silme yapılmaz; yalnızca uyarı içindir.
+ */
+export function chronologyIssue(trades: Trade[], replayTime: number): number | null {
+  const last = lastTradeEvent(trades);
+  return last != null && last > replayTime ? last : null;
 }
 
 /**
@@ -238,15 +279,29 @@ export function applyCandle(spec: SymbolSpec, tr: Trade, k: Candle): Trade {
 
 const addFlag = (tr: Trade, f: TradeFlag): Trade => (tr.flags?.includes(f) ? tr : { ...tr, flags: [...(tr.flags ?? []), f] });
 
-/** Mum içinde dolan emir: sıra bilinmez. SL görüldüyse zarar (muhafazakâr), TP sayılmaz ama işaretlenir. */
+/**
+ * Mum içinde dolan emir. Dolum anı bilinmez; yalnızca kanıtlanabilir sonuçlar yazılır (başlık yorumuna bakın).
+ * Süreklilik argümanı bid/ask ayrımında da geçerlidir (ask >= bid olduğundan): stop emrinde ask girişi aşmadan
+ * bid TP'yi aşamaz; limit emrinde dolumda bid <= giriş < TP, kapanış TP ötesindeyse sonradan TP geçilmek zorundadır.
+ */
 function applyFillBar(spec: SymbolSpec, tr: Trade, k: Candle): Trade {
   const long = tr.side === 'long';
   const x = exitSide(tr.side, k);
+  const slSeen = tr.sl != null && (long ? x.l <= tr.sl : x.h >= tr.sl);
   const tpSeen = tr.tp != null && (long ? x.h >= tr.tp : x.l <= tr.tp);
-  let t = tpSeen ? addFlag(tr, 'fill-bar-tp-unknown') : tr;
-  // Giriş mumun içinde, SL girişin gerisinde olduğundan SL fiyatı mum aralığındadır.
-  if (t.sl != null && (long ? x.l <= t.sl : x.h >= t.sl)) t = closeTrade(spec, t, t.sl, k.t + 60, 'sl');
-  return t;
+  const closesBeyondTp = tr.tp != null && (long ? x.c >= tr.tp : x.c <= tr.tp);
+  const provableTp = tpSeen && (tr.orderType === 'stop' || closesBeyondTp);
+  const closeTime = k.t + 60;
+  if (slSeen) {
+    // SL-önce (muhafazakâr). SL dolum anında zaten tetiklenmiş olabilir: çıkış, SL'ye en yakın erişilebilir fiyat.
+    const exit = long ? Math.min(tr.sl!, x.h) : Math.max(tr.sl!, x.l);
+    let c = closeTrade(spec, tr, exit, closeTime, 'sl');
+    if (tr.orderType === 'stop') c = addFlag(c, 'fill-bar-sl-unknown');
+    if (tpSeen) c = addFlag(c, provableTp ? 'sl-tp-same-bar' : 'fill-bar-tp-unknown');
+    return c;
+  }
+  if (provableTp) return closeTrade(spec, tr, tr.tp!, closeTime, 'tp');
+  return tpSeen ? addFlag(tr, 'fill-bar-tp-unknown') : tr;
 }
 
 /** Açık pozisyona bir 1m mum uygular (açılışta dolan bekleyen emirler de buraya düşer). */

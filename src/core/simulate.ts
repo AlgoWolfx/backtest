@@ -2,7 +2,7 @@
 
 import { getSymbol } from '../../shared/symbols.js';
 import { revealedCount, type M1Data } from './data';
-import { applyCandle, calcPnl, type Candle, closeTrade, exitSide, type Trade } from './trading';
+import { applyCandle, calcPnl, type Candle, closeTrade, exitSide, liquidationPnl, type Trade } from './trading';
 import { afterBalanceChange, evaluate, noteTradingDay, rollDay, type Account } from './account';
 import type { Session } from './types';
 
@@ -101,26 +101,30 @@ export function simulate(s: Session, newTime: number, dataOf: (symbol: string) =
     if (changed && (firstEvent == null || closeTime < firstEvent)) firstEvent = closeTime;
 
     if (account && account.state.status !== 'failed') {
-      // Bu dakikadaki en kötü equity: bu dakikanın mumunu gören sembollerde mumun en kötü ucu, diğerlerinde son kapanış.
-      // Yönler aynı anda en kötüsünü görmüş sayılır (korelasyonlu, muhafazakâr ve sıradan bağımsız).
+      // Equity değerlemesi. Aynı sembolün pozisyonları ORTAK fiyat senaryolarında birlikte değerlenir
+      // (long bid'den, short ask'tan; mumun 'düşük' ve 'yüksek' uçları): zıt yönlü pozisyonların bağımsız en
+      // kötü uçlarını toplamak ekonomik olarak imkânsız bir zarar uydurur (ör. eşit long+short = 0).
+      // Farklı semboller için eşzamanlılık bilinmez: her sembolün en kötü senaryosu toplanır; bu bir
+      // muhafazakâr ALT SINIRDIR, tick bazlı kesin bir olay değildir. Komisyon 'şimdi likide edilirse net' değerdir.
       let equityLow = balance;
       let equityClose = balance;
-      for (const tr of trades) {
-        if (tr.status !== 'open') continue;
-        const kk = lastOf(tr.symbol);
+      const openBySym = new Map<string, Trade[]>();
+      for (const tr of trades) if (tr.status === 'open') openBySym.set(tr.symbol, [...(openBySym.get(tr.symbol) ?? []), tr]);
+      for (const [osym, trs] of openBySym) {
+        const kk = lastOf(osym);
         if (!kk) continue;
-        const x = exitSide(tr.side, kk);
-        const worst = inBatch.has(tr.symbol) ? (tr.side === 'long' ? x.l : x.h) : x.c;
-        const sp = getSymbol(tr.symbol);
-        equityLow += calcPnl(sp, tr.side, tr.entry, worst, tr.lots);
-        equityClose += calcPnl(sp, tr.side, tr.entry, x.c, tr.lots);
+        const sp = getSymbol(osym);
+        const at = (pick: 'l' | 'h' | 'c') => trs.reduce((sum, tr) => sum + liquidationPnl(sp, tr, exitSide(tr.side, kk)[pick]), 0);
+        equityClose += at('c');
+        equityLow += inBatch.has(osym) ? Math.min(at('l'), at('h')) : at('c');
       }
       // Aynı dakikada TP ile kapanan işlemlerin olası kapanış öncesi dibi (yalnızca uyarı için, hesabı patlatmaz).
+      // Kapanıştan önce pozisyon hâlâ açıktı: dip değeri brüt K/Z farkıyla eklenir (komisyon iki tarafta da var, sadeleşir).
       let equityLowPossible = equityLow;
       for (const { tr, k } of tpClosed) {
         const x = exitSide(tr.side, k);
         const worst = tr.side === 'long' ? x.l : x.h;
-        equityLowPossible += Math.min(0, calcPnl(getSymbol(tr.symbol), tr.side, tr.entry, worst, tr.lots) - (tr.pnl ?? 0));
+        equityLowPossible += Math.min(0, calcPnl(getSymbol(tr.symbol), tr.side, tr.entry, worst, tr.lots) - (tr.grossPnl ?? tr.pnl ?? 0));
       }
       const ev = evaluate(account, initial, minT, balance, equityLow, { equityClose, equityLowPossible });
       account = ev.account;

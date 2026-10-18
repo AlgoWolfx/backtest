@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getSymbol } from '../../shared/symbols.js';
 import { TIMEFRAMES } from '../core/timeframes';
 import { DATA_SOURCES, type DataSource } from '../core/data';
-import { calcPnl } from '../core/trading';
+import { liquidationPnl } from '../core/trading';
 import { snapshot } from '../core/account';
 import { LAYOUTS, type LayoutId, type Tool } from '../core/types';
 import { fmtMoney } from '../format';
@@ -179,7 +179,7 @@ function useBalance() {
   for (const t of session.trades) {
     if (t.status !== 'open') continue;
     const px = exitPriceNow(t);
-    if (px != null) floating += calcPnl(getSymbol(t.symbol), t.side, t.entry, px, t.lots);
+    if (px != null) floating += liquidationPnl(getSymbol(t.symbol), t, px);
   }
   return { session, balance, floating };
 }

@@ -7,7 +7,7 @@
 import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import type { IPrimitivePaneView, ISeriesPrimitive, ISeriesPrimitiveAxisView, PrimitiveHoveredItem, SeriesAttachedParameter, Time } from 'lightweight-charts';
 import { getSymbol } from '../../shared/symbols.js';
-import { lotsForRisk, calcPnl, calcR, usdPerPriceUnit, type Trade } from '../core/trading';
+import { lotsForRisk, liquidationPnl, calcR, stopRiskPerLot, usdPerPriceUnit, type Trade } from '../core/trading';
 import type { Drawing, Fib, LineStyleName, Position, Pt, Session, Tool, TrendLine } from '../core/types';
 import { fmtDistance, fmtMoney, fmtPrice, fmtR, reasonLabel } from '../format';
 import { tfInfo } from '../core/timeframes';
@@ -523,7 +523,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     const balance = balanceOf(st.session!);
     const sized = tr ? tr.lots : lotsForRisk(spec, balance, d.riskPct, d.entry.p, d.sl, st.session!.commissionPerLot);
     const lots = sized ?? 0; // null: risk bütçesine sığan lot yok (emir engellenir)
-    const riskUsd = risk * lots * usdPerPriceUnit(spec, d.entry.p);
+    const riskUsd = stopRiskPerLot(spec, d.entry.p, d.sl) * lots;
     const cx = (x0 + x1) / 2;
     const showDetails = active || tr?.status === 'open' || tr?.status === 'pending';
 
@@ -540,7 +540,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     else if (tr.status === 'pending') center = `Bekleyen ${tr.orderType === 'limit' ? 'Limit' : 'Stop'} · ${fmtPrice(tr.entry, spec)} · ${tr.lots} lot · R:R ${rr.toFixed(2)}`;
     else if (tr.status === 'open') {
       const px = exitPriceNow(tr) ?? tr.entry;
-      const pnl = calcPnl(getSymbol(tr.symbol), tr.side, tr.entry, px, tr.lots);
+      const pnl = liquidationPnl(getSymbol(tr.symbol), tr, px);
       const r = calcR(tr.side, tr.entry, px, tr.initialSl);
       center = `Açık · ${fmtMoney(pnl, true)} · ${fmtR(r)}`;
       bg = pnl >= 0 ? '#067a67' : '#c12a37';

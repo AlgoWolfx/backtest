@@ -112,6 +112,8 @@ export interface Session {
   lots: number;
   /** Komisyon, USD / lot, GİDİŞ-DÖNÜŞ (isteğe bağlı; yok = 0). Her işlem açılırken değeri işlemin kendisine yazılır. */
   commissionPerLot?: number;
+  /** Oturumun açıldığı yürütme modeli sürümü (bkz. EXECUTION_MODEL); yok = 1 */
+  executionModel?: number;
   trades: Trade[];
   drawings: Record<string, Drawing[]>;
   fibDefaults: FibLevel[];

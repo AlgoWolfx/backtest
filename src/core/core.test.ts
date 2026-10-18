@@ -457,8 +457,8 @@ describe('pozisyon boyutlandırma — issue #5, #6', () => {
   it('#5 US100 / XAUUSD / USDJPY için aynı bütçe kuralı', () => {
     expect(lotsForRisk(getSymbol('US100'), 100000, 1, 20000, 19950)).toBeCloseTo(20, 6);
     expect(lotsForRisk(getSymbol('XAUUSD'), 100000, 1, 2000, 1995)).toBeCloseTo(2, 6); // 5$ × 100 oz = 500$/lot
-    // USDJPY: 50 pip = 0.50 JPY × 100000 / 150 = 333.33$/lot -> 3 lot
-    expect(lotsForRisk(getSymbol('USDJPY'), 100000, 1, 150, 149.5)).toBeCloseTo(3, 6);
+    // USDJPY: 0.50 JPY × 100000 / 149.5 (SL kuru) = 334.45$/lot -> 2.99 lot (3 lot SL'de bütçeyi aşardı)
+    expect(lotsForRisk(getSymbol('USDJPY'), 100000, 1, 150, 149.5)).toBe(2.99);
   });
 });
 

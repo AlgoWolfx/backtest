@@ -23,6 +23,8 @@ export interface SymbolMeta {
   format?: number;
   /** OANDA: kapanışlardaki spread (medyan, %90) */
   spread?: { median: number; p90: number };
+  /** Dukascopy derlemesi: ask'ı bulunmayıp ask=bid yazılan dakika sayısı (bu dakikalarda spread gerçekte bilinmiyor) */
+  askMissingMinutes?: number;
   histdata?: { minutes: number; gaps: number; missingHoursByYear: Record<string, number>; ohlcFixed: number };
   dukascopy?: {
     daysCached: number;
