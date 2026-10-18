@@ -9,7 +9,7 @@ import { nextBoundary, type SessionSettings } from './core/sessions';
 import { chronologyIssue, closeTrade, decideLots, EXECUTION_MODEL, pendingType, rewindBlockedBy, type Side, type Trade, type TradeReview } from './core/trading';
 import { afterBalanceChange, newAccount, noteTradingDay, rollDay, type AccountRules } from './core/account';
 import { activeTrades, balanceOf, simulate as simulateRange, type SimResult } from './core/simulate';
-import { DEFAULT_FIB, LAYOUTS, defaultSplit, type Drawing, type LayoutId, type NewDrawing, type PaneCfg, type Position, type Session, type Tool } from './core/types';
+import { DEFAULT_FIB, DEFAULT_SYNC, LAYOUTS, type Drawing, type LayoutId, type NewDrawing, type PaneCfg, type Position, type Session, type SyncCfg, type Tool } from './core/types';
 import { fmtNyShort, fmtPrice, reasonLabel } from './format';
 
 export interface SessionSummary {
@@ -306,12 +306,12 @@ const patchActivePane = (s: Session, patch: Partial<PaneCfg>): Pick<Session, 'pa
 export async function setSymbol(symbol: string) {
   const d = await ensureData(symbol);
   if (!d) return;
-  patchSession((s) => ({ symbol, ...patchActivePane(s, { symbol }) }));
+  patchSession((s) => ({ symbol, ...(syncOf(s).symbol ? patchAllPanes(s, { symbol }) : patchActivePane(s, { symbol })) }));
   set({ selectedId: null, editingId: null });
 }
 
 export function setTf(tf: TF) {
-  patchSession((s) => ({ tf, ...patchActivePane(s, { tf }) }));
+  patchSession((s) => ({ tf, ...(syncOf(s).tf ? patchAllPanes(s, { tf }) : patchActivePane(s, { tf })) }));
 }
 
 // ---- çoklu ekran
@@ -330,7 +330,7 @@ export async function setLayout(layout: LayoutId) {
   }
   const next = active < n ? active : 0;
   set({ maxPane: null });
-  patchSession(() => ({ layout, split: undefined, panes, active: next, symbol: panes[next].symbol, tf: panes[next].tf }));
+  patchSession(() => ({ layout, splits: undefined, panes, active: next, symbol: panes[next].symbol, tf: panes[next].tf }));
   if (next !== active) set({ selectedId: null, editingId: null, ticket: null });
 }
 
@@ -342,9 +342,25 @@ export function toggleMaxPane(pane: number) {
   set({ maxPane: pane });
 }
 
-/** Ekran bölücüsünü sürükleyerek grafik boyutlarını ayarlar (x: sütunlar, y: satırlar; 0-1). */
-export function setSplit(patch: Partial<{ x: number; y: number }>) {
-  patchSession((s) => ({ split: { ...defaultSplit(s.layout ?? '1'), ...s.split, ...patch } }));
+/** Bir bölünmüş düğümün oranlarını ayarlar (null: varsayılana dön). */
+export function setSplits(path: string, ratios: number[] | null) {
+  patchSession((s) => {
+    const splits = { ...s.splits };
+    if (ratios) splits[path] = ratios;
+    else delete splits[path];
+    return { splits };
+  });
+}
+
+export const syncOf = (s: Session | null | undefined): SyncCfg => ({ ...DEFAULT_SYNC, ...s?.sync });
+
+const patchAllPanes = (s: Session, patch: Partial<PaneCfg>): Pick<Session, 'panes'> => ({ panes: s.panes?.map((p) => ({ ...p, ...patch })) });
+
+/** Senkron anahtarlarını değiştirir; sembol / aralık açılınca aktif ekranın değeri hepsine yayılır. */
+export function setSync(patch: Partial<SyncCfg>) {
+  patchSession((s) => ({ sync: { ...syncOf(s), ...patch } }));
+  if (patch.symbol) patchSession((s) => patchAllPanes(s, { symbol: s.symbol }));
+  if (patch.tf) patchSession((s) => patchAllPanes(s, { tf: s.tf }));
 }
 
 /** Tıklanan grafiği aktif yapar: üst çubuk, çizim, emir ve işlem paneli o grafiğin sembolüne göre çalışır. */

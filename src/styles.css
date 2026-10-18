@@ -1,11 +1,11 @@
 :root {
-  --bg0: #08090b;
-  --bg1: #0f1115;
-  --bg2: #181b21;
-  --bg3: #22262e;
-  --border: #1e222d;
-  --text: #d1d4dc;
-  --muted: #7a7e89;
+  --bg0: #131722;
+  --bg1: #1e222d;
+  --bg2: #262b38;
+  --bg3: #313746;
+  --border: #3a4052;
+  --text: #e3e6ec;
+  --muted: #9ba1ae;
   --blue: #2962ff;
   --green: #089981;
   --red: #f23645;
@@ -1418,24 +1418,15 @@ tbody tr:hover {
 /* ---------------------------------------------------------------- çoklu ekran */
 .chart-area {
   grid-area: chart;
-  display: grid;
-  gap: 2px;
+  position: relative;
   min-width: 0;
   min-height: 0;
   background: var(--bg0);
 }
-/* Oranlar ChartArea'dan satır içi gelir (sürüklenebilir bölücüler); bunlar yedek değerlerdir. */
-.chart-area { position: relative; }
-.chart-area.layout-1 { grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
-.chart-area.layout-3 > :first-child { grid-row: 1 / span 2; }
-/* Büyütülmüş grafik: diğerleri ve bölücüler gizlenir (grafik nesneleri bozulmasın diye kaldırılmaz) */
-.chart-area.has-max > .chart-wrap:not(.is-max),
-.chart-area.has-max > .splitter {
-  display: none;
-}
-.chart-area.has-max > .chart-wrap.is-max {
-  grid-row: 1;
-  grid-column: 1;
+/* Ekranlar yüzdeyle yerleşir (ChartArea); 1px kenarlık ekranlar arası 2px boşluk bırakır */
+.chart-area > .chart-wrap {
+  position: absolute;
+  border: 1px solid var(--bg0);
 }
 .splitter {
   position: absolute;
@@ -1444,14 +1435,11 @@ tbody tr:hover {
   touch-action: none;
 }
 .splitter-x {
-  top: 0;
-  bottom: 0;
   width: 9px;
   margin-left: -4.5px;
   cursor: col-resize;
 }
 .splitter-y {
-  right: 0;
   height: 9px;
   margin-top: -4.5px;
   cursor: row-resize;
@@ -1599,8 +1587,8 @@ tbody tr:hover {
   max-height: calc(100vh - 28px);
   display: flex;
   flex-direction: column;
-  background: #1e1e1e;
-  color: #e8eaed;
+  background: #2b3040;
+  color: #f1f3f6;
   border-radius: 10px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
   z-index: 60;
@@ -1617,13 +1605,13 @@ tbody tr:hover {
   display: flex;
   gap: 18px;
   padding: 0 16px;
-  border-bottom: 3px solid #3a3a3a;
+  border-bottom: 3px solid #4b5263;
   margin: 8px 0 0;
 }
 .tvd-tabs button {
   background: none;
   border: 0;
-  color: #b5b8bf;
+  color: #cdd1db;
   font-weight: 600;
   font-size: 14px;
   padding: 8px 0 7px;
@@ -1671,7 +1659,7 @@ tbody tr:hover {
 .tvd-select,
 .tvd-input,
 .tvd-textarea {
-  background: #1e1e1e;
+  background: #3a4153;
   color: inherit;
   border: 1px solid #4a4a4a;
   border-radius: 8px;
@@ -1703,7 +1691,7 @@ tbody tr:hover {
 }
 .tvd-tog,
 .tvd-linebtn {
-  background: #1e1e1e;
+  background: #3a4153;
   color: inherit;
   border: 1px solid #4a4a4a;
   border-radius: 8px;
@@ -1712,18 +1700,18 @@ tbody tr:hover {
   min-width: 34px;
 }
 .tvd-tog.on {
-  background: #3a3a3a;
+  background: #4b5263;
 }
 .tvd-foot {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid #3a3a3a;
+  border-top: 1px solid #4b5263;
 }
 .tvd-btn {
   background: transparent;
-  color: #e8eaed;
+  color: #f1f3f6;
   border: 1px solid #fff;
   border-radius: 8px;
   padding: 7px 14px;
@@ -1745,7 +1733,7 @@ tbody tr:hover {
   bottom: 40px;
   left: 0;
   min-width: 210px;
-  background: #2a2a2a;
+  background: #353c4d;
   border: 1px solid #444;
   border-radius: 8px;
   padding: 4px;
@@ -1763,7 +1751,7 @@ tbody tr:hover {
   cursor: pointer;
 }
 .tvd-menuitem:hover {
-  background: #3a3a3a;
+  background: #4b5263;
 }
 .tvd-vis {
   display: grid;
@@ -1802,7 +1790,7 @@ tbody tr:hover {
   top: 40px;
   left: 0;
   z-index: 80;
-  background: #2a2a2a;
+  background: #353c4d;
   border: 1px solid #444;
   border-radius: 10px;
   padding: 10px;

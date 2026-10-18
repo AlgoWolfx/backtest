@@ -179,18 +179,23 @@ export interface PaneCfg {
   symbol: string;
   tf: TF;
 }
-export type LayoutId = '1' | '2v' | '2h' | '3' | '4';
-/** Düzen başına varsayılan bölücü konumu (3 ekranda sol sütun 2/3 genişliğinde). */
-export const defaultSplit = (layout: LayoutId): { x: number; y: number } => ({ x: layout === '3' ? 2 / 3 : 0.5, y: 0.5 });
-export const SPLIT_MIN = 0.12;
-export const clampSplit = (v: number) => Math.min(1 - SPLIT_MIN, Math.max(SPLIT_MIN, v));
-export const LAYOUTS: Record<LayoutId, { count: number; label: string }> = {
-  '1': { count: 1, label: 'Tek ekran' },
-  '2v': { count: 2, label: '2 ekran (yan yana)' },
-  '2h': { count: 2, label: '2 ekran (alt alta)' },
-  '3': { count: 3, label: '3 ekran' },
-  '4': { count: 4, label: '4 ekran (2×2)' },
-};
+import type { LayoutId } from './layouts';
+export { LAYOUTS, type LayoutId } from './layouts';
+
+/** Çoklu ekran senkronu (TradingView "Yerleşimde senkronize et"). */
+export interface SyncCfg {
+  /** Sembol değişince tüm ekranlar değişir */
+  symbol: boolean;
+  /** Zaman dilimi (aralık) değişince tüm ekranlar değişir */
+  tf: boolean;
+  /** Artı işareti: imleç aynı zamanda diğer ekranlarda da görünür */
+  crosshair: boolean;
+  /** Zaman: bir grafiği kaydırınca diğerlerinin sağ kenarı aynı zamana gelir (kendi yakınlaştırmaları korunur) */
+  time: boolean;
+  /** Tarih aralığı: görünen aralık (kaydırma + yakınlaştırma) tüm ekranlarda aynı olur */
+  range: boolean;
+}
+export const DEFAULT_SYNC: SyncCfg = { symbol: false, tf: false, crosshair: true, time: false, range: false };
 
 export interface Session {
   id: string;
@@ -210,8 +215,10 @@ export interface Session {
   tf: TF;
   /** Çoklu ekran: düzen, her grafiğin ayarı ve aktif grafik (eski oturumlarda yok = tek ekran) */
   layout?: LayoutId;
-  /** Ekran bölücü konumları (0-1): x = sütun ayrımı, y = satır ayrımı. Yoksa düzenin varsayılanı. */
-  split?: { x: number; y: number };
+  /** Bölücü oranları: düğüm yoluna göre (bkz. core/layouts.ts). Yoksa düzenin varsayılanı. */
+  splits?: Record<string, number[]>;
+  /** Ekranlar arası senkron ayarları (yoksa DEFAULT_SYNC) */
+  sync?: SyncCfg;
   panes?: PaneCfg[];
   active?: number;
   stepTf: TF;

@@ -56,6 +56,15 @@ export class ChartController {
   private priceFormat = { type: 'price' as const, precision: 5, minMove: 0.00001 };
   theme: ChartTheme | null = null;
 
+  // ---- ekranlar arası senkron (bkz. chart/paneSync.ts)
+  /** Kullanıcı imleci bu grafikte gezdirdi: utc = mumun zamanı, price = imlecin fiyatı; null = imleç çıktı */
+  onCrosshair: ((utc: number | null, price: number | null) => void) | null = null;
+  /** Kullanıcı bu grafiği kaydırdı / yakınlaştırdı */
+  onUserRange: (() => void) | null = null;
+  private hovering = false;
+  private userUntil = 0;
+  private quiet = false;
+
   constructor(readonly el: HTMLElement, readonly pane = 0) {
     this.chart = createChart(el, {
       autoSize: true,
@@ -113,7 +122,57 @@ export class ChartController {
     this.applyTheme(useStore.getState().chartTheme);
     this.series.attachPrimitive(this.sessions);
     this.series.attachPrimitive(this.layer);
-    this.chart.timeScale().subscribeVisibleLogicalRangeChange((r) => this.maybeExtend(r));
+    this.chart.timeScale().subscribeVisibleLogicalRangeChange((r) => {
+      this.maybeExtend(r);
+      if (!this.quiet && performance.now() < this.userUntil) this.onUserRange?.();
+    });
+    this.watchUser();
+  }
+
+  /** Kullanıcı etkileşimini izler: fare basılıyken veya tekerlekten sonra kısa süre "kullanıcı" aralık değişimidir. */
+  private watchUser() {
+    const el = this.el;
+    el.addEventListener('pointerdown', () => (this.userUntil = Infinity), true);
+    window.addEventListener('pointerup', () => {
+      if (this.userUntil === Infinity) this.userUntil = performance.now() + 250;
+    });
+    el.addEventListener('wheel', () => (this.userUntil = performance.now() + 400), { capture: true, passive: true });
+    el.addEventListener('mouseenter', () => (this.hovering = true));
+    el.addEventListener('mouseleave', () => {
+      this.hovering = false;
+      this.onCrosshair?.(null, null);
+    });
+    this.chart.subscribeCrosshairMove((p) => {
+      if (!this.hovering || !this.agg || this.lastK < 0) return;
+      if (p.logical == null || !p.point) return this.onCrosshair?.(null, null);
+      const k = Math.round(p.logical) + this.winStart;
+      if (k < this.winStart || k > this.lastK) return this.onCrosshair?.(null, null);
+      this.onCrosshair?.(this.agg.utc[k], this.yToPrice(p.point.y));
+    });
+  }
+
+  /** Başka bir grafikteki imleç zamanını gösterir (utc null: gizle). price yoksa mumun kapanışı. */
+  showCrosshairAt(utc: number | null, price: number | null) {
+    const agg = this.agg;
+    if (utc == null || !agg || this.lastK < 0 || !this.d || this.hovering) {
+      if (!this.hovering) this.chart.clearCrosshairPosition();
+      return;
+    }
+    // Bu grafiğin son mumundan sonraki zamanlarda imleç gösterilmez
+    if (utc >= agg.utc[this.lastK] + this.tfSeconds) return this.chart.clearCrosshairPosition();
+    const k = Math.min(this.lastK, Math.max(this.winStart, Math.floor(this.timeToLogical(utc)) + this.winStart));
+    this.chart.setCrosshairPosition(price ?? agg.c[k] / this.d.scale, agg.time[k] as Time, this.series);
+  }
+
+  /** Görünür mantıksal aralığı, yeniden yayın yapmadan ayarlar (senkron için). */
+  setLogicalRangeQuiet(from: number, to: number) {
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
+    this.quiet = true;
+    try {
+      this.chart.timeScale().setVisibleLogicalRange({ from, to });
+    } finally {
+      this.quiet = false;
+    }
   }
 
   destroy() {

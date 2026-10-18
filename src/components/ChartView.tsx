@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEventParams, Time } from 'lightweight-charts';
 import { getSymbol } from '../../shared/symbols.js';
 import { ChartController } from '../chart/ChartController';
@@ -7,52 +7,48 @@ import { revealedCount, sourceLabel, sourceName, type M1Data } from '../core/dat
 import { tfInfo } from '../core/timeframes';
 import { downloadCsv } from '../csv';
 import { fmtNy, fmtNyShort, fmtPrice, fmtShifted } from '../format';
-import { activatePane, cloneDrawing, deleteDrawing, drawingsOf, hasClipboard, paneCfg, pasteClipboard, reorderDrawing, setChartTheme, setSplit, toggleMaxPane, updateDrawing, useStore } from '../store';
+import { activatePane, cloneDrawing, deleteDrawing, drawingsOf, hasClipboard, paneCfg, pasteClipboard, reorderDrawing, setChartTheme, setSplits, toggleMaxPane, updateDrawing, useStore } from '../store';
 import type { ChartTheme } from '../chartTheme';
-import { LAYOUTS, clampSplit, defaultSplit } from '../core/types';
+import { LAYOUTS } from '../core/types';
+import { dragSplit, layoutGeometry, type PaneRect, type SplitterGeom } from '../core/layouts';
+import { broadcastCrosshair, broadcastRange } from '../chart/paneSync';
 import { DrawingToolbar } from './DrawingToolbar';
 import { AccountMeters } from './Bars';
 import { Modal } from './Dialogs';
 
-/** Çoklu ekran düzenine göre grafikleri yan yana / alt alta dizer. */
+const FULL: PaneRect = { x: 0, y: 0, w: 1, h: 1 };
+
+/** Çoklu ekran düzenine göre grafikleri yerleştirir; aralarındaki bölücüler sürüklenerek boyutlandırılır. */
 export function ChartArea() {
   const layout = useStore((s) => s.session?.layout ?? '1');
-  const stored = useStore((s) => s.session?.split);
-  const { x, y } = { ...defaultSplit(layout), ...stored };
-  const col = `minmax(0, ${x}fr) minmax(0, ${1 - x}fr)`;
-  const row = `minmax(0, ${y}fr) minmax(0, ${1 - y}fr)`;
-  const style: React.CSSProperties | undefined =
-    layout === '2v' ? { gridTemplate: `minmax(0, 1fr) / ${col}` }
-    : layout === '2h' ? { gridTemplate: `${row} / minmax(0, 1fr)` }
-    : layout === '3' || layout === '4' ? { gridTemplate: `${row} / ${col}` }
-    : undefined;
-  const maxPane = useStore((s) => (s.maxPane != null && s.maxPane < LAYOUTS[layout].count ? s.maxPane : null));
-  const hasV = layout !== '1' && layout !== '2h';
-  const hasH = layout !== '1' && layout !== '2v';
+  const splits = useStore((s) => s.session?.splits);
+  const maxPane = useStore((s) => (s.maxPane != null && s.maxPane < LAYOUTS[s.session?.layout ?? '1'].count ? s.maxPane : null));
+  const geo = useMemo(() => layoutGeometry(layout, splits), [layout, splits]);
   return (
-    <div className={`chart-area layout-${layout} ${maxPane != null ? 'has-max' : ''}`} style={maxPane != null ? { gridTemplate: 'minmax(0, 1fr) / minmax(0, 1fr)' } : style}>
-      {Array.from({ length: LAYOUTS[layout].count }, (_, i) => (
-        <ChartView key={i} pane={i} />
+    <div className={`chart-area layout-${layout} ${maxPane != null ? 'has-max' : ''}`}>
+      {geo.panes.map((r, i) => (
+        <ChartView key={i} pane={i} rect={maxPane == null ? r : i === maxPane ? FULL : null} />
       ))}
-      {hasV && <Splitter axis="x" at={x} />}
-      {/* 3 ekranda yatay bölücü yalnız sağ sütunu böler */}
-      {hasH && <Splitter axis="y" at={y} fromX={layout === '3' ? x : 0} />}
+      {maxPane == null && geo.splitters.map((g) => <Splitter key={`${g.path}:${g.index}`} g={g} />)}
     </div>
   );
 }
 
-/** Grafikler arası sürüklenebilir bölücü (çift tık: varsayılan konum). */
-function Splitter({ axis, at, fromX = 0 }: { axis: 'x' | 'y'; at: number; fromX?: number }) {
+/** İki ekran arasındaki sürüklenebilir bölücü (çift tık: bu bölünmenin oranlarını varsayılana döndür). */
+function Splitter({ g }: { g: SplitterGeom }) {
   const [drag, setDrag] = useState(false);
+  const row = g.dir === 'row'; // satır: ekranlar yan yana, bölücü dikey çizgi
   const move = (e: React.PointerEvent<HTMLDivElement>) => {
     const r = e.currentTarget.parentElement!.getBoundingClientRect();
-    const v = axis === 'x' ? (e.clientX - r.left) / r.width : (e.clientY - r.top) / r.height;
-    setSplit({ [axis]: clampSplit(v) });
+    const p = row ? (e.clientX - r.left) / r.width : (e.clientY - r.top) / r.height;
+    setSplits(g.path, dragSplit(g.ratios, g.index, (p - g.nodeStart) / g.nodeLen));
   };
-  const style: React.CSSProperties = axis === 'x' ? { left: `${at * 100}%` } : { top: `${at * 100}%`, left: `${fromX * 100}%` };
+  const style: React.CSSProperties = row
+    ? { left: `${g.at * 100}%`, top: `${g.from * 100}%`, height: `${(g.to - g.from) * 100}%` }
+    : { top: `${g.at * 100}%`, left: `${g.from * 100}%`, width: `${(g.to - g.from) * 100}%` };
   return (
     <div
-      className={`splitter splitter-${axis} ${drag ? 'drag' : ''}`}
+      className={`splitter splitter-${row ? 'x' : 'y'} ${drag ? 'drag' : ''}`}
       style={style}
       title="Sürükle: grafik boyutunu ayarla · Çift tık: sıfırla"
       onPointerDown={(e) => {
@@ -62,12 +58,12 @@ function Splitter({ axis, at, fromX = 0 }: { axis: 'x' | 'y'; at: number; fromX?
       onPointerMove={(e) => drag && move(e)}
       onPointerUp={() => setDrag(false)}
       onPointerCancel={() => setDrag(false)}
-      onDoubleClick={() => setSplit({ [axis]: defaultSplit(useStore.getState().session?.layout ?? '1')[axis] })}
+      onDoubleClick={() => setSplits(g.path, null)}
     />
   );
 }
 
-export function ChartView({ pane }: { pane: number }) {
+export function ChartView({ pane, rect }: { pane: number; rect: PaneRect | null }) {
   const ref = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const loading = useStore((s) => s.loading);
@@ -82,6 +78,8 @@ export function ChartView({ pane }: { pane: number }) {
   useEffect(() => {
     const c = new ChartController(ref.current!, pane);
     paneControllers.set(pane, c);
+    c.onCrosshair = (utc, price) => broadcastCrosshair(c, utc, price);
+    c.onUserRange = () => broadcastRange(c);
     let prev: { sessionId: string; symbol: string; tf: string; replayTime: number; data: M1Data | null } = { sessionId: '', symbol: '', tf: '', replayTime: 0, data: null };
     const sync = () => {
       const st = useStore.getState();
@@ -150,7 +148,7 @@ export function ChartView({ pane }: { pane: number }) {
   }, [c]);
   const setMode = (priceMode: ChartTheme['priceMode']) => setChartTheme({ ...th, priceMode });
   return (
-    <div ref={wrapRef} className={`chart-wrap ${multi ? 'multi' : ''} ${multi && isActive ? 'active-pane' : ''} ${isMax ? 'is-max' : ''}`} style={{ background: bg }} onMouseDown={() => menu && setMenu(null)}>
+    <div ref={wrapRef} className={`chart-wrap ${multi ? 'multi' : ''} ${multi && isActive ? 'active-pane' : ''} ${isMax ? 'is-max' : ''}`} style={{ background: bg, ...(rect ? { left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.w * 100}%`, height: `${rect.h * 100}%` } : { display: 'none' }) }} onMouseDown={() => menu && setMenu(null)}>
       <div ref={ref} className="chart" />
       {th.watermark && cfgSymbol && cfgTf && (
         <div className="watermark" style={{ color: th.text }}>
