@@ -252,6 +252,101 @@ const TOOLS: { id: Tool; label: string; key: string; icon: () => React.JSX.Eleme
   { id: 'measure', label: 'Ölçüm (fiyat / mum / süre)', key: 'Shift+sürükle', icon: Icons.ruler },
 ];
 
+/** Sol çubuk grupları (TradingView gibi): tıkla = grubun son aracını seç, küçük ok = grubu aç, seçtiğin araç grubun simgesi olur. */
+const TOOL_GROUPS: { id: string; label: string; tools: Tool[] }[] = [
+  { id: 'cursor', label: 'İmleç', tools: ['cursor'] },
+  { id: 'lines', label: 'Çizgiler', tools: ['trend', 'hline'] },
+  { id: 'shapes', label: 'Fibonacci ve şekiller', tools: ['fib', 'rect'] },
+  { id: 'positions', label: 'Pozisyon', tools: ['long', 'short'] },
+  { id: 'measure', label: 'Ölçüm', tools: ['measure'] },
+];
+const LAST_KEY = 'backtest.toolGroupLast';
+const toolDef = (id: Tool) => TOOLS.find((t) => t.id === id)!;
+
+function loadLast(): Record<string, Tool> {
+  try {
+    const o = JSON.parse(localStorage.getItem(LAST_KEY) ?? '{}') as Record<string, Tool>;
+    const out: Record<string, Tool> = {};
+    for (const g of TOOL_GROUPS) out[g.id] = g.tools.includes(o[g.id]) ? o[g.id] : g.tools[0];
+    return out;
+  } catch {
+    return Object.fromEntries(TOOL_GROUPS.map((g) => [g.id, g.tools[0]]));
+  }
+}
+
+function ToolGroups() {
+  const tool = useStore((s) => s.tool);
+  const [last, setLast] = useState<Record<string, Tool>>(loadLast);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Araç kısayolla (Alt+T vb.) değişse de grubun simgesi o araca döner.
+  useEffect(() => {
+    const g = TOOL_GROUPS.find((x) => x.tools.includes(tool));
+    if (!g || last[g.id] === tool) return;
+    const next = { ...last, [g.id]: tool };
+    setLast(next);
+    try {
+      localStorage.setItem(LAST_KEY, JSON.stringify(next));
+    } catch {
+      /* kaydedilemedi */
+    }
+  }, [tool, last]);
+
+  useEffect(() => {
+    if (!openId) return;
+    const down = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpenId(null);
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setOpenId(null);
+    window.addEventListener('mousedown', down);
+    window.addEventListener('keydown', key);
+    return () => {
+      window.removeEventListener('mousedown', down);
+      window.removeEventListener('keydown', key);
+    };
+  }, [openId]);
+
+  const choose = (id: Tool) => {
+    useStore.setState({ tool: id, selectedId: null });
+    setOpenId(null);
+  };
+
+  return (
+    <div ref={ref} className="tool-groups">
+      {TOOL_GROUPS.map((g) => {
+        const shown = toolDef(g.tools.includes(tool) ? tool : last[g.id]);
+        const multi = g.tools.length > 1;
+        return (
+          <div key={g.id} className={`tool-group ${openId === g.id ? 'open' : ''}`}>
+            <button className={`tool ${g.tools.includes(tool) ? 'on' : ''}`} title={`${shown.label} (${shown.key})`} onClick={() => choose(shown.id)} onContextMenu={(e) => multi && (e.preventDefault(), setOpenId(g.id))}>
+              <shown.icon />
+            </button>
+            {multi && (
+              <button className="tool-arrow" title={`${g.label}: araçları göster`} onClick={() => setOpenId(openId === g.id ? null : g.id)}>
+                ›
+              </button>
+            )}
+            {multi && openId === g.id && (
+              <div className="tool-fly">
+                <h6>{g.label}</h6>
+                {g.tools.map((id) => {
+                  const t = toolDef(id);
+                  return (
+                    <button key={id} className={`tool-fly-item ${tool === id ? 'on' : ''}`} onClick={() => choose(id)}>
+                      <t.icon />
+                      <span>{t.label}</span>
+                      <kbd>{t.key}</kbd>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function LeftToolbar() {
   const tool = useStore((s) => s.tool);
   const magnet = useStore((s) => s.magnet);
@@ -270,11 +365,7 @@ export function LeftToolbar() {
   };
   return (
     <nav className="lefttools">
-      {TOOLS.map((t) => (
-        <button key={t.id} className={`tool ${tool === t.id ? 'on' : ''}`} title={`${t.label} (${t.key})`} onClick={() => useStore.setState({ tool: t.id, selectedId: null })}>
-          <t.icon />
-        </button>
-      ))}
+      <ToolGroups />
       <div className="tool-sep" />
       <button
         className={`tool ${magnet ? 'on' : ''}`}

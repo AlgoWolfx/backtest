@@ -2388,3 +2388,86 @@ tbody tr:hover {
 .lm-toggle input:checked + i::after {
   transform: translateX(14px);
 }
+
+/* ---------------------------------------------------------------- sol çubuk: açılır araç grupları */
+.tool-groups {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.tool-group {
+  position: relative;
+  display: flex;
+}
+.tool-arrow {
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  width: 10px;
+  height: 22px;
+  margin-top: -11px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  opacity: 0;
+}
+.tool-group:hover .tool-arrow,
+.tool-group.open .tool-arrow {
+  opacity: 1;
+}
+.tool-arrow:hover {
+  color: var(--text);
+  background: var(--bg3);
+}
+.tool-fly {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 0;
+  z-index: 130;
+  min-width: 250px;
+  padding: 6px;
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+}
+.tool-fly h6 {
+  margin: 2px 8px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tool-fly-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 6px;
+}
+.tool-fly-item:hover {
+  background: var(--bg3);
+}
+.tool-fly-item.on {
+  color: #5b8cff;
+  background: rgba(41, 98, 255, 0.18);
+}
+.tool-fly-item span {
+  flex: 1;
+}
+.tool-fly-item kbd {
+  font: inherit;
+  font-size: 11px;
+  color: var(--muted);
+}
