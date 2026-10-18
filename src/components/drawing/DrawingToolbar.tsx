@@ -3,7 +3,7 @@ import { hexToRgba } from '../../chart/drawUtil';
 import type { LineStyleName, Position } from '../../core/types';
 import { SizeControl } from './SizeControl';
 import { closeTradeManual, cloneDrawing, deleteDrawing, drawingsOf, placeOrderFromDrawing, updateDrawing, useStore } from '../../store';
-import { TvColor } from './DrawingDialog';
+import { TvColor } from '../common/TvColor';
 import { Icons } from '../common/icons';
 
 export const COLORS = ['#2962ff', '#089981', '#f23645', '#ff9800', '#e91e63', '#9c27b0', '#00bcd4', '#d1d4dc', '#787b86'];

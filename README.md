@@ -275,7 +275,14 @@ npm run typecheck
 - `scripts/dukascopy-full.mjs`: Dukascopy bid+ask ay ay indirme + derleme (`data/bars-dukascopy/`)
 - `scripts/gaps.mjs`: veri boşluğu hesabı
 - `server/index.mjs`: veri, oturum API'si ve arayüz
-- `src/core/`: zaman dilimleri, birleştirme, işlem simülasyonu (saf fonksiyonlar)
-- `src/chart/`: lightweight-charts sarmalayıcısı ve çizim katmanı
+
+Kod yapısı (alan bazlı):
+
+- `src/core/`: saf iş mantığı, arayüzden bağımsız ve testli: zaman dilimleri / kovalar (`timeframes`), veri ve birleştirme (`data`), replay, işlem ve hesap kuralları (`trading`, `simulate`, `account`), istatistik, seans katmanı, düzenler (`layouts`), işlem değerlendirme (`review`)
+- `src/store/`: zustand deposu alan modüllerine bölünmüştür: `state` (çekirdek), `session` (açma / kaydetme), `layout` (çoklu ekran, senkron), `replay`, `drawings`, `orders`, `trades`, `settings`. `src/store.ts` hepsini dışa aktaran cephedir; uygulama hep `'../store'` üzerinden içe aktarır
+- `src/chart/`: lightweight-charts sarmalayıcısı (`ChartController`), çizim katmanı (`DrawingLayer`), seans katmanı, ekranlar arası senkron (`paneSync`)
+- `src/components/`: arayüz, özelliğe göre klasörlenmiştir: `shell` (üst / sol / alt çubuk), `chart` (ekranlar, bölücüler, düzen menüsü, favori çubuk), `drawing` (çizim ayarları ve araç çubuğu), `replay`, `trades`, `performance`, `session`, `settings`, `common` (modal, toast, ikonlar, ortak kontroller)
+- `src/prefs/`: tarayıcıda saklanan kullanıcı tercihleri (grafik teması, seans ayarları, favori araçlar, çizim şablonları)
+- `src/lib/`: küçük yardımcılar (biçimleme, CSV, tam ekran, taşınabilir pencere, ekran görüntüsü)
 - `verify/`: gerçek veri doğrulama testleri
 - Tarayıcı konsolunda `window.__bt` ile store'a ve grafiğe erişilebilir.
