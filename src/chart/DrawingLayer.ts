@@ -10,7 +10,7 @@ import { getSymbol } from '../../shared/symbols.js';
 import { lotsForRisk, liquidationPnl, openR, stopRiskPerLot, usdPerPriceUnit, widenStop, type Trade } from '../core/trading';
 import type { Drawing, Fib, HLine, LineStyleName, LineText, NewDrawing, Position, Pt, Rect, Session, TextHAlign, TextNote, Tool, TrendLine, VLine } from '../core/types';
 import { loadRectTemplate, loadTemplate } from '../prefs/drawingTemplates';
-import { dashOf, hexToRgba, rectFillCss } from './drawUtil';
+import { dashOf, hexToRgba, rectEdgePatch, rectFillCss } from './drawUtil';
 import { TOOL_DEFAULTS } from '../prefs/drawingTemplates';
 import { arrowHead, screenAngleDeg, fmtDuration } from '../core/geometry';
 import { fibLabel, fibValue, trendStatsLines } from '../core/drawStats';
@@ -20,7 +20,8 @@ import { bucketEndAfter } from '../core/replay';
 import { addDrawing, balanceOf, bufferedSl, placeOrderFromDrawing, deleteDrawing, drawingsOf, exitPriceNow, jumpTo, lastBarTime, recordUndo, ticketClick, ticketEntry, ticketStep, updateDrawing, useStore } from '../store';
 import type { ChartController } from './ChartController';
 
-type Part = 'body' | 'a' | 'b' | 'c1' | 'c2' | 'entry' | 'sl' | 'tp' | 'end';
+/** Dikdörtgen kenar tutamaçları: top / bottom fiyat (üst = yüksek fiyat), left / right zaman (sol = erken) kenarını çeker. */
+type Part = 'body' | 'a' | 'b' | 'c1' | 'c2' | 'top' | 'bottom' | 'left' | 'right' | 'entry' | 'sl' | 'tp' | 'end';
 interface Hit {
   id: string;
   part: Part;
@@ -112,8 +113,18 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     if (useStore.getState().ticket && this.isActive) return { cursorStyle: 'crosshair', externalId: '', zOrder: 'top' };
     const h = this.hitTestAt(x, y);
     if (!h) return useStore.getState().tool !== 'cursor' ? { cursorStyle: 'crosshair', externalId: '', zOrder: 'top' } : null;
-    const cursor = h.part === 'body' ? (this.canMove(h) ? 'move' : 'pointer') : h.part === 'sl' || h.part === 'tp' ? 'ns-resize' : h.part === 'end' ? 'ew-resize' : 'pointer';
+    const cursor = h.part === 'body' ? (this.canMove(h) ? 'move' : 'pointer') : h.part === 'sl' || h.part === 'tp' || h.part === 'top' || h.part === 'bottom' ? 'ns-resize' : h.part === 'end' || h.part === 'left' || h.part === 'right' ? 'ew-resize' : this.cornerCursor(h) ?? 'pointer';
     return { cursorStyle: cursor, externalId: h.id, zOrder: 'top' };
+  }
+
+  /** Dikdörtgen köşesi: köşenin yönüne göre çapraz yeniden boyutlandırma imleci (\ veya /). */
+  private cornerCursor(h: Hit): string | null {
+    const d = drawingsOf(useStore.getState().session).find((x) => x.id === h.id);
+    if (!d || d.type !== 'rect' || (h.part !== 'a' && h.part !== 'b' && h.part !== 'c1' && h.part !== 'c2')) return null;
+    const x1 = this.X(d.a.t), x2 = this.X(d.b.t), y1 = this.Y(d.a.p), y2 = this.Y(d.b.p);
+    const [hx, hy] = h.part === 'a' ? [x1, y1] : h.part === 'b' ? [x2, y2] : h.part === 'c1' ? [x1, y2] : [x2, y1];
+    // Sol-üst / sağ-alt köşeler \ yönünde, sol-alt / sağ-üst köşeler / yönünde
+    return (hx < (x1 + x2) / 2) === (hy < (y1 + y2) / 2) ? 'nwse-resize' : 'nesw-resize';
   }
 
   priceAxisViews() {
@@ -282,6 +293,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
             if (active) {
               const bx = this.X(d.b.t);
               for (const [hx, hy] of [[x1, y1], [bx, y2], [x1, y2], [bx, y1]]) this.handle(ctx, hx, hy, d.color);
+              const xm = (x1 + bx) / 2, ym = (y1 + y2) / 2;
+              for (const [hx, hy] of [[xm, y1], [xm, y2], [x1, ym], [bx, ym]]) this.handleSquare(ctx, hx, hy, d.color);
             }
             break;
           }
@@ -603,6 +616,16 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     ctx.stroke();
   }
 
+  /** Kenar ortası tutamacı (kare): dikdörtgenin bir kenarını tek başına çeker. */
+  private handleSquare(ctx: CanvasRenderingContext2D, x: number, y: number, color: string) {
+    const s = HANDLE_R - 0.5;
+    ctx.fillStyle = '#0b0c0f';
+    ctx.fillRect(x - s, y - s, s * 2, s * 2);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = color;
+    ctx.strokeRect(x - s, y - s, s * 2, s * 2);
+  }
+
   private label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, bg: string, fg = '#fff', align: 'left' | 'center' | 'right' = 'center') {
     const w = ctx.measureText(text).width + 10;
     const h = 18;
@@ -774,7 +797,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
 
   allowedParts(d: Drawing): Set<Part> {
     if (d.locked) return new Set<Part>(); // kilitli çizim seçilir ama taşınamaz / düzenlenemez
-    if (!isPos(d)) return new Set<Part>(['body', 'a', 'b', 'c1', 'c2']);
+    if (!isPos(d)) return new Set<Part>(d.type === 'rect' ? ['body', 'a', 'b', 'c1', 'c2', 'top', 'bottom', 'left', 'right'] : ['body', 'a', 'b', 'c1', 'c2']);
     const tr = this.tradeOf(d);
     if (!tr || tr.status === 'pending') return new Set<Part>(['body', 'entry', 'sl', 'tp', 'end']);
     if (tr.status === 'open') return new Set<Part>(['sl', 'tp', 'end']);
@@ -815,6 +838,14 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
             if (near(bx, y2)) return { id: d.id, part: 'b' };
             if (near(x1, y2)) return { id: d.id, part: 'c1' };
             if (near(bx, y1)) return { id: d.id, part: 'c2' };
+            // Kenar ortası tutamaçları: üst = yüksek fiyat, sol = erken zaman
+            const xm = (x1 + bx) / 2, ym = (y1 + y2) / 2;
+            const yHi = d.a.p >= d.b.p ? y1 : y2, yLo = d.a.p >= d.b.p ? y2 : y1;
+            const xLo = d.a.t <= d.b.t ? x1 : bx, xHi = d.a.t <= d.b.t ? bx : x1;
+            if (near(xm, yHi)) return { id: d.id, part: 'top' };
+            if (near(xm, yLo)) return { id: d.id, part: 'bottom' };
+            if (near(xLo, ym)) return { id: d.id, part: 'left' };
+            if (near(xHi, ym)) return { id: d.id, part: 'right' };
           }
           const hl = d.extendLeft ? -HIT_PX : Math.min(x1, bx), hr = d.extendRight ? this.width : Math.max(x1, bx);
           if (x >= hl - HIT_PX && x <= hr + HIT_PX && y >= Math.min(y1, y2) - HIT_PX && y <= Math.max(y1, y2) + HIT_PX)
@@ -1146,6 +1177,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
         else if (hit.part === 'b') patch = { b: at() };
         else if (hit.part === 'c1') patch = { a: { t: at().t, p: orig.a.p }, b: { t: orig.b.t, p: pt.p } };
         else if (hit.part === 'c2') patch = { a: { t: orig.a.t, p: pt.p }, b: { t: at().t, p: orig.b.p } };
+        else if (orig.type === 'rect' && (hit.part === 'top' || hit.part === 'bottom' || hit.part === 'left' || hit.part === 'right')) patch = rectEdgePatch(orig.a, orig.b, hit.part, at());
         else patch = { a: { t: shiftT(orig.a.t), p: r(orig.a.p + dp) }, b: { t: shiftT(orig.b.t), p: r(orig.b.p + dp) } };
         break;
       case 'vline':

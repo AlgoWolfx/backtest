@@ -1,6 +1,21 @@
 // Çizim yardımcıları (DrawingLayer ve şekil kayıt sistemi ortak kullanır; döngüsel içe aktarmayı önler).
 
-import type { LineStyleName } from '../core/types';
+import type { LineStyleName, Pt } from '../core/types';
+
+/**
+ * Dikdörtgenin bir kenarını tek başına çeker. top / bottom: o kenardaki (yüksek / düşük) FİYAT noktası, left / right:
+ * o kenardaki (erken / geç) ZAMAN noktası değişir; a ve b'nin hangisinin hangi kenarda olduğu fark etmez.
+ */
+export function rectEdgePatch(a: Pt, b: Pt, part: 'top' | 'bottom' | 'left' | 'right', pt: Pt): { a?: Pt; b?: Pt } {
+  if (part === 'top' || part === 'bottom') {
+    const aIsHigh = a.p >= b.p;
+    const moveA = part === 'top' ? aIsHigh : !aIsHigh;
+    return moveA ? { a: { ...a, p: pt.p } } : { b: { ...b, p: pt.p } };
+  }
+  const aIsEarly = a.t <= b.t;
+  const moveA = part === 'left' ? aIsEarly : !aIsEarly;
+  return moveA ? { a: { ...a, t: pt.t } } : { b: { ...b, t: pt.t } };
+}
 
 /** Çizgi stiline göre kesik çizgi dizisi. */
 export function dashOf(style: LineStyleName | undefined, width: number): number[] {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hexToRgba, rectFillCss } from '../chart/drawUtil';
+import { hexToRgba, rectEdgePatch, rectFillCss } from '../chart/drawUtil';
 import { STYLE_KEYS, TOOL_DEFAULTS, factoryReset } from '../prefs/drawingTemplates';
 import { DEFAULT_FIB } from './types';
 
@@ -48,5 +48,29 @@ describe('factoryReset', () => {
       expect(STYLE_KEYS[t]).toContain('lossAlpha');
     }
     expect(STYLE_KEYS.fib).toContain('bgColor');
+  });
+});
+
+describe('rectEdgePatch (kenar tutamaçları)', () => {
+  const a = { t: 100, p: 1.2 }; // yüksek fiyat, erken zaman
+  const b = { t: 200, p: 1.1 }; // düşük fiyat, geç zaman
+  const to = { t: 150, p: 1.25 };
+
+  it('üst kenar: yüksek fiyatlı noktanın fiyatı değişir, zamanlar sabit', () => {
+    expect(rectEdgePatch(a, b, 'top', to)).toEqual({ a: { t: 100, p: 1.25 } });
+    expect(rectEdgePatch(a, b, 'bottom', { t: 150, p: 1.05 })).toEqual({ b: { t: 200, p: 1.05 } });
+  });
+  it('sol / sağ kenar: erken / geç zamanlı noktanın zamanı değişir, fiyatlar sabit', () => {
+    expect(rectEdgePatch(a, b, 'left', to)).toEqual({ a: { t: 150, p: 1.2 } });
+    expect(rectEdgePatch(a, b, 'right', { t: 300, p: 9 })).toEqual({ b: { t: 300, p: 1.1 } });
+  });
+  it('a ve b ters çizilmiş olsa da aynı kenar çekilir', () => {
+    // b yüksek ve erken, a düşük ve geç
+    const a2 = { t: 200, p: 1.1 };
+    const b2 = { t: 100, p: 1.2 };
+    expect(rectEdgePatch(a2, b2, 'top', to)).toEqual({ b: { t: 100, p: 1.25 } });
+    expect(rectEdgePatch(a2, b2, 'left', to)).toEqual({ b: { t: 150, p: 1.2 } });
+    expect(rectEdgePatch(a2, b2, 'bottom', to)).toEqual({ a: { t: 200, p: 1.25 } });
+    expect(rectEdgePatch(a2, b2, 'right', to)).toEqual({ a: { t: 150, p: 1.1 } });
   });
 });
