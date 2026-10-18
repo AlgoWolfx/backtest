@@ -1380,6 +1380,36 @@ tbody tr:hover {
   background: transparent;
   pointer-events: none;
 }
+/* Küçültülmüş pencere: arka perde kalkar, grafik kullanılabilir kalır */
+.modal-bg.min {
+  background: transparent;
+  pointer-events: none;
+}
+.modal-bg.min .modal {
+  pointer-events: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+.modal.min .modal-body,
+.tvd.min .tvd-tabs,
+.tvd.min .tvd-body,
+.tvd.min .tvd-foot {
+  display: none;
+}
+.tvd.min {
+  width: 260px;
+}
+.modal.min {
+  width: 260px !important;
+}
+.tvd-head-btns {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.modal-head,
+.tvd-head {
+  user-select: none;
+}
 .modal-bg.bare .modal {
   pointer-events: auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
@@ -1565,7 +1595,7 @@ tbody tr:hover {
   position: fixed;
   left: 14px;
   top: 14px;
-  width: 360px;
+  width: 400px;
   max-height: calc(100vh - 28px);
   display: flex;
   flex-direction: column;
@@ -1607,7 +1637,19 @@ tbody tr:hover {
 }
 .tvd-body {
   padding: 14px 16px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.tvd .fib-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.tvd .fib-level {
+  min-width: 0;
+}
+.tvd .fib-level .num {
+  min-width: 0;
+  width: 100%;
 }
 .tvd-row {
   display: flex;
@@ -1832,4 +1874,168 @@ tbody tr:hover {
   font-size: 9px;
   font-weight: 700;
   color: #2962ff;
+}
+
+/* ---------------------------------------------------------------- işlem değerlendirme penceresi */
+.review-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+.review-layer.min {
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 60px 24px;
+  background: transparent;
+  pointer-events: none;
+}
+.review {
+  width: 560px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+}
+.review.min {
+  width: 280px;
+}
+.review.min .review-body,
+.review.min .review-foot {
+  display: none;
+}
+.review-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+.review-sum {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.review-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 16px;
+  overflow-y: auto;
+}
+.review-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.review-field > span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.review-field textarea {
+  min-height: 58px;
+  resize: vertical;
+  padding: 8px 10px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg0);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.review-field textarea:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+.review-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.review .chip {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg0);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.review .chip:hover {
+  border-color: var(--muted);
+}
+.review .chip.on {
+  color: #fff;
+  background: var(--red);
+  border-color: var(--red);
+}
+.review .chip.ok.on {
+  background: var(--green);
+  border-color: var(--green);
+}
+.review-stars {
+  display: flex;
+  gap: 2px;
+}
+.review-stars button {
+  padding: 0 2px;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--border);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.review-stars button.on {
+  color: var(--orange);
+}
+.review-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px 12px;
+  border-top: 1px solid var(--border);
+}
+.review-hint {
+  font-size: 11px;
+}
+.rv-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: var(--bg2);
+  border-left: 3px solid var(--blue);
+  border-radius: 4px;
+}
+.rv-block .rv-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rv-block .rv-tag {
+  padding: 1px 8px;
+  font-size: 11px;
+  border: 1px solid var(--red);
+  color: var(--red);
+  border-radius: 999px;
+}
+.rv-block .rv-tag.ok {
+  border-color: var(--green);
+  color: var(--green);
 }

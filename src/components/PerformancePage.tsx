@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getSymbol } from '../../shared/symbols.js';
+import { hasReview, mistakeBreakdown, NO_MISTAKE, reviewSummary } from '../core/review';
 import { breakdown, computeStats, sessionOf, SESSIONS, weekdayOf, WEEKDAYS, closedTrades, type BreakdownRow, type EquityPoint } from '../core/stats';
 import { chronologyIssue, entryTime, EXECUTION_MODEL, type Trade } from '../core/trading';
 import { ACCOUNT_PRESETS, type Account } from '../core/account';
 import { describeRules } from './SessionScreen';
 import { flagLabel, fmtMoney, fmtNy, fmtPrice, fmtR, reasonLabel } from '../format';
 import { shotUrl } from '../shots';
-import { setTradeNote, useStore } from '../store';
+import { editReview, setTradeNote, useStore } from '../store';
 import { Icons } from './icons';
 
 /** Performans ve işlem günlüğü (FX Replay "Analytics / Journal" benzeri). */
@@ -31,6 +32,8 @@ export function PerformancePage() {
   const close = () => useStore.setState({ perfOpen: false });
   const trades = session.trades;
   const journal = [...closedTrades(trades)].reverse();
+  const mistakes = mistakeBreakdown(trades);
+  const rs = reviewSummary(trades);
   const balanceAfter = new Map(stats.equity.map((p, i) => [journal[journal.length - 1 - i]?.id, p.balance]));
 
   return (
@@ -78,7 +81,14 @@ export function PerformancePage() {
             <BreakdownTable title="Yön" rows={breakdown(trades, (t) => (t.side === 'long' ? 'Long' : 'Short'), ['Long', 'Short'])} />
             <BreakdownTable title="Giriş seansı (NY saati)" rows={breakdown(trades, (t) => sessionOf(entryTime(t)), SESSIONS)} />
             <BreakdownTable title="Gün (NY)" rows={breakdown(trades, (t) => weekdayOf(entryTime(t)), WEEKDAYS)} />
+            {mistakes.length > 0 && <BreakdownTable title="Hatalar (kendi değerlendirmen)" rows={mistakes} />}
           </section>
+          {rs.closed > 0 && (
+            <p className="hint">
+              Değerlendirilen işlem: {rs.reviewed} / {rs.closed}
+              {rs.avgRating != null ? ` · ortalama kalite ${rs.avgRating.toFixed(1)} / 5` : ''}. İşlem kapanınca açılan pencereyi atladıysan, aşağıdaki günlükten "Değerlendir" ile doldurabilirsin.
+            </p>
+          )}
 
           <section className="card">
             <h2>İşlem günlüğü</h2>
@@ -206,6 +216,40 @@ function BreakdownTable({ title, rows }: { title: string; rows: BreakdownRow[] }
   );
 }
 
+function ReviewBlock({ t }: { t: Trade }) {
+  const r = t.review;
+  if (!r || !hasReview(t)) return null;
+  return (
+    <div className="rv-block">
+      {r.rating ? <span className="warn">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span> : null}
+      {r.reason && (
+        <div>
+          <b>Giriş nedeni:</b> {r.reason}
+        </div>
+      )}
+      {r.mistakes.length > 0 && (
+        <div className="rv-tags">
+          {r.mistakes.map((m) => (
+            <span key={m} className={`rv-tag ${m === NO_MISTAKE ? 'ok' : ''}`}>
+              {m}
+            </span>
+          ))}
+        </div>
+      )}
+      {r.mistakeText && (
+        <div>
+          <b>Hatalarım:</b> {r.mistakeText}
+        </div>
+      )}
+      {r.lesson && (
+        <div>
+          <b>Ders:</b> {r.lesson}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function JournalEntry({ trade: t, n, balance, sessionId, onZoom }: { trade: Trade; n: number; balance?: number; sessionId: string; onZoom: (url: string) => void }) {
   const spec = getSymbol(t.symbol);
   const [note, setNote] = useState(t.note ?? '');
@@ -229,6 +273,9 @@ function JournalEntry({ trade: t, n, balance, sessionId, onZoom }: { trade: Trad
           {t.openedAt ? fmtNy(entryTime(t)) : '—'} → {t.closedAt ? fmtNy(t.closedAt) : '—'} NY
         </span>
         <span className="spacer" />
+        <button className="btn small ghost" onClick={() => editReview(t.id)} title="İşlem değerlendirmesini aç">
+          {hasReview(t) ? 'Değerlendirmeyi düzenle' : 'Değerlendir'}
+        </button>
         <span className={`pill ${t.result}`}>{t.result === 'win' ? 'Win' : t.result === 'loss' ? 'Loss' : 'BE'}</span>
         <b className={(t.pnl ?? 0) >= 0 ? 'pos' : 'neg'}>{fmtMoney(t.pnl ?? 0, true)}</b>
         <b className={(t.r ?? 0) >= 0 ? 'pos' : 'neg'}>{fmtR(t.r)}</b>
@@ -243,6 +290,7 @@ function JournalEntry({ trade: t, n, balance, sessionId, onZoom }: { trade: Trad
           </span>
         ) : null}
       </div>
+      <ReviewBlock t={t} />
       <div className="entry-body">
         {shot('open', 'Giriş')}
         {shot('close', 'Çıkış')}

@@ -177,8 +177,11 @@ function HistoryTable({ trades }: { trades: Trade[] }) {
   );
 }
 
+/** Serbest metin alanları virgül / satır sonu içerebilir: CSV'de tırnaklanır. */
+const q = (v?: string) => `"${(v ?? '').replace(/"/g, '""')}"`;
+
 function exportCsv(name: string, trades: Trade[]) {
-  const head = ['parite', 'yon', 'acilis_ny', 'kapanis_ny', 'lot', 'entry', 'sl', 'tp', 'cikis', 'neden', 'r', 'kz_usd', 'sonuc', 'komisyon_usd', 'brut_kz_usd', 'mum_ici_varsayim'];
+  const head = ['parite', 'yon', 'acilis_ny', 'kapanis_ny', 'lot', 'entry', 'sl', 'tp', 'cikis', 'neden', 'r', 'kz_usd', 'sonuc', 'komisyon_usd', 'brut_kz_usd', 'mum_ici_varsayim', 'kalite_1_5', 'giris_nedeni', 'hatalar', 'hata_notu', 'ders'];
   const rows = [...trades].reverse().map((t) => [
     t.symbol,
     t.side,
@@ -196,6 +199,11 @@ function exportCsv(name: string, trades: Trade[]) {
     (t.commission ?? 0).toFixed(2),
     (t.grossPnl ?? t.pnl ?? 0).toFixed(2),
     (t.flags ?? []).join('|'),
+    t.review?.rating ?? '',
+    q(t.review?.reason),
+    q(t.review?.mistakes.join('|')),
+    q(t.review?.mistakeText),
+    q(t.review?.lesson),
   ]);
   const csv = [head, ...rows].map((r) => r.join(',')).join('\n');
   const a = document.createElement('a');

@@ -6,7 +6,7 @@ import { bucketEndAfter, nextNyTime } from './core/replay';
 import { loadTheme, saveTheme, type ChartTheme } from './chartTheme';
 import { loadSessionSettings, saveSessionSettings } from './sessionSettings';
 import { nextBoundary, type SessionSettings } from './core/sessions';
-import { chronologyIssue, closeTrade, decideLots, EXECUTION_MODEL, pendingType, rewindBlockedBy, type Side, type Trade } from './core/trading';
+import { chronologyIssue, closeTrade, decideLots, EXECUTION_MODEL, pendingType, rewindBlockedBy, type Side, type Trade, type TradeReview } from './core/trading';
 import { afterBalanceChange, newAccount, noteTradingDay, rollDay, type AccountRules } from './core/account';
 import { activeTrades, balanceOf, simulate as simulateRange, type SimResult } from './core/simulate';
 import { DEFAULT_FIB, LAYOUTS, defaultSplit, type Drawing, type LayoutId, type NewDrawing, type PaneCfg, type Position, type Session, type Tool } from './core/types';
@@ -56,6 +56,8 @@ interface State {
   panelOpen: boolean;
   /** Çoklu ekranda büyütülmüş grafik (null = hepsi görünür). Kaydedilmez. */
   maxPane: number | null;
+  /** Değerlendirme penceresi bekleyen kapanmış işlemler (ilki açık) */
+  reviewQueue: string[];
   jumpOpen: boolean;
   /** Grafikte tıklanan mumdan replay başlatma modu */
   pickingStart: boolean;
@@ -93,6 +95,7 @@ export const useStore = create<State>(() => ({
   hideDrawings: false,
   panelOpen: false,
   maxPane: null,
+  reviewQueue: [],
   jumpOpen: false,
   pickingStart: false,
   perfOpen: false,
@@ -262,7 +265,7 @@ export async function closeSession() {
   stopPlay();
   const s = get().session;
   if (s) await saveNow(s);
-  set({ session: null, selectedId: null, editingId: null, maxPane: null });
+  set({ session: null, selectedId: null, editingId: null, maxPane: null, reviewQueue: [] });
   await refreshSessions();
 }
 
@@ -402,6 +405,8 @@ function advanceTo(target: number, opts: { stopOnEvent?: boolean } = {}): number
   if (closedNow.length || filled.length || breach) stopPlay();
   for (const u of filled) emitTrade('open', u.id);
   for (const tr of closedNow) emitTrade('close', tr.id);
+  // Ekran görüntüsü yukarıda eşzamanlı alındı; şimdi değerlendirme penceresi sıraya girer (zorla kapanan işlemler hariç).
+  for (const tr of closedNow) if (tr.exitReason !== 'breach') queueReview(tr.id);
   return newTime;
 }
 
@@ -916,6 +921,32 @@ function patchTrade(id: string, fn: (t: Trade) => Trade) {
 export function setTradeShot(id: string, kind: 'open' | 'close', name: string) {
   patchTrade(id, (t) => ({ ...t, shots: { ...t.shots, [kind]: name } }));
 }
+// ---- işlem sonrası değerlendirme
+
+/** Kapanmış işlemi değerlendirme sırasına koyar; oynatma durur ve pencere açılır. */
+export function queueReview(id: string) {
+  const tr = get().session?.trades.find((t) => t.id === id);
+  if (!tr || tr.status !== 'closed') return;
+  stopPlay();
+  set({ reviewQueue: [...get().reviewQueue.filter((x) => x !== id), id] });
+}
+
+/** Performans sayfasından: işlemin değerlendirmesini (yeniden) aç. */
+export function editReview(id: string) {
+  const tr = get().session?.trades.find((t) => t.id === id);
+  if (!tr || tr.status !== 'closed') return;
+  set({ reviewQueue: [id, ...get().reviewQueue.filter((x) => x !== id)] });
+}
+
+export function skipReview(id: string) {
+  set({ reviewQueue: get().reviewQueue.filter((x) => x !== id) });
+}
+
+export function saveReview(id: string, review: Omit<TradeReview, 'reviewedAt'>) {
+  patchTrade(id, (t) => ({ ...t, review: { ...review, reviewedAt: Date.now() } }));
+  skipReview(id);
+}
+
 export function setTradeNote(id: string, note: string) {
   patchTrade(id, (t) => ({ ...t, note }));
 }
@@ -942,6 +973,7 @@ export function closeTradeManual(tradeId: string) {
     return { trades, account };
   });
   emitTrade('close', tradeId);
+  queueReview(tradeId);
   if (get().session?.account?.state.status === 'passed' && s.account?.state.status !== 'passed') {
     return toast(`Tebrikler, değerlendirme geçildi: ${get().session!.account!.state.reason}.`, 'win');
   }

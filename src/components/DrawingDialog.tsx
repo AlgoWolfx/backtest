@@ -12,6 +12,7 @@ import { DEFAULT_FIB, type Drawing, type Fib, FibLevel, HLine, LineEnd, LineStyl
 import { clearTemplate, factoryReset, loadTemplate, saveTemplate, templateOf } from '../drawingTemplates';
 import { fmtDistance, fmtMoney } from '../format';
 import { balanceOf, placeOrderFromDrawing, recordUndo, setFibDefaults, toast, updateDrawing, useStore } from '../store';
+import { useWindow } from '../useWindow';
 import { NumberInput } from './Bars';
 import { Icons } from './icons';
 
@@ -446,6 +447,7 @@ function PositionInputs({ d, digits }: { d: Position; digits: number }) {
 
 export function DrawingDialog({ d }: { d: Editable }) {
   const [tab, setTab] = useState<Tab>('style');
+  const win = useWindow('drawing');
   const snapshot = useRef<Editable>(structuredClone(d));
   const digits = useStore((s) => (s.session ? Math.max(0, Math.min(8, (s.data[s.session.symbol]?.scale ?? 1e5).toString().length - 1)) : 5));
   useEffect(() => {
@@ -505,12 +507,17 @@ export function DrawingDialog({ d }: { d: Editable }) {
   );
 
   return (
-    <div className="tvd" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-      <div className="tvd-head">
+    <div ref={win.winRef} style={win.style} className={`tvd ${win.min ? 'min' : ''}`} onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      <div className="tvd-head" {...win.headProps}>
         <b>{TITLES[d.type]}</b>
-        <button className="icon-btn tvd-x" title="Kapat (Esc: iptal)" onClick={cancel}>
-          <Icons.close />
-        </button>
+        <span className="tvd-head-btns">
+          <button className="icon-btn" title={win.min ? 'Büyüt' : 'Küçült (çizimi görmek için)'} onClick={win.toggleMin}>
+            {win.min ? '▢' : '–'}
+          </button>
+          <button className="icon-btn tvd-x" title="Kapat (Esc: iptal)" onClick={cancel}>
+            <Icons.close />
+          </button>
+        </span>
       </div>
       <div className="tvd-tabs">
         {tabs.map((t) => (

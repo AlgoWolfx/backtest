@@ -8,6 +8,7 @@ import { ChartSettings, DrawingEditor, JumpDialog, Toast } from './components/Di
 import { SessionScreen } from './components/SessionScreen';
 import { TradePanel } from './components/TradePanel';
 import { PerformancePage } from './components/PerformancePage';
+import { TradeReviewModal } from './components/TradeReview';
 import { toggleFullscreen } from './fullscreen';
 import { cancelTicket, copySelected, deleteDrawing, forwardToBarClose, forwardToNextSessionBoundary, init, pasteClipboard, redo, setTf, stepBack, stepForward, toast, toggleMaxPane, togglePlay, undo, useStore } from './store';
 
@@ -54,7 +55,7 @@ export function App() {
 
     const onKey = (e: KeyboardEvent) => {
       const st = useStore.getState();
-      if (!st.session || st.editingId || st.jumpOpen || st.perfOpen || st.chartSettingsOpen) return;
+      if (!st.session || st.editingId || st.jumpOpen || st.perfOpen || st.chartSettingsOpen || st.reviewQueue.length) return;
       const el = e.target as HTMLElement;
       if (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') return;
       const ctrl = e.ctrlKey || e.metaKey;
@@ -158,6 +159,7 @@ export function App() {
       <JumpDialog />
       <ChartSettings />
       <PerformancePage />
+      <TradeReviewModal />
       <Toast />
       {tfBuf && (
         <div className="tf-typing">

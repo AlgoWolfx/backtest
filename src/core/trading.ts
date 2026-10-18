@@ -43,6 +43,21 @@ export type TradeFlag = 'sl-tp-same-bar' | 'fill-bar-tp-unknown' | 'fill-bar-sl-
  */
 export const EXECUTION_MODEL = 3;
 
+/** İşlem kapanınca doldurulan değerlendirme: neden girdim, hatalarım, ders. */
+export interface TradeReview {
+  /** Neden işleme girdim (setup / gerekçe) */
+  reason: string;
+  /** Seçilen hata etiketleri (bkz. core/review.ts) */
+  mistakes: string[];
+  /** Hatalarım / ne yanlış gitti (serbest metin) */
+  mistakeText: string;
+  /** Ders: bir dahaki sefere ne yapacağım */
+  lesson: string;
+  /** İşlem kalitesi / plana uyum, 1-5 (yok = verilmedi) */
+  rating?: number;
+  reviewedAt: number;
+}
+
 export interface Trade {
   id: string;
   symbol: string;
@@ -67,6 +82,8 @@ export interface Trade {
   shots?: { open?: string; close?: string };
   /** Günlük notu */
   note?: string;
+  /** İşlem sonrası değerlendirme (kapanışta açılan pencereden) */
+  review?: TradeReview;
   /** Mum içi sıra belirsizliği nedeniyle yapılan varsayımlar (bkz. TradeFlag) */
   flags?: TradeFlag[];
   /** Açılışta işleme yazılan komisyon (USD / lot, gidiş-dönüş); sonradan ayar değişse de bu işlem değişmez */

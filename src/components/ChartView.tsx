@@ -401,7 +401,7 @@ function BarInspector({ L, onClose }: { L: number; onClose: () => void }) {
     );
   const shown = rows.slice(0, 1500);
   return (
-    <Modal title={`${s.symbol} ${ti.label} mum — kaynak verisi`} onClose={onClose} width={640}>
+    <Modal title={`${s.symbol} ${ti.label} mum — kaynak verisi`} onClose={onClose} wkey="candle" width={640}>
       <div className="inspect-head">
         <div>
           Başlangıç: <b>{fmtNy(info.utc)} NY</b> <span className="muted">({new Date(info.utc * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC)</span>

@@ -7,21 +7,28 @@ import { NumberInput } from './Bars';
 import { Icons } from './icons';
 import { SessionSettingsTab } from './SessionSettingsTab';
 import { DrawingDialog } from './DrawingDialog';
+import { useWindow } from '../useWindow';
 
-export function Modal({ title, onClose, children, width = 420, bare = false }: { title: string; onClose: () => void; children: ReactNode; width?: number; bare?: boolean }) {
+export function Modal({ title, onClose, children, width = 420, bare = false, wkey = 'modal' }: { title: string; onClose: () => void; children: ReactNode; width?: number; bare?: boolean; wkey?: string }) {
+  const win = useWindow(wkey);
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
   }, [onClose]);
   return (
-    <div className={`modal-bg ${bare ? 'bare' : ''}`} onMouseDown={onClose}>
-      <div className="modal" style={{ width }} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-head">
+    <div className={`modal-bg ${bare ? 'bare' : ''} ${win.min ? 'min' : ''}`} onMouseDown={onClose}>
+      <div ref={win.winRef} className={`modal ${win.min ? 'min' : ''}`} style={{ width, ...win.style }} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="modal-head" {...win.headProps}>
           <b>{title}</b>
-          <button className="icon-btn" onClick={onClose}>
-            <Icons.close />
-          </button>
+          <span className="tvd-head-btns">
+            <button className="icon-btn" title={win.min ? 'Büyüt' : 'Küçült'} onClick={win.toggleMin}>
+              {win.min ? '▢' : '–'}
+            </button>
+            <button className="icon-btn" onClick={onClose}>
+              <Icons.close />
+            </button>
+          </span>
         </div>
         <div className="modal-body">{children}</div>
       </div>
@@ -104,7 +111,7 @@ export function ChartSettings() {
     { id: 'sessions', label: 'Seanslar' },
   ];
   return (
-    <Modal title="Grafik ayarları" width={460} bare onClose={() => useStore.setState({ chartSettingsOpen: false })}>
+    <Modal title="Grafik ayarları" wkey="chart-settings" width={460} bare onClose={() => useStore.setState({ chartSettingsOpen: false })}>
       <div className="seg tabs">
         {TABS.map((x) => (
           <button key={x.id} className={tab === x.id ? 'on' : ''} onClick={() => setTab(x.id)}>
@@ -240,7 +247,7 @@ export function JumpDialog() {
     close();
   };
   return (
-    <Modal title="Replay tarihini değiştir" onClose={close}>
+    <Modal title="Replay tarihini değiştir" wkey="jump" onClose={close}>
       <p className="hint">Seçilen New York saatinden sonraki mumlar gizlenir. Açık pozisyon varken yalnızca ileri gidilebilir; aradaki mumlar SL/TP için işlenir.</p>
       <div className="form-row">
         <input type="date" value={v.date} onChange={(e) => setV({ ...v, date: e.target.value })} onKeyDown={(e) => e.stopPropagation()} />
