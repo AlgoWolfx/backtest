@@ -10,6 +10,7 @@ import { DEFAULT_THEME, THEME_PRESETS, withColors, type ChartTheme, type ChartTy
 import { COLORS } from './DrawingToolbar';
 import { NumberInput } from './Bars';
 import { Icons } from './icons';
+import { SessionSettingsTab } from './SessionSettingsTab';
 
 export function Modal({ title, onClose, children, width = 420, bare = false }: { title: string; onClose: () => void; children: ReactNode; width?: number; bare?: boolean }) {
   useEffect(() => {
@@ -266,7 +267,7 @@ function PositionFields({ d, digits }: { d: Position; digits: number }) {
 
 // ---------------------------------------------------------------- grafik ayarları
 
-type SettingsTab = 'symbol' | 'status' | 'scales' | 'canvas';
+type SettingsTab = 'symbol' | 'status' | 'scales' | 'canvas' | 'sessions';
 const CHART_TYPES: { id: ChartType; label: string }[] = [
   { id: 'candles', label: 'Mumlar' },
   { id: 'hollow', label: 'Boş mumlar' },
@@ -278,7 +279,14 @@ const CHART_TYPES: { id: ChartType; label: string }[] = [
 export function ChartSettings() {
   const open = useStore((s) => s.chartSettingsOpen);
   const t = useStore((s) => s.chartTheme);
+  const wantedTab = useStore((s) => s.chartSettingsTab);
   const [tab, setTab] = useState<SettingsTab>('symbol');
+  useEffect(() => {
+    if (open && wantedTab) {
+      setTab(wantedTab as SettingsTab);
+      useStore.setState({ chartSettingsTab: null });
+    }
+  }, [open, wantedTab]);
   if (!open) return null;
   const upd = (patch: Partial<ChartTheme>) => setChartTheme({ ...t, ...patch });
   const color = (label: string, key: keyof ChartTheme) => (
@@ -318,6 +326,7 @@ export function ChartSettings() {
     { id: 'status', label: 'Durum çubuğu' },
     { id: 'scales', label: 'Ölçekler ve çizgiler' },
     { id: 'canvas', label: 'Tuval' },
+    { id: 'sessions', label: 'Seanslar' },
   ];
   return (
     <Modal title="Grafik ayarları" width={460} bare onClose={() => useStore.setState({ chartSettingsOpen: false })}>
@@ -362,6 +371,7 @@ export function ChartSettings() {
           </div>
         </>
       )}
+      {tab === 'sessions' && <SessionSettingsTab />}
       {tab === 'status' && (
         <>
           {check('Sembol adı', 'showSymbol')}

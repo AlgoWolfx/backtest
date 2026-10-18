@@ -118,6 +118,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
   requestUpdate() {
     this.version++;
     this.requestRedraw?.();
+    this.c.sessions?.requestUpdate();
   }
   hitTest(x: number, y: number): PrimitiveHoveredItem | null {
     if (useStore.getState().pickingStart) return { cursorStyle: 'pointer', externalId: '', zOrder: 'top' };

@@ -8,7 +8,8 @@ import { ChartSettings, DrawingEditor, JumpDialog, Toast } from './components/Di
 import { SessionScreen } from './components/SessionScreen';
 import { TradePanel } from './components/TradePanel';
 import { PerformancePage } from './components/PerformancePage';
-import { cancelTicket, copySelected, deleteDrawing, forwardToBarClose, init, pasteClipboard, redo, setTf, stepBack, stepForward, toast, togglePlay, undo, useStore } from './store';
+import { toggleFullscreen } from './fullscreen';
+import { cancelTicket, copySelected, deleteDrawing, forwardToBarClose, forwardToNextSessionBoundary, init, pasteClipboard, redo, setTf, stepBack, stepForward, toast, togglePlay, undo, useStore } from './store';
 
 const TOOL_KEYS: Record<string, Tool> = { KeyT: 'trend', KeyH: 'hline', KeyR: 'rect', KeyF: 'fib', KeyL: 'long', KeyS: 'short', KeyM: 'measure' };
 
@@ -107,6 +108,17 @@ export function App() {
         case 'ArrowLeft':
           e.preventDefault();
           stepBack();
+          break;
+        case 'n':
+        case 'N':
+          e.preventDefault();
+          forwardToNextSessionBoundary();
+          break;
+        case 'F':
+          if (e.shiftKey) {
+            e.preventDefault();
+            toggleFullscreen();
+          }
           break;
         case 'Delete':
         case 'Backspace':
