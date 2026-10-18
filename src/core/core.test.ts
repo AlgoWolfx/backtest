@@ -6,7 +6,7 @@ import { bucketChartTime, bucketKey, bucketStartUtc, TIMEFRAMES } from './timefr
 import { bucketEndAfter, nextNyTime } from './replay';
 import { breakdown, computeStats, sessionOf, SESSIONS, weekdayOf } from './stats';
 import { afterBalanceChange, evaluate, levels, newAccount, noteTradingDay, rollDay, type AccountRules } from './account';
-import { applyCandle, calcPnl, calcR, decideLots, lotsForRisk, normalizeLots, type Trade } from './trading';
+import { applyCandle, calcPnl, calcR, decideLots, entryTime, lastTradeEvent, lotsForRisk, normalizeLots, rewindBlockedBy, type Trade } from './trading';
 
 const utc = (s: string) => Date.parse(s + 'Z') / 1000;
 /** NY yerel saatini ("2024-07-10 09:30") gerçek UTC'ye çevirir. */
@@ -459,5 +459,55 @@ describe('pozisyon boyutlandırma — issue #5, #6', () => {
     expect(lotsForRisk(getSymbol('XAUUSD'), 100000, 1, 2000, 1995)).toBeCloseTo(2, 6); // 5$ × 100 oz = 500$/lot
     // USDJPY: 50 pip = 0.50 JPY × 100000 / 150 = 333.33$/lot -> 3 lot
     expect(lotsForRisk(getSymbol('USDJPY'), 100000, 1, 150, 149.5)).toBeCloseTo(3, 6);
+  });
+});
+
+describe('replay kronolojisi — issue #7', () => {
+  const closed = (createdAt: number, openedAt: number, closedAt: number, pnl: number): Trade => ({
+    id: 'c', symbol: 'EURUSD', side: 'long', status: 'closed', orderType: 'market', createdAt, openedAt, closedAt, entry: 1.1, sl: 1.099, tp: 1.102, initialSl: 1.099, lots: 1, exit: 1.11, pnl, r: 1, result: 'win',
+  });
+
+  it('işlem yokken geri almak serbest', () => {
+    expect(lastTradeEvent([])).toBeNull();
+    expect(rewindBlockedBy([], 0)).toBeNull();
+  });
+
+  it('kapanmış işlemden önceye geri almak engellenir (gelecekteki kâr bakiyede kalmaz)', () => {
+    const t = closed(900, 900, 1200, 1000);
+    // replay 1200'de (kapanış); 1140'a (kapanıştan önce) dönmek engelli
+    expect(lastTradeEvent([t])).toBe(1200);
+    expect(rewindBlockedBy([t], 1140)).toBe(1200);
+    expect(rewindBlockedBy([t], 899)).toBe(1200);
+  });
+
+  it('son işlem olayının kendisine veya sonrasına gitmek engellenmez', () => {
+    const t = closed(900, 900, 1200, 1000);
+    expect(rewindBlockedBy([t], 1200)).toBeNull();
+    expect(rewindBlockedBy([t], 5000)).toBeNull();
+  });
+
+  it('birden çok işlemde en son olay esas alınır; iptal edilen emir de olaydır', () => {
+    const a = closed(100, 100, 200, 50);
+    const b: Trade = { ...closed(300, 300, 400, -20), status: 'cancelled', result: undefined, pnl: undefined };
+    expect(lastTradeEvent([a, b])).toBe(400);
+    expect(rewindBlockedBy([a, b], 250)).toBe(400);
+  });
+});
+
+describe('işlem günü / seans: piyasa emri giriş zamanı — issue #11', () => {
+  it('17:00da verilen piyasa emri (16:59 mumundan girer) yeni işlem gününe ve 17:00 seansına yazılır', () => {
+    const replay = ny('2024-07-10 17:00');
+    const barT = ny('2024-07-10 16:59');
+    const t: Trade = { id: 'm', symbol: 'EURUSD', side: 'long', status: 'open', orderType: 'market', createdAt: replay, openedAt: barT, entry: 1.1, sl: 1.099, tp: 1.102, initialSl: 1.099, lots: 1 };
+    expect(tradingDay(barT)).not.toBe(tradingDay(replay));
+    expect(tradingDay(entryTime(t))).toBe(tradingDay(replay));
+    expect(sessionOf(barT)).not.toBe(sessionOf(entryTime(t)));
+    expect(sessionOf(entryTime(t))).toBe(SESSIONS[4]); // Kapanış 17-20
+  });
+
+  it('bekleyen emir dolum mumunun başlangıcına göre sayılır', () => {
+    const k = ny('2024-07-10 07:00');
+    const t: Trade = { id: 'p', symbol: 'EURUSD', side: 'long', status: 'open', orderType: 'limit', createdAt: ny('2024-07-10 03:00'), openedAt: k, entry: 1.1, sl: 1.099, tp: 1.102, initialSl: 1.099, lots: 1 };
+    expect(entryTime(t)).toBe(k);
   });
 });

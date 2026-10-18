@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getSymbol } from '../../shared/symbols.js';
 import { breakdown, computeStats, sessionOf, SESSIONS, weekdayOf, WEEKDAYS, closedTrades, type BreakdownRow, type EquityPoint } from '../core/stats';
-import type { Trade } from '../core/trading';
+import { entryTime, type Trade } from '../core/trading';
 import { ACCOUNT_PRESETS, type Account } from '../core/account';
 import { describeRules } from './SessionScreen';
 import { flagLabel, fmtMoney, fmtNy, fmtPrice, fmtR, reasonLabel } from '../format';
@@ -57,7 +57,7 @@ export function PerformancePage() {
             <Tile label="Kazanma oranı" value={`${stats.winRate.toFixed(1)}%`} sub={`seri: ${stats.maxWinStreak} kazanç / ${stats.maxLossStreak} kayıp`} />
             <Tile label="Toplam R" value={fmtR(stats.totalR)} sub={`ortalama ${fmtR(stats.avgR)} / işlem`} tone={stats.totalR >= 0 ? 'pos' : 'neg'} />
             <Tile label="Profit factor" value={stats.profitFactor == null ? '—' : stats.profitFactor.toFixed(2)} sub={`ort. kazanç ${fmtR(stats.avgWinR)} · ort. kayıp ${fmtR(stats.avgLossR)}`} />
-            <Tile label="Maks. düşüş" value={fmtMoney(-stats.maxDrawdown)} sub={`${stats.maxDrawdownPct.toFixed(2)}% zirveden`} tone={stats.maxDrawdown > 0 ? 'neg' : undefined} />
+            <Tile label="Maks. düşüş (bakiye)" value={fmtMoney(-stats.maxDrawdown)} sub={`${stats.maxDrawdownPct.toFixed(2)}% zirveden · yalnızca kapanmış işlemler`} tone={stats.maxDrawdown > 0 ? 'neg' : undefined} />
             <Tile label="En iyi / en kötü" value={fmtMoney(stats.largestWin, true)} sub={`en kötü ${fmtMoney(stats.largestLoss, true)}`} />
             <Tile label="Ort. süre" value={stats.avgHoldMin == null ? '—' : fmtHold(stats.avgHoldMin)} sub="girişten çıkışa" />
           </section>
@@ -73,8 +73,8 @@ export function PerformancePage() {
           <section className="breakdowns">
             <BreakdownTable title="Sembol" rows={breakdown(trades, (t) => t.symbol)} />
             <BreakdownTable title="Yön" rows={breakdown(trades, (t) => (t.side === 'long' ? 'Long' : 'Short'), ['Long', 'Short'])} />
-            <BreakdownTable title="Giriş seansı (NY saati)" rows={breakdown(trades, (t) => sessionOf(t.openedAt ?? t.createdAt), SESSIONS)} />
-            <BreakdownTable title="Gün (NY)" rows={breakdown(trades, (t) => weekdayOf(t.openedAt ?? t.createdAt), WEEKDAYS)} />
+            <BreakdownTable title="Giriş seansı (NY saati)" rows={breakdown(trades, (t) => sessionOf(entryTime(t)), SESSIONS)} />
+            <BreakdownTable title="Gün (NY)" rows={breakdown(trades, (t) => weekdayOf(entryTime(t)), WEEKDAYS)} />
           </section>
 
           <section className="card">
@@ -120,7 +120,18 @@ function AccountCard({ account: a, initial }: { account: Account; initial: numbe
         <Tile label="En büyük günlük kayıp" value={fmtMoney(-st.worstDailyLoss)} sub={`${((st.worstDailyLoss / initial) * 100).toFixed(2)}%${r.dailyLossPct != null ? ` · limit %${r.dailyLossPct}` : ''}`} tone={st.worstDailyLoss > 0 ? 'neg' : undefined} />
         <Tile label="En düşük equity" value={fmtMoney(st.minEquity)} sub={`${(((st.minEquity - initial) / initial) * 100).toFixed(2)}% başlangıca göre`} />
         <Tile label="İşlem günü" value={String(st.tradingDays.length)} sub={r.minTradingDays ? `en az ${r.minTradingDays} gerekli` : 'şart yok'} />
+        {st.ddClose && <Tile label="Maks. düşüş (equity, dakika sonu)" value={fmtMoney(-st.ddClose.abs)} sub={`en büyük %${st.ddClose.pct.toFixed(2)} · açık P&L dahil, her dakika kapanışında ölçülür`} tone={st.ddClose.abs > 0 ? 'neg' : undefined} />}
+        {st.ddLow && <Tile label="Maks. düşüş (equity, mum içi en kötü)" value={fmtMoney(-st.ddLow.abs)} sub={`en büyük %${st.ddLow.pct.toFixed(2)} · mum dibine/tepesine göre muhafazakâr tahmin`} tone={st.ddLow.abs > 0 ? 'neg' : undefined} />}
       </div>
+      {st.warnings?.length ? (
+        <ul className="hint amb">
+          {st.warnings.map((w, i) => (
+            <li key={i}>
+              {fmtNy(w.t)} NY · {w.text}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 }
@@ -191,7 +202,7 @@ function JournalEntry({ trade: t, n, balance, sessionId, onZoom }: { trade: Trad
         <b>{t.symbol}</b>
         <span className={t.side === 'long' ? 'pos' : 'neg'}>{t.side === 'long' ? 'Long' : 'Short'}</span>
         <span className="muted">
-          {t.openedAt ? fmtNy(t.openedAt) : '—'} → {t.closedAt ? fmtNy(t.closedAt) : '—'} NY
+          {t.openedAt ? fmtNy(entryTime(t)) : '—'} → {t.closedAt ? fmtNy(t.closedAt) : '—'} NY
         </span>
         <span className="spacer" />
         <span className={`pill ${t.result}`}>{t.result === 'win' ? 'Win' : t.result === 'loss' ? 'Loss' : 'BE'}</span>

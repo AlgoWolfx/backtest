@@ -133,6 +133,10 @@ oluşturulur. Örneğin 1H mumun bitmesine 20 dakika varsa mum 40 dakikalık ver
 | Sil / iptal | Delete / Esc |
 | Mum inceleme, CSV, son muma git | grafikte sağ tık |
 
+**Replay'i geri alma:** Kayıtlı bir işlem olayından (emir, açılış, kapanış) önceki bir zamana replay geri alınamaz;
+aksi halde gelecekteki kâr bakiyede kalır ve aynı hareket bilerek tekrar işlenebilirdi. Geçmişe bakmak için grafiği
+kaydırın; aynı hareketi yeniden denemek için yeni oturum açın. İşlem yokken geri almak serbesttir.
+
 Geri al yalnızca çizimleri etkiler; işlemler geri alınamaz. Aktif işleme bağlı pozisyon çizimi geri
 alma ile silinmez (SL/TP değişikliği geri alınabilir).
 
@@ -153,7 +157,8 @@ Long/Short aracını çizin, üstte çıkan "Piyasa emri" (anlık fiyattan) veya
 hesaplanır. Açık işlemin SL/TP'si grafikte sürüklenebilir.
 
 **TradingView tarzı emir (alt çubuk):** Emir tipini seçin (Market / Limit / Stop), Buy veya Sell'e basın,
-sonra grafikte sırayla tıklayın: (Limit/Stop'ta önce giriş fiyatı) → Stop (SL) → Hedef (TP).
+sonra grafikte sırayla tıklayın (tüm emir yolları aynı boyutlandırma kuralını kullanır: **Risk %** modunda lot bütçeyi
+aşmayacak şekilde aşağı yuvarlanır, en küçük lot bile sığmıyorsa emir reddedilir; Shift+Buy/Sell de Risk %'ye uyar): (Limit/Stop'ta önce giriş fiyatı) → Stop (SL) → Hedef (TP).
 Fare hareket ederken giriş, stop, hedef, R:R ve risk tutarı canlı görünür. Yanlış tarafa
 tıklarsanız (ör. Buy için SL girişin üstünde) reddedilir. Esc iptal eder. Boyut "Risk %" (SL'ye göre lot
 hesaplanır) veya sabit "Lot" ile verilir. Shift+Buy/Sell eski hızlı emirdir (SL = 1,5×ATR, TP = 2R).
@@ -187,6 +192,11 @@ Yeni oturumda **Hesap türü** seçilir; alanlar elle değiştirilebilir (boş =
 | Fonlu hesap | — | %5 | %10 | statik | — |
 
 - Limitler **equity** (bakiye + açık pozisyonların o dakikadaki en kötü değeri) ile her 1m mumda denetlenir.
+  Aynı dakikaya düşen tüm semboller birlikte işlenir, sonuç sembol sırasına bağlı değildir.
+- **Belirsiz mum:** Aynı dakikada **TP ile kapanan** işlem, kapanıştan önce mum dibini görmüş olabilir (1m OHLC sırayı
+  söylemez). Bu olasılık limiti aşıyorsa hesap **patlatılmaz**; Performans sayfasında "Belirsiz mum" uyarısı yazılır.
+  Kesin ihlal (SL ile gerçekleşmiş zarar, açık pozisyonun mum içi dibi) hesabı patlatır.
+- **Gün başlangıcı:** Piyasa emri, emrin verildiği replay anındaki işlem gününe (NY 17:00 sınırı) ve seansa yazılır.
 - **Günlük kayıp:** işlem günü başındaki (NY 17:00) bakiyeden, başlangıç bakiyesinin %'si kadar.
 - **Maks. kayıp (hesap patlama):** statikte başlangıçtan; trailing'de en yüksek kapanmış bakiyeden (taban en fazla
   başlangıç seviyesine kadar yükselir).
@@ -201,7 +211,10 @@ Yeni oturumda **Hesap türü** seçilir; alanlar elle değiştirilebilir (boş =
 alınır (üstünde sembol, zaman dilimi, NY saati, giriş/SL/TP veya sonuç yazılı) ve
 `data/sessions/<oturum>/shots/` altına kaydedilir. Sayfada:
 
-- net K/Z, kazanma oranı, toplam/ortalama R, profit factor, maksimum düşüş, seriler, ortalama süre,
+- net K/Z, kazanma oranı, toplam/ortalama R, profit factor, seriler, ortalama süre,
+- **iki ayrı düşüş:** *bakiye düşüşü* (yalnızca kapanmış işlemler) ve hesap kartında *equity düşüşü* (açık P&L dahil; dakika
+  sonu ve mum içi en kötü olmak üzere iki ayrı ölçü; para ve yüzde maksimumları bağımsız). Eski oturumlarda equity düşüşü
+  yalnızca bu sürümden sonra ilerleyen replay'den itibaren birikir,
 - bakiye eğrisi (üzerine gelince işlem ayrıntısı),
 - sembol, yön, giriş seansı (NY) ve güne göre kırılımlar,
 - işlem günlüğü: her işlem için giriş/çıkış görüntüsü (tıklayınca büyür) ve not alanı.

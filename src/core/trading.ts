@@ -143,6 +143,33 @@ export function closeTrade(spec: SymbolSpec, tr: Trade, exit: number, time: numb
   return { ...tr, status: 'closed', exit, closedAt: time, exitReason: reason, pnl, r, result: classify(r, pnl) };
 }
 
+/**
+ * İşleme girişin gerçek zamanı. Piyasa emri, son kapanan mumun (openedAt = mum başlangıcı) kapanışında,
+ * yani emrin verildiği replay anında (createdAt) açılır; 17:00'de verilen emir 16:59 mumundan girse bile
+ * yeni işlem gününe ve 17:00 seansına aittir. Bekleyen emir mum başlangıcında dolmuş sayılır.
+ */
+export const entryTime = (t: Pick<Trade, 'orderType' | 'createdAt' | 'openedAt'>): number =>
+  t.orderType === 'market' ? t.createdAt : t.openedAt ?? t.createdAt;
+
+/** Oturumdaki en son işlem olayının zamanı (emir verme, açılış, kapanış, iptal); işlem yoksa null. */
+export function lastTradeEvent(trades: Trade[]): number | null {
+  let t: number | null = null;
+  for (const tr of trades) {
+    for (const x of [tr.createdAt, tr.openedAt, tr.closedAt]) if (x != null && (t == null || x > t)) t = x;
+  }
+  return t;
+}
+
+/**
+ * Replay zamanını `target`a GERİ almak, kayıtlı bir işlem olayından önceye düşüyorsa o olayın zamanını döndürür
+ * (engel). Aksi halde null. Geleceği bilerek aynı hareketi yeniden işlemlemeyi ve hesap/kronoloji
+ * çelişkisini önler; grafik kaydırma etkilenmez (yalnızca replay zamanı).
+ */
+export function rewindBlockedBy(trades: Trade[], target: number): number | null {
+  const last = lastTradeEvent(trades);
+  return last != null && target < last ? last : null;
+}
+
 /** Emir tipi: giriş fiyatı mevcut fiyata göre limit mi stop mu? */
 export function pendingType(side: Side, entry: number, price: number): 'limit' | 'stop' {
   return side === 'long' ? (entry < price ? 'limit' : 'stop') : entry > price ? 'limit' : 'stop';

@@ -1,7 +1,7 @@
 // Performans istatistikleri (saf fonksiyonlar). Yalnızca kapanmış işlemler sayılır.
 
 import { toNyLocal } from '../../shared/nytime.js';
-import type { Trade } from './trading';
+import { entryTime, type Trade } from './trading';
 
 export interface EquityPoint {
   n: number;
@@ -31,6 +31,7 @@ export interface PerfStats {
   avgLoss: number | null;
   largestWin: number;
   largestLoss: number;
+  /** BAKİYE düşüşü: yalnızca kapanmış işlemlerden (açık P&L dahil değil). Equity düşüşü hesap durumunda (account.state.ddClose / ddLow) tutulur. */
   maxDrawdown: number;
   maxDrawdownPct: number;
   maxWinStreak: number;
@@ -64,10 +65,9 @@ export function computeStats(trades: Trade[], initialBalance: number): PerfStats
     bal += t.pnl ?? 0;
     equity.push({ n: i + 1, t: t.closedAt ?? 0, balance: bal, pnl: t.pnl ?? 0, r: t.r ?? null, symbol: t.symbol });
     peak = Math.max(peak, bal);
-    if (peak - bal > maxDD) {
-      maxDD = peak - bal;
-      maxDDPct = (maxDD / peak) * 100;
-    }
+    // Para ve yüzde maksimumları birbirinden bağımsızdır: en büyük dolar düşüşü ile en büyük yüzde düşüşü farklı aralıklarda olabilir.
+    maxDD = Math.max(maxDD, peak - bal);
+    if (peak > 0) maxDDPct = Math.max(maxDDPct, ((peak - bal) / peak) * 100);
     if (t.result === 'win') streak = streak > 0 ? streak + 1 : 1;
     else if (t.result === 'loss') streak = streak < 0 ? streak - 1 : -1;
     else streak = 0;
@@ -75,7 +75,7 @@ export function computeStats(trades: Trade[], initialBalance: number): PerfStats
     maxLoss = Math.max(maxLoss, -streak);
   });
 
-  const holds = closed.filter((t) => t.openedAt != null && t.closedAt != null).map((t) => (t.closedAt! - t.openedAt!) / 60);
+  const holds = closed.filter((t) => t.openedAt != null && t.closedAt != null).map((t) => (t.closedAt! - entryTime(t)) / 60);
   return {
     trades: closed.length,
     wins: wins.length,

@@ -42,6 +42,26 @@ export interface AccountState {
   worstDailyLoss: number;
   /** Görülen en düşük equity */
   minEquity: number;
+  // --- Equity düşüşü (replay boyunca). Eski oturumlarda yoktur; yokken "veri yok" kabul edilir. ---
+  /** En yüksek equity: kapanmış bakiye ve her dakika SONU (close-mark) equity zirvesi */
+  peakEquity?: number;
+  /** Close-mark equity'den en büyük zirveden-dibe düşüş (para); yüzde bağımsız izlenir */
+  ddClose?: { abs: number; pct: number };
+  /** Mum içi en kötü equity ile (önceki dakika sonlarına kadarki) zirve arasındaki en büyük düşüş */
+  ddLow?: { abs: number; pct: number };
+  /** Belirsiz mumda olası limit ihlali uyarıları (hesap patlatmaz; sıra bilinemez) */
+  warnings?: { t: number; text: string }[];
+}
+
+/** evaluate'e verilen isteğe bağlı ek equity bilgileri. */
+export interface EquityExtra {
+  /** Dakika sonu (close-mark) equity */
+  equityClose?: number;
+  /**
+   * Aynı dakikada TP ile kapanan işlemlerin kapanıştan ÖNCE mum dibini görmüş olma ihtimali dahil
+   * edilmiş olası en kötü equity (sıra bilinemez; sınır ihlali yalnızca uyarı üretir).
+   */
+  equityLowPossible?: number;
 }
 
 export interface Account {
@@ -101,28 +121,56 @@ export function rollDay(st: AccountState, t: number, balance: number): AccountSt
  * balance: kapanmış bakiye, equityLow: o dakikadaki en kötü equity.
  * Dönen breach doluysa hesap patlamıştır (pozisyonlar kapatılmalı).
  */
-export function evaluate(a: Account, initial: number, t: number, balance: number, equityLow: number): { account: Account; breach: string | null } {
+export function evaluate(a: Account, initial: number, t: number, balance: number, equityLow: number, extra: EquityExtra = {}): { account: Account; breach: string | null } {
   if (a.state.status === 'failed') return { account: a, breach: null };
   let st = rollDay(a.state, t, balance);
+  const equityClose = extra.equityClose ?? balance;
+  // Zirve: önceki dakika sonlarına kadarki en yüksek equity. Mum içi dip bu zirveden SONRA olduğu kesindir.
+  const peakBefore = Math.max(st.peakEquity ?? st.peakBalance, st.peakBalance);
+  const peakAfter = Math.max(peakBefore, equityClose);
   st = {
     ...st,
     peakBalance: Math.max(st.peakBalance, balance),
     worstDailyLoss: Math.max(st.worstDailyLoss, st.dayStartBalance - equityLow),
     minEquity: Math.min(st.minEquity, equityLow),
+    peakEquity: peakAfter,
+    ddClose: trackDd(st.ddClose, peakAfter, equityClose),
+    ddLow: trackDd(st.ddLow, peakBefore, equityLow),
   };
   const acc = { ...a, state: st };
   const lv = levels(acc, initial);
-  let breach: string | null = null;
-  if (lv.maxLoss != null && equityLow <= lv.maxLoss) breach = `Maks. kayıp limiti (%${a.rules.maxLossPct}${a.rules.drawdownType === 'trailing' ? ', trailing' : ''})`;
-  else if (lv.daily != null && equityLow <= lv.daily) breach = `Günlük kayıp limiti (%${a.rules.dailyLossPct})`;
+  const check = (eq: number): string | null => {
+    if (lv.maxLoss != null && eq <= lv.maxLoss) return `Maks. kayıp limiti (%${a.rules.maxLossPct}${a.rules.drawdownType === 'trailing' ? ', trailing' : ''})`;
+    if (lv.daily != null && eq <= lv.daily) return `Günlük kayıp limiti (%${a.rules.dailyLossPct})`;
+    return null;
+  };
+  const breach = check(equityLow);
   if (breach) acc.state = { ...acc.state, status: 'failed', statusAt: t + 60, reason: breach };
+  else if (extra.equityLowPossible != null && extra.equityLowPossible < equityLow) {
+    // Kesin ihlal yok; fakat aynı dakikada TP ile kapanan işlem kapanıştan önce mum dibini görmüş olabilir.
+    const poss = check(extra.equityLowPossible);
+    if (poss) {
+      const text = `Belirsiz mum: ${poss} aşılmış olabilir (TP'den önce mum dibi görülmüşse equity $${extra.equityLowPossible.toFixed(2)}). Sıra 1m verisinden bilinemez, hesap patlatılmadı.`;
+      const w = acc.state.warnings ?? [];
+      if (!w.some((x) => x.text === text)) acc.state = { ...acc.state, warnings: [...w, { t, text }].slice(-20) };
+    }
+  }
   return { account: acc, breach };
+}
+
+/** Zirveden dibe düşüşü izler; para ve yüzde maksimumları birbirinden bağımsız güncellenir. */
+function trackDd(prev: { abs: number; pct: number } | undefined, peak: number, eq: number): { abs: number; pct: number } {
+  const abs = Math.max(0, peak - eq);
+  const pct = peak > 0 ? (abs / peak) * 100 : 0;
+  return { abs: Math.max(prev?.abs ?? 0, abs), pct: Math.max(prev?.pct ?? 0, pct) };
 }
 
 /** Kapanmış bakiye değiştikten sonra (işlem kapandı): zirve ve hedef kontrolü. */
 export function afterBalanceChange(a: Account, initial: number, t: number, balance: number, hasOpen: boolean): Account {
-  if (a.state.status !== 'active') return { ...a, state: { ...a.state, peakBalance: Math.max(a.state.peakBalance, balance) } };
-  const st = { ...a.state, peakBalance: Math.max(a.state.peakBalance, balance) };
+  // Açık işlem kalmadıysa equity = bakiye: equity zirvesi de güncellenir.
+  const flatPeak = !hasOpen ? { peakEquity: Math.max(a.state.peakEquity ?? a.state.peakBalance, balance) } : {};
+  if (a.state.status !== 'active') return { ...a, state: { ...a.state, peakBalance: Math.max(a.state.peakBalance, balance), ...flatPeak } };
+  const st = { ...a.state, peakBalance: Math.max(a.state.peakBalance, balance), ...flatPeak };
   const lv = levels({ ...a, state: st }, initial);
   if (lv.target != null && balance >= lv.target && !hasOpen && st.tradingDays.length >= a.rules.minTradingDays) {
     return { ...a, state: { ...st, status: 'passed', statusAt: t, reason: `Kâr hedefi (%${a.rules.profitTargetPct}) ulaşıldı` } };
