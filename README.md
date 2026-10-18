@@ -164,7 +164,11 @@ Limit: Buy için giriş anlık fiyatın altında, Sell için üstünde; Stop: te
 - Grafik bid fiyatıdır. Kaynakta ask varsa (Dukascopy, OANDA): long ask'tan açılır / bid ile kapanır, short
   bid'den açılır / ask ile kapanır; SL/TP ilgili tarafın fiyatıyla tetiklenir. HistData'da ask olmadığından spread 0.
 - Komisyon yok. Aynı 1m mumda hem SL hem TP görülürse SL vurulmuş sayılır. Fiyat SL/TP'nin ötesinde
-  açılırsa (gap) çıkış açılış fiyatından olur.
+  açılırsa (gap) çıkış açılış fiyatından olur; hiçbir çıkış mumun işlem görmediği bir fiyattan yazılmaz.
+- **Mum içi sıra:** 1m OHLC, high/low sırasını söylemez; tick verisi olmadan kesin sıra iddia edilmez.
+  Sıranın sonucu değiştirdiği durumlar işlemde işaretlenir (günlükte "⚠ mum içi sıra varsayımı"):
+  aynı mumda SL ve TP ikisi de görülmüşse SL-önce; bekleyen emir mumun **açılışında** doluyorsa (gap) mumun
+  tamamı dolumdan sonradır ve TP de sayılır; emir mum **içinde** doluyorsa SL görüldüyse zarar, TP sayılmaz.
 - R, ilk SL mesafesine göre hesaplanır; |R| < 0,1 ise sonuç BE sayılır. Bir işlem kapandığında oynatma durur.
 
 İleri sarmalarda (NY saatine, mum kapanışına, tarihe git) açık işlem SL/TP'ye değerse veya bekleyen emir

@@ -4,9 +4,13 @@
 //   - Grafik bid fiyatıdır. Kaynakta ask varsa (OANDA) gerçek spread uygulanır:
 //     long ask'tan açılır / bid ile kapanır, short bid'den açılır / ask ile kapanır.
 //     Ask yoksa (HistData) spread 0 kabul edilir. Komisyon uygulanmaz.
-//   - Aynı 1m mumda hem SL hem TP görülürse önce SL vurulmuş sayılır.
-//   - Fiyat SL/TP'nin ötesinde açılırsa (gap) çıkış açılış fiyatından olur.
-//   - Bekleyen emir dolduğu mumda TP sayılmaz, SL sayılır.
+//   - Aynı 1m mumda hem SL hem TP görülürse önce SL vurulmuş sayılır (işlem `flags`'ine 'sl-tp-same-bar' yazılır).
+//   - Fiyat SL/TP'nin ötesinde açılırsa (gap) çıkış açılış fiyatından olur. Hiçbir çıkış, mumun
+//     işlem görmediği bir fiyattan yazılmaz.
+//   - Bekleyen emir mumun AÇILIŞINDA doluyorsa (gap veya açılış = giriş) mumun tamamı dolumdan sonradır:
+//     açık pozisyonla aynı kurallar uygulanır (TP de sayılır).
+//   - Bekleyen emir mum İÇİNDE doluyorsa high/low sırası 1m OHLC'den bilinemez: SL görüldüyse zarar
+//     yazılır (muhafazakâr), TP sayılmaz; TP görülmüşse işlem 'fill-bar-tp-unknown' ile işaretlenir.
 
 import type { SymbolSpec } from '../../shared/symbols.js';
 
@@ -14,6 +18,12 @@ export type Side = 'long' | 'short';
 export type TradeStatus = 'pending' | 'open' | 'closed' | 'cancelled';
 export type ExitReason = 'tp' | 'sl' | 'manual' | 'breach';
 export type TradeResult = 'win' | 'loss' | 'be';
+/**
+ * 1m OHLC'den sıra bilinemediği için varsayım yapılan durumlar:
+ *   sl-tp-same-bar:       aynı mumda SL ve TP ikisi de görüldü, SL-önce varsayıldı.
+ *   fill-bar-tp-unknown:  emir mum içinde doldu; aynı mumda TP seviyesi de görüldü ama sayılmadı.
+ */
+export type TradeFlag = 'sl-tp-same-bar' | 'fill-bar-tp-unknown';
 
 export interface Trade {
   id: string;
@@ -39,6 +49,8 @@ export interface Trade {
   shots?: { open?: string; close?: string };
   /** Günlük notu */
   note?: string;
+  /** Mum içi sıra belirsizliği nedeniyle yapılan varsayımlar (bkz. TradeFlag) */
+  flags?: TradeFlag[];
 }
 
 /** R'si bu eşiğin altında kalan işlemler başabaş (BE) sayılır. */
@@ -110,9 +122,8 @@ export const exitSide = (side: Side, k: Candle): OHLC => (side === 'long' ? k : 
  * Mumun kapanış zamanı = t + 60.
  */
 export function applyCandle(spec: SymbolSpec, tr: Trade, k: Candle): Trade {
-  const closeTime = k.t + 60;
-  const long = tr.side === 'long';
   if (tr.status === 'pending') {
+    const long = tr.side === 'long';
     const e = entrySide(tr.side, k);
     let fill: number | null = null;
     if (tr.orderType === 'limit') {
@@ -123,28 +134,49 @@ export function applyCandle(spec: SymbolSpec, tr: Trade, k: Candle): Trade {
       if (!long && e.l <= tr.entry) fill = Math.min(e.o, tr.entry);
     }
     if (fill == null) return tr;
-    let opened: Trade = { ...tr, status: 'open', entry: fill, openedAt: k.t };
-    // Dolduğu mumda stop seviyesi de görülmüşse zarar kabul edilir.
-    const x = exitSide(tr.side, k);
-    if (opened.sl != null && (long ? x.l <= opened.sl : x.h >= opened.sl)) {
-      opened = closeTrade(spec, opened, opened.sl, closeTime, 'sl');
-    }
-    return opened;
+    const opened: Trade = { ...tr, status: 'open', entry: fill, openedAt: k.t };
+    // Mumun açılışında dolduysa (gap veya açılış = giriş) mumun tamamı dolumdan sonradır.
+    if (fill === e.o) return applyOpen(spec, opened, k);
+    return applyFillBar(spec, opened, k);
   }
   if (tr.status !== 'open') return tr;
+  return applyOpen(spec, tr, k);
+}
 
+const addFlag = (tr: Trade, f: TradeFlag): Trade => (tr.flags?.includes(f) ? tr : { ...tr, flags: [...(tr.flags ?? []), f] });
+
+/** Mum içinde dolan emir: sıra bilinmez. SL görüldüyse zarar (muhafazakâr), TP sayılmaz ama işaretlenir. */
+function applyFillBar(spec: SymbolSpec, tr: Trade, k: Candle): Trade {
+  const long = tr.side === 'long';
+  const x = exitSide(tr.side, k);
+  const tpSeen = tr.tp != null && (long ? x.h >= tr.tp : x.l <= tr.tp);
+  let t = tpSeen ? addFlag(tr, 'fill-bar-tp-unknown') : tr;
+  // Giriş mumun içinde, SL girişin gerisinde olduğundan SL fiyatı mum aralığındadır.
+  if (t.sl != null && (long ? x.l <= t.sl : x.h >= t.sl)) t = closeTrade(spec, t, t.sl, k.t + 60, 'sl');
+  return t;
+}
+
+/** Açık pozisyona bir 1m mum uygular (açılışta dolan bekleyen emirler de buraya düşer). */
+function applyOpen(spec: SymbolSpec, tr: Trade, k: Candle): Trade {
+  const closeTime = k.t + 60;
+  const long = tr.side === 'long';
   const { sl, tp } = tr;
   const x = exitSide(tr.side, k);
+  const slSeen = sl != null && (long ? x.l <= sl : x.h >= sl);
+  const tpSeen = tp != null && (long ? x.h >= tp : x.l <= tp);
+  // Açılış zaten seviyenin ötesindeyse sıra bellidir (gap): çıkış açılıştan, belirsizlik yok.
   if (long) {
     if (sl != null && x.o <= sl) return closeTrade(spec, tr, x.o, closeTime, 'sl');
     if (tp != null && x.o >= tp) return closeTrade(spec, tr, x.o, closeTime, 'tp');
-    if (sl != null && x.l <= sl) return closeTrade(spec, tr, sl, closeTime, 'sl');
-    if (tp != null && x.h >= tp) return closeTrade(spec, tr, tp, closeTime, 'tp');
   } else {
     if (sl != null && x.o >= sl) return closeTrade(spec, tr, x.o, closeTime, 'sl');
     if (tp != null && x.o <= tp) return closeTrade(spec, tr, x.o, closeTime, 'tp');
-    if (sl != null && x.h >= sl) return closeTrade(spec, tr, sl, closeTime, 'sl');
-    if (tp != null && x.l <= tp) return closeTrade(spec, tr, tp, closeTime, 'tp');
   }
+  // Mum içinde: ikisi de görüldüyse hangisinin önce olduğu bilinmez, SL-önce varsayılır.
+  if (slSeen) {
+    const c = closeTrade(spec, tr, sl!, closeTime, 'sl');
+    return tpSeen ? addFlag(c, 'sl-tp-same-bar') : c;
+  }
+  if (tpSeen) return closeTrade(spec, tr, tp!, closeTime, 'tp');
   return tr;
 }

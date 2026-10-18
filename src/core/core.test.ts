@@ -321,3 +321,77 @@ describe('işlem simülasyonu', () => {
     expect(calcR('short', 1.1, 1.098, 1.101)).toBeCloseTo(2);
   });
 });
+
+describe('bekleyen emir dolumu (gap / açılış dolumu) — issue #1, #2', () => {
+  const eur = getSymbol('EURUSD');
+  const pend = (side: 'long' | 'short', orderType: 'limit' | 'stop', entry: number, sl: number, tp: number): Trade => ({
+    id: 'p1', symbol: 'EURUSD', side, status: 'pending', orderType, createdAt: 0, entry, sl, tp, initialSl: sl, lots: 1,
+  });
+  const k = (o: number, h: number, l: number, c: number, ask?: { o: number; h: number; l: number; c: number }) => ({ t: 60, o, h, l, c, ask });
+
+  it('#1 long limit gap ile SL ötesinde dolarsa çıkış mumda görülmeyen SL fiyatından olmaz', () => {
+    const r = applyCandle(eur, pend('long', 'limit', 1.1, 1.095, 1.11), k(1.09, 1.092, 1.085, 1.088));
+    expect(r.status).toBe('closed');
+    expect(r.exitReason).toBe('sl');
+    // 1.095 bu mumda hiç işlem görmedi (high = 1.092): çıkış erişilebilir açılış fiyatı olmalı
+    expect(r.exit).toBe(1.09);
+    expect(r.pnl).toBeCloseTo(0);
+  });
+
+  it('#1 simetri: short limit, long stop, short stop gap matrisi', () => {
+    // short limit entry 1.10, SL 1.105; mum 1.11'de açılır (gap yukarı, SL ötesi)
+    const a = applyCandle(eur, pend('short', 'limit', 1.1, 1.105, 1.09), k(1.11, 1.115, 1.108, 1.112));
+    expect(a.exit).toBe(1.11);
+    expect(a.pnl).toBeCloseTo(0);
+    // long stop entry 1.10, SL 1.095; mum 1.12'de açılır, SL'ye hiç inmez -> açık kalır, giriş 1.12
+    const b = applyCandle(eur, pend('long', 'stop', 1.1, 1.095, 1.15), k(1.12, 1.125, 1.118, 1.121));
+    expect(b.status).toBe('open');
+    expect(b.entry).toBe(1.12);
+    // short stop entry 1.10, SL 1.105; mum 1.08'de açılır, SL'ye hiç çıkmaz
+    const c = applyCandle(eur, pend('short', 'stop', 1.1, 1.105, 1.05), k(1.08, 1.082, 1.078, 1.079));
+    expect(c.status).toBe('open');
+    expect(c.entry).toBe(1.08);
+  });
+
+  it('#1 spreadli: çıkış bid açılışından, giriş ask açılışından', () => {
+    const r = applyCandle(eur, pend('long', 'limit', 1.1, 1.095, 1.11), k(1.09, 1.092, 1.085, 1.088, { o: 1.0902, h: 1.0922, l: 1.0852, c: 1.0882 }));
+    expect(r.entry).toBe(1.0902);
+    expect(r.exit).toBe(1.09);
+    expect(r.pnl).toBeCloseTo(-20); // 2 pip spread × 1 lot
+  });
+
+  it('#2 açılışta dolan emir aynı mumda TP görüldüyse TP ile kapanır', () => {
+    const r = applyCandle(eur, pend('long', 'limit', 1.1, 1.09, 1.105), k(1.1, 1.106, 1.099, 1.104));
+    expect(r.status).toBe('closed');
+    expect(r.exitReason).toBe('tp');
+    expect(r.exit).toBe(1.105);
+  });
+
+  it('#2 açılışta dolan emirde aynı mumda SL ve TP ikisi de görülürse SL sayılır ve belirsizlik işaretlenir', () => {
+    const r = applyCandle(eur, pend('long', 'limit', 1.1, 1.095, 1.105), k(1.1, 1.106, 1.094, 1.1));
+    expect(r.exitReason).toBe('sl');
+    expect(r.flags).toContain('sl-tp-same-bar');
+  });
+
+  it('#2 mum içinde dolan emirde TP sayılmaz (sıra bilinmiyor) ama işaretlenir', () => {
+    // open 1.103 > entry 1.100: önce high sonra low mu, tersi mi bilinmez
+    const r = applyCandle(eur, pend('long', 'limit', 1.1, 1.09, 1.105), k(1.103, 1.106, 1.0995, 1.104));
+    expect(r.status).toBe('open');
+    expect(r.entry).toBe(1.1);
+    expect(r.flags).toContain('fill-bar-tp-unknown');
+  });
+
+  it('#2 mum içinde dolan emirde SL görüldüyse hâlâ SL (muhafazakâr) ve TP de görüldüyse işaretlenir', () => {
+    const r = applyCandle(eur, pend('long', 'limit', 1.1, 1.095, 1.105), k(1.103, 1.106, 1.094, 1.1));
+    expect(r.exitReason).toBe('sl');
+    expect(r.exit).toBe(1.095);
+    expect(r.flags).toContain('fill-bar-tp-unknown');
+  });
+
+  it('#2 açık pozisyonda yalnızca SL görüldüyse işaret yoktur', () => {
+    const open: Trade = { id: 't', symbol: 'EURUSD', side: 'long', status: 'open', orderType: 'market', createdAt: 0, openedAt: 0, entry: 1.1, sl: 1.095, tp: 1.105, initialSl: 1.095, lots: 1 };
+    const r = applyCandle(eur, open, k(1.1, 1.102, 1.094, 1.1));
+    expect(r.exitReason).toBe('sl');
+    expect(r.flags).toBeUndefined();
+  });
+});

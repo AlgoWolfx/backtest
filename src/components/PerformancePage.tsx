@@ -4,7 +4,7 @@ import { breakdown, computeStats, sessionOf, SESSIONS, weekdayOf, WEEKDAYS, clos
 import type { Trade } from '../core/trading';
 import { ACCOUNT_PRESETS, type Account } from '../core/account';
 import { describeRules } from './SessionScreen';
-import { fmtMoney, fmtNy, fmtPrice, fmtR, reasonLabel } from '../format';
+import { flagLabel, fmtMoney, fmtNy, fmtPrice, fmtR, reasonLabel } from '../format';
 import { shotUrl } from '../shots';
 import { setTradeNote, useStore } from '../store';
 import { Icons } from './icons';
@@ -201,6 +201,12 @@ function JournalEntry({ trade: t, n, balance, sessionId, onZoom }: { trade: Trad
       <div className="entry-meta muted">
         Giriş {fmtPrice(t.entry, spec)} · SL {t.initialSl != null ? fmtPrice(t.initialSl, spec) : '—'} · TP {t.tp != null ? fmtPrice(t.tp, spec) : '—'} · Çıkış {t.exit != null ? fmtPrice(t.exit, spec) : '—'} (
         {reasonLabel(t.exitReason)}) · {t.lots} lot{balance != null ? ` · bakiye ${fmtMoney(balance)}` : ''}
+        {t.flags?.length ? (
+          <span className="amb" title={t.flags.map(flagLabel).join('\n')}>
+            {' '}
+            · ⚠ mum içi sıra varsayımı
+          </span>
+        ) : null}
       </div>
       <div className="entry-body">
         {shot('open', 'Giriş')}
