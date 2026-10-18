@@ -51,6 +51,11 @@ export interface Trade {
   note?: string;
   /** Mum içi sıra belirsizliği nedeniyle yapılan varsayımlar (bkz. TradeFlag) */
   flags?: TradeFlag[];
+  /** Açılışta işleme yazılan komisyon (USD / lot, gidiş-dönüş); sonradan ayar değişse de bu işlem değişmez */
+  commissionPerLot?: number;
+  /** Komisyon varsa: brüt K/Z ve ödenen komisyon. pnl = grossPnl - commission (NET) */
+  grossPnl?: number;
+  commission?: number;
 }
 
 /** R'si bu eşiğin altında kalan işlemler başabaş (BE) sayılır. */
@@ -88,9 +93,10 @@ export function lotRules(spec: SymbolSpec): { minLot: number; lotStep: number } 
  * Risk yüzdesine göre lot: lot adımına AŞAĞI yuvarlanır, risk bütçesini aşmaz.
  * Bütçeye sığan en küçük lot bile yoksa (veya girdi geçersizse) null döner; emir engellenmelidir.
  */
-export function lotsForRisk(spec: SymbolSpec, balance: number, riskPct: number, entry: number, sl: number): number | null {
+export function lotsForRisk(spec: SymbolSpec, balance: number, riskPct: number, entry: number, sl: number, commissionPerLot = 0): number | null {
   if (![balance, riskPct, entry, sl].every(Number.isFinite) || balance <= 0 || riskPct <= 0 || entry <= 0) return null;
-  const perLot = Math.abs(entry - sl) * usdPerPriceUnit(spec, entry);
+  // Komisyon da lot başına riske dahildir: stop riski + komisyon bütçeyi aşmamalı.
+  const perLot = Math.abs(entry - sl) * usdPerPriceUnit(spec, entry) + Math.max(0, commissionPerLot);
   if (!(perLot > 0) || !Number.isFinite(perLot)) return null;
   const { minLot, lotStep } = lotRules(spec);
   // 1e-6 adım toleransı: 1.1 - 1.099 gibi kayan nokta farkları 10 lotu 9.99'a düşürmesin
@@ -117,30 +123,41 @@ export type LotDecision = { lots: number; error?: undefined } | { lots?: undefin
  */
 export function decideLots(
   spec: SymbolSpec,
-  p: { mode: 'risk' | 'lots'; lots: number; riskPct: number; balance: number; entry: number; sl: number },
+  p: { mode: 'risk' | 'lots'; lots: number; riskPct: number; balance: number; entry: number; sl: number; commissionPerLot?: number },
 ): LotDecision {
   if (p.mode === 'lots') {
     const l = normalizeLots(spec, p.lots);
     if (l == null) return { error: `Geçersiz lot: en az ${lotRules(spec).minLot}, adım ${lotRules(spec).lotStep}.` };
     return { lots: l };
   }
-  const l = lotsForRisk(spec, p.balance, p.riskPct, p.entry, p.sl);
-  return l == null ? { error: noLotReason(spec, p.balance, p.riskPct, p.entry, p.sl) } : { lots: l };
+  const l = lotsForRisk(spec, p.balance, p.riskPct, p.entry, p.sl, p.commissionPerLot);
+  return l == null ? { error: noLotReason(spec, p.balance, p.riskPct, p.entry, p.sl, p.commissionPerLot) } : { lots: l };
 }
 
 /** lotsForRisk null döndüğünde kullanıcıya gösterilecek açıklama. */
-export function noLotReason(spec: SymbolSpec, balance: number, riskPct: number, entry: number, sl: number): string {
-  const perLot = Math.abs(entry - sl) * usdPerPriceUnit(spec, entry);
+export function noLotReason(spec: SymbolSpec, balance: number, riskPct: number, entry: number, sl: number, commissionPerLot = 0): string {
+  const perLot = Math.abs(entry - sl) * usdPerPriceUnit(spec, entry) + Math.max(0, commissionPerLot);
   if (!(perLot > 0) || !Number.isFinite(perLot)) return 'Stop mesafesi geçersiz (giriş ile SL aynı veya sayı değil).';
   if (!(balance > 0) || !(riskPct > 0)) return 'Bakiye ve risk % sıfırdan büyük olmalı.';
   const { minLot } = lotRules(spec);
   return `Risk bütçesine ($${((balance * riskPct) / 100).toFixed(2)}) sığan lot yok: en küçük işlem (${minLot} lot) bu stopla $${(perLot * minLot).toFixed(2)} riske eder. Stopu daralt veya risk %'sini artır.`;
 }
 
+/**
+ * İşlemi kapatır. pnl ve r NET'tir: komisyon (varsa) pnl'den düşülür; R, ilk parasal riske göre
+ * komisyon kadar azalır (net R = brüt R - komisyon / ilk risk). Komisyonsuzken eski değerlerle birebir aynıdır.
+ */
 export function closeTrade(spec: SymbolSpec, tr: Trade, exit: number, time: number, reason: ExitReason): Trade {
-  const pnl = calcPnl(spec, tr.side, tr.entry, exit, tr.lots);
-  const r = calcR(tr.side, tr.entry, exit, tr.initialSl);
-  return { ...tr, status: 'closed', exit, closedAt: time, exitReason: reason, pnl, r, result: classify(r, pnl) };
+  const gross = calcPnl(spec, tr.side, tr.entry, exit, tr.lots);
+  const commission = (tr.commissionPerLot ?? 0) * tr.lots;
+  const pnl = gross - commission;
+  let r = calcR(tr.side, tr.entry, exit, tr.initialSl);
+  if (r != null && commission > 0 && tr.initialSl != null) {
+    const riskUsd = Math.abs(tr.entry - tr.initialSl) * tr.lots * usdPerPriceUnit(spec, tr.entry);
+    r -= commission / riskUsd;
+  }
+  const costs = commission > 0 ? { grossPnl: gross, commission } : {};
+  return { ...tr, ...costs, status: 'closed', exit, closedAt: time, exitReason: reason, pnl, r, result: classify(r, pnl) };
 }
 
 /**

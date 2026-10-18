@@ -10,7 +10,7 @@
 //   - Kâr hedefi (fon geçme): kapanmış bakiye başlangıç × (1 + %) seviyesine ulaşır, açık işlem yoksa ve
 //     minimum işlem günü sağlanmışsa değerlendirme geçilir.
 
-import { tradingDay } from '../../shared/nytime.js';
+import { resetDay } from '../../shared/nytime.js';
 
 export type AccountType = 'personal' | 'prop';
 
@@ -25,7 +25,11 @@ export interface AccountRules {
   drawdownType: 'static' | 'trailing';
   /** Hedef için gereken en az işlem günü (0 = yok) */
   minTradingDays: number;
+  /** Günlük kayıp sıfırlaması / işlem günü sınırı: NY 17:00 (varsayılan) veya Avrupa gece yarısı (CE(S)T 00:00) */
+  resetMode?: ResetMode;
 }
+
+export type ResetMode = 'ny17' | 'cet0';
 
 export interface AccountState {
   status: 'active' | 'failed' | 'passed';
@@ -71,16 +75,16 @@ export interface Account {
 
 export const ACCOUNT_PRESETS: { id: string; label: string; rules: AccountRules }[] = [
   { id: 'personal', label: 'Kişisel hesap', rules: { type: 'personal', profitTargetPct: null, dailyLossPct: null, maxLossPct: null, drawdownType: 'static', minTradingDays: 0 } },
-  { id: 'prop-2s-p1', label: 'Fon · 2 adım · Faz 1', rules: { type: 'prop', profitTargetPct: 10, dailyLossPct: 5, maxLossPct: 10, drawdownType: 'static', minTradingDays: 4 } },
-  { id: 'prop-2s-p2', label: 'Fon · 2 adım · Faz 2', rules: { type: 'prop', profitTargetPct: 5, dailyLossPct: 5, maxLossPct: 10, drawdownType: 'static', minTradingDays: 4 } },
-  { id: 'prop-1s', label: 'Fon · 1 adım (trailing)', rules: { type: 'prop', profitTargetPct: 10, dailyLossPct: 3, maxLossPct: 6, drawdownType: 'trailing', minTradingDays: 0 } },
-  { id: 'prop-funded', label: 'Fonlu hesap (hedef yok)', rules: { type: 'prop', profitTargetPct: null, dailyLossPct: 5, maxLossPct: 10, drawdownType: 'static', minTradingDays: 0 } },
+  { id: 'prop-2s-p1', label: 'Fon · 2 adım · Faz 1 (genel örnek)', rules: { type: 'prop', profitTargetPct: 10, dailyLossPct: 5, maxLossPct: 10, drawdownType: 'static', minTradingDays: 4 } },
+  { id: 'prop-2s-p2', label: 'Fon · 2 adım · Faz 2 (genel örnek)', rules: { type: 'prop', profitTargetPct: 5, dailyLossPct: 5, maxLossPct: 10, drawdownType: 'static', minTradingDays: 4 } },
+  { id: 'prop-1s', label: 'Fon · 1 adım trailing (genel örnek)', rules: { type: 'prop', profitTargetPct: 10, dailyLossPct: 3, maxLossPct: 6, drawdownType: 'trailing', minTradingDays: 0 } },
+  { id: 'prop-funded', label: 'Fonlu hesap, hedef yok (genel örnek)', rules: { type: 'prop', profitTargetPct: null, dailyLossPct: 5, maxLossPct: 10, drawdownType: 'static', minTradingDays: 0 } },
 ];
 
 export function newAccount(rules: AccountRules, initial: number, startTime: number): Account {
   return {
     rules,
-    state: { status: 'active', peakBalance: initial, dayKey: tradingDay(startTime), dayStartBalance: initial, tradingDays: [], worstDailyLoss: 0, minEquity: initial },
+    state: { status: 'active', peakBalance: initial, dayKey: resetDay(startTime, rules.resetMode), dayStartBalance: initial, tradingDays: [], worstDailyLoss: 0, minEquity: initial },
   };
 }
 
@@ -111,8 +115,8 @@ export function levels(a: Account, initial: number): Levels {
 }
 
 /** Yeni işlem gününe geçildiyse günün başlangıç bakiyesini ayarlar. t: UTC, balance: o anki kapanmış bakiye. */
-export function rollDay(st: AccountState, t: number, balance: number): AccountState {
-  const day = tradingDay(t);
+export function rollDay(st: AccountState, t: number, balance: number, mode: ResetMode = 'ny17'): AccountState {
+  const day = resetDay(t, mode);
   return day === st.dayKey ? st : { ...st, dayKey: day, dayStartBalance: balance };
 }
 
@@ -123,7 +127,7 @@ export function rollDay(st: AccountState, t: number, balance: number): AccountSt
  */
 export function evaluate(a: Account, initial: number, t: number, balance: number, equityLow: number, extra: EquityExtra = {}): { account: Account; breach: string | null } {
   if (a.state.status === 'failed') return { account: a, breach: null };
-  let st = rollDay(a.state, t, balance);
+  let st = rollDay(a.state, t, balance, a.rules.resetMode);
   const equityClose = extra.equityClose ?? balance;
   // Zirve: önceki dakika sonlarına kadarki en yüksek equity. Mum içi dip bu zirveden SONRA olduğu kesindir.
   const peakBefore = Math.max(st.peakEquity ?? st.peakBalance, st.peakBalance);
@@ -191,7 +195,7 @@ export interface AccountSnapshot {
 
 /** Ekranda göstermek için anlık durum. equity: bakiye + açık pozisyonların şu anki değeri. */
 export function snapshot(a: Account, initial: number, t: number, balance: number, equity: number): AccountSnapshot {
-  const st0 = rollDay(a.state, t, balance);
+  const st0 = rollDay(a.state, t, balance, a.rules.resetMode);
   const st = { ...st0, peakBalance: Math.max(st0.peakBalance, balance) };
   const lv = levels({ ...a, state: st }, initial);
   const r = a.rules;
@@ -207,7 +211,7 @@ export function snapshot(a: Account, initial: number, t: number, balance: number
 
 /** İşlem açıldığında işlem gününü kaydeder. */
 export function noteTradingDay(a: Account, t: number): Account {
-  const day = tradingDay(t);
+  const day = resetDay(t, a.rules.resetMode);
   if (a.state.tradingDays.includes(day)) return a;
   return { ...a, state: { ...a.state, tradingDays: [...a.state.tradingDays, day] } };
 }

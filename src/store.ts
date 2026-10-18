@@ -206,7 +206,7 @@ export async function ensureData(symbol: string, wanted?: DataSource): Promise<M
   }
 }
 
-export async function createSession(p: { name: string; symbol: string; startTime: number; balance: number; source: DataSource; rules: AccountRules }) {
+export async function createSession(p: { name: string; symbol: string; startTime: number; balance: number; source: DataSource; rules: AccountRules; commissionPerLot?: number }) {
   const now = Date.now();
   const session: Session = {
     account: newAccount(p.rules, p.balance, p.startTime),
@@ -224,6 +224,7 @@ export async function createSession(p: { name: string; symbol: string; startTime
     speed: 4,
     riskPct: 1,
     lots: 1,
+    ...(p.commissionPerLot ? { commissionPerLot: p.commissionPerLot } : {}),
     trades: [],
     drawings: {},
     fibDefaults: DEFAULT_FIB,
@@ -674,7 +675,7 @@ export function placeOrderFromDrawing(drawingId: string, market: boolean, lotsOv
     toast(side === 'long' ? 'Long için SL girişin altında, TP üstünde olmalı.' : 'Short için SL girişin üstünde, TP altında olmalı.', 'error');
     return false;
   }
-  const dec = decideLots(spec, { mode: lotsOverride != null ? 'lots' : 'risk', lots: lotsOverride ?? 0, riskPct: d.riskPct, balance: balanceOf(s), entry, sl: d.sl });
+  const dec = decideLots(spec, { mode: lotsOverride != null ? 'lots' : 'risk', lots: lotsOverride ?? 0, riskPct: d.riskPct, balance: balanceOf(s), entry, sl: d.sl, commissionPerLot: s.commissionPerLot });
   if (dec.error != null) {
     toast(dec.error, 'error');
     return false;
@@ -696,6 +697,7 @@ export function placeOrderFromDrawing(drawingId: string, market: boolean, lotsOv
     initialSl: d.sl,
     lots,
     drawingId,
+    ...(s.commissionPerLot ? { commissionPerLot: s.commissionPerLot } : {}),
   };
   const entryPt = market ? { t: barT, p: price } : d.entry;
   set({
@@ -793,7 +795,7 @@ export function marketOrder(side: Side) {
   const sl = round(price - dir * dist);
   const tp = round(price + dir * dist * 2);
   // Hızlı emir de normal ticket ile aynı boyutlandırma kuralını kullanır (Risk % veya sabit lot).
-  const dec = decideLots(spec, { mode: get().sizing, lots: s.lots, riskPct: s.riskPct, balance: balanceOf(s), entry: price, sl });
+  const dec = decideLots(spec, { mode: get().sizing, lots: s.lots, riskPct: s.riskPct, balance: balanceOf(s), entry: price, sl, commissionPerLot: s.commissionPerLot });
   if (dec.error != null) return toast(dec.error, 'error');
   const lots = dec.lots;
   const id = nextId('t');
@@ -811,7 +813,7 @@ export function marketOrder(side: Side) {
     riskPct: s.riskPct,
     tradeId: id,
   };
-  const trade: Trade = { id, symbol: s.symbol, side, status: 'open', orderType: 'market', createdAt: s.replayTime, openedAt: barT, entry: price, sl, tp, initialSl: sl, lots, drawingId: dId };
+  const trade: Trade = { id, symbol: s.symbol, side, status: 'open', orderType: 'market', createdAt: s.replayTime, openedAt: barT, entry: price, sl, tp, initialSl: sl, lots, drawingId: dId, ...(s.commissionPerLot ? { commissionPerLot: s.commissionPerLot } : {}) };
   set({
     session: {
       ...s2,
@@ -867,7 +869,7 @@ export function closeTradeManual(tradeId: string) {
     const trades = s.trades.map((t) => (t.id === tradeId ? closed : t));
     const balance = s.initialBalance + trades.reduce((a, t) => a + (t.status === 'closed' ? (t.pnl ?? 0) : 0), 0);
     const account = s.account
-      ? afterBalanceChange({ ...s.account, state: rollDay(s.account.state, s.replayTime, balance - (closed.pnl ?? 0)) }, s.initialBalance, s.replayTime, balance, trades.some((t) => t.status === 'open'))
+      ? afterBalanceChange({ ...s.account, state: rollDay(s.account.state, s.replayTime, balance - (closed.pnl ?? 0), s.account.rules.resetMode) }, s.initialBalance, s.replayTime, balance, trades.some((t) => t.status === 'open'))
       : undefined;
     return { trades, account };
   });

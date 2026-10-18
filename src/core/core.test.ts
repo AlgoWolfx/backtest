@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getSymbol } from '../../shared/symbols.js';
-import { nyLocalToUtc, nyOffset, tradingDay } from '../../shared/nytime.js';
+import { cetOffset, nyLocalToUtc, nyOffset, resetDay, tradingDay } from '../../shared/nytime.js';
 import { aggregate, revealedCount, visibleBar, type M1Data } from './data';
 import { bucketChartTime, bucketKey, bucketStartUtc, TIMEFRAMES } from './timeframes';
 import { bucketEndAfter, nextNyTime } from './replay';
@@ -509,5 +509,77 @@ describe('işlem günü / seans: piyasa emri giriş zamanı — issue #11', () =
     const k = ny('2024-07-10 07:00');
     const t: Trade = { id: 'p', symbol: 'EURUSD', side: 'long', status: 'open', orderType: 'limit', createdAt: ny('2024-07-10 03:00'), openedAt: k, entry: 1.1, sl: 1.099, tp: 1.102, initialSl: 1.099, lots: 1 };
     expect(entryTime(t)).toBe(k);
+  });
+});
+
+describe('komisyon ve hesap günü sıfırlaması — issue #8, #11', () => {
+  const eur = getSymbol('EURUSD');
+  const base: Trade = { id: 't', symbol: 'EURUSD', side: 'long', status: 'open', orderType: 'market', createdAt: 0, openedAt: 0, entry: 1.1, sl: 1.099, tp: 1.102, initialSl: 1.099, lots: 2 };
+  const k = (o: number, h: number, l: number, c: number) => ({ t: 60, o, h, l, c });
+
+  it('#8 komisyonsuz sonuç eskisiyle birebir aynıdır', () => {
+    const r = applyCandle(eur, base, k(1.1005, 1.1021, 1.1003, 1.1015));
+    expect(r.pnl).toBeCloseTo(400);
+    expect(r.r).toBeCloseTo(2);
+    expect(r.commission).toBeUndefined();
+    expect(r.grossPnl).toBeUndefined();
+  });
+
+  it('#8 brüt, komisyon ve net uzlaşır: 2 lot, $7/lot gidiş-dönüş', () => {
+    const r = applyCandle(eur, { ...base, commissionPerLot: 7 }, k(1.1005, 1.1021, 1.1003, 1.1015));
+    expect(r.grossPnl).toBeCloseTo(400);
+    expect(r.commission).toBeCloseTo(14);
+    expect(r.pnl).toBeCloseTo(386);
+    expect(r.pnl).toBeCloseTo(r.grossPnl! - r.commission!);
+    // ilk parasal risk = 10 pip x 2 lot = $200 -> net R = 2 - 14/200
+    expect(r.r).toBeCloseTo(2 - 14 / 200);
+  });
+
+  it('#8 SL, komisyonla net zarar derinleşir; başabaş stopu komisyonla net zarar gösterebilir', () => {
+    const sl = applyCandle(eur, { ...base, commissionPerLot: 7 }, k(1.1, 1.1005, 1.0985, 1.099));
+    expect(sl.pnl).toBeCloseTo(-200 - 14);
+    expect(sl.r).toBeCloseTo(-1 - 14 / 200);
+    // SL girişte: brüt 0, net -14 -> R = -0.07 (BE eşiği 0.1 içinde, BE sayılır; para negatif)
+    const be = applyCandle(eur, { ...base, sl: 1.1, commissionPerLot: 7 }, k(1.1005, 1.1006, 1.0995, 1.1));
+    expect(be.pnl).toBeCloseTo(-14);
+    expect(be.result).toBe('be');
+  });
+
+  it('#8 komisyon bütçeye dahildir: lot, stop riski + komisyonla hesaplanır', () => {
+    // $1000 bütçe, 10 pip stop = $100/lot (+ $7 komisyon) -> 1000/107 = 9.34 lot
+    expect(lotsForRisk(eur, 100000, 1, 1.1, 1.099)).toBeCloseTo(10, 6);
+    expect(lotsForRisk(eur, 100000, 1, 1.1, 1.099, 10)).toBeCloseTo(9.09, 6); // 1000/110
+    const l = lotsForRisk(eur, 100000, 1, 1.1, 1.099, 7)!;
+    expect(l * (100 + 7)).toBeLessThanOrEqual(1000 + 1e-6);
+  });
+
+  it('#11 CE(S)T gece yarısı: yaz ve kış saatinde doğru sınır, geçiş haftasında da', () => {
+    // Yaz (CEST, UTC+2): 11 Tem 00:00 CEST = 10 Tem 22:00 UTC
+    expect(resetDay(utc('2024-07-10T21:59:00'), 'cet0')).not.toBe(resetDay(utc('2024-07-10T22:00:00'), 'cet0'));
+    // Kış (CET, UTC+1): 11 Oca 00:00 CET = 10 Oca 23:00 UTC
+    expect(resetDay(utc('2024-01-10T22:59:00'), 'cet0')).not.toBe(resetDay(utc('2024-01-10T23:00:00'), 'cet0'));
+    expect(resetDay(utc('2024-01-10T22:00:00'), 'cet0')).toBe(resetDay(utc('2024-01-10T22:59:00'), 'cet0'));
+    // AB geçişi 31 Mar 2024 01:00 UTC; ABD geçişi 10 Mar 2024: aradaki haftalarda NY 17:00 ile CE(S)T 00:00 arası 1 saat değil 2 saat
+    expect(cetOffset(utc('2024-03-30T12:00:00'))).toBe(3600);
+    expect(cetOffset(utc('2024-03-31T01:00:00'))).toBe(7200);
+    expect(cetOffset(utc('2024-10-27T00:59:00'))).toBe(7200);
+    expect(cetOffset(utc('2024-10-27T01:00:00'))).toBe(3600);
+  });
+
+  it('#11 varsayılan mod NY 17:00 ve eski davranışla aynı', () => {
+    const t = ny('2024-07-10 16:59');
+    expect(resetDay(t)).toBe(tradingDay(t));
+    expect(resetDay(ny('2024-07-10 17:00'))).toBe(tradingDay(ny('2024-07-10 17:00')));
+  });
+
+  it('#11 günlük kayıp sıfırlaması seçilen moda göre çalışır', () => {
+    const r = (resetMode?: 'ny17' | 'cet0'): AccountRules => ({ type: 'prop', profitTargetPct: null, dailyLossPct: 5, maxLossPct: null, drawdownType: 'static', minTradingDays: 0, resetMode });
+    const t1 = ny('2024-07-10 17:30'); // NY 17:00'yi geçti, CEST gece yarısını (NY 18:00) henüz geçmedi
+    const t0 = ny('2024-07-10 10:00');
+    const ny17 = newAccount(r('ny17'), 100000, t0);
+    expect(rollDay(ny17.state, t1, 97000, 'ny17').dayStartBalance).toBe(97000);
+    const cet = newAccount(r('cet0'), 100000, t0);
+    expect(rollDay(cet.state, t1, 97000, 'cet0').dayStartBalance).toBe(100000); // henüz yeni gün değil
+    expect(rollDay(cet.state, ny('2024-07-10 18:05'), 97000, 'cet0').dayStartBalance).toBe(97000);
   });
 });

@@ -207,7 +207,7 @@ function PositionFields({ d, digits }: { d: Position; digits: number }) {
   const locked = trade && (trade.status === 'closed' || trade.status === 'cancelled');
   const risk = Math.abs(d.entry.p - d.sl);
   const rr = risk ? Math.abs(d.tp - d.entry.p) / risk : 0;
-  const sized = trade ? trade.lots : lotsForRisk(spec, balanceOf(session), d.riskPct, d.entry.p, d.sl);
+  const sized = trade ? trade.lots : lotsForRisk(spec, balanceOf(session), d.riskPct, d.entry.p, d.sl, session.commissionPerLot);
   const lots = sized ?? 0; // null: risk bütçesine sığan lot yok
   const r =(v: number) => Math.round(v * 10 ** digits) / 10 ** digits;
   const long = d.type === 'long';

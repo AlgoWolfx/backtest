@@ -18,8 +18,12 @@ export interface PerfStats {
   losses: number;
   bes: number;
   winRate: number;
+  /** NET K/Z (komisyon düşülmüş) */
   net: number;
   netPct: number;
+  /** Toplam ödenen komisyon ve brüt K/Z (komisyon yokken 0 / net ile aynı) */
+  commission: number;
+  grossNet: number;
   grossWin: number;
   grossLoss: number;
   profitFactor: number | null;
@@ -49,6 +53,7 @@ export function computeStats(trades: Trade[], initialBalance: number): PerfStats
   const wins = closed.filter((t) => t.result === 'win');
   const losses = closed.filter((t) => t.result === 'loss');
   const net = closed.reduce((a, t) => a + (t.pnl ?? 0), 0);
+  const commission = closed.reduce((a, t) => a + (t.commission ?? 0), 0);
   const grossWin = closed.reduce((a, t) => a + Math.max(0, t.pnl ?? 0), 0);
   const grossLoss = closed.reduce((a, t) => a + Math.min(0, t.pnl ?? 0), 0);
   const rs = closed.filter((t) => t.r != null).map((t) => t.r!);
@@ -84,6 +89,8 @@ export function computeStats(trades: Trade[], initialBalance: number): PerfStats
     winRate: closed.length ? (wins.length / closed.length) * 100 : 0,
     net,
     netPct: (net / initialBalance) * 100,
+    commission,
+    grossNet: net + commission,
     grossWin,
     grossLoss,
     profitFactor: grossLoss < 0 ? grossWin / -grossLoss : null,

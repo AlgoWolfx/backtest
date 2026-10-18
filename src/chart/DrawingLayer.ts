@@ -319,7 +319,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
         ctx.fillRect(x0, Math.min(yE, this.Y(tp)), x1 - x0, Math.abs(this.Y(tp) - yE));
       }
       line(entry, '#787b86', false);
-      const lots = sl != null ? (st.sizing === 'lots' ? st.session!.lots : lotsForRisk(spec, balanceOf(st.session!), st.session!.riskPct, entry, sl)) : null;
+      const lots = sl != null ? (st.sizing === 'lots' ? st.session!.lots : lotsForRisk(spec, balanceOf(st.session!), st.session!.riskPct, entry, sl, st.session!.commissionPerLot)) : null;
       const per = (p: number) => (lots == null ? 0 : Math.abs(p - entry) * lots * usdPerPriceUnit(spec, p));
       if (sl != null) {
         line(sl, '#f23645', true);
@@ -521,7 +521,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     const risk = Math.abs(d.entry.p - d.sl);
     const rr = risk ? Math.abs(d.tp - d.entry.p) / risk : 0;
     const balance = balanceOf(st.session!);
-    const sized = tr ? tr.lots : lotsForRisk(spec, balance, d.riskPct, d.entry.p, d.sl);
+    const sized = tr ? tr.lots : lotsForRisk(spec, balance, d.riskPct, d.entry.p, d.sl, st.session!.commissionPerLot);
     const lots = sized ?? 0; // null: risk bütçesine sığan lot yok (emir engellenir)
     const riskUsd = risk * lots * usdPerPriceUnit(spec, d.entry.p);
     const cx = (x0 + x1) / 2;

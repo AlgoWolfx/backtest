@@ -168,7 +168,7 @@ Limit: Buy için giriş anlık fiyatın altında, Sell için üstünde; Stop: te
 
 - Grafik bid fiyatıdır. Kaynakta ask varsa (Dukascopy, OANDA): long ask'tan açılır / bid ile kapanır, short
   bid'den açılır / ask ile kapanır; SL/TP ilgili tarafın fiyatıyla tetiklenir. HistData'da ask olmadığından spread 0.
-- Komisyon yok. Aynı 1m mumda hem SL hem TP görülürse SL vurulmuş sayılır. Fiyat SL/TP'nin ötesinde
+- **Komisyon:** oturum açarken "Komisyon ($ / lot, gidiş-dönüş)" girilir (varsayılan 0). Değer her işlemin kendisine yazılır; ayar sonradan değişse de eski işlemler değişmez. P&L ve R NET'tir (net R = brüt R - komisyon / ilk parasal risk); Risk % modunda lot, stop riski + komisyon bütçeyi aşmayacak şekilde hesaplanır. Kâr/zarar sonucu (win/loss/BE) net R'ye göre verilir (|R| < 0,1 = BE). Slippage ve swap modellenmez: elimizde tick/likidite ve broker oran verisi yok, uydurma sayı eklenmez. Aynı 1m mumda hem SL hem TP görülürse SL vurulmuş sayılır. Fiyat SL/TP'nin ötesinde
   açılırsa (gap) çıkış açılış fiyatından olur; hiçbir çıkış mumun işlem görmediği bir fiyattan yazılmaz.
 - **Mum içi sıra:** 1m OHLC, high/low sırasını söylemez; tick verisi olmadan kesin sıra iddia edilmez.
   Sıranın sonucu değiştirdiği durumlar işlemde işaretlenir (günlükte "⚠ mum içi sıra varsayımı"):
@@ -181,7 +181,7 @@ dolarsa sarma tam o dakikada durur. Oynatma da emir dolduğunda ve işlem kapand
 
 ## Hesap türü ve kurallar (kişisel / fon)
 
-Yeni oturumda **Hesap türü** seçilir; alanlar elle değiştirilebilir (boş = kural yok):
+Yeni oturumda **Hesap türü** seçilir; alanlar elle değiştirilebilir (boş = kural yok). Hazır ayarlar **genel örnektir**, belirli bir firmanın güncel kuralı değildir; kendi firmanızın kurallarını elle girin. **Günlük sıfırlama** NY 17:00 (varsayılan) veya Avrupa gece yarısı (CE(S)T 00:00) seçilebilir (AB ve ABD yaz saati geçişleri farklı haftalarda olduğundan ikisi arasındaki fark yılda birkaç hafta 1 yerine 2 saat olur; hesap bunu doğru yapar). Trailing yalnızca "kapanmış bakiye zirvesi, başlangıçta kilitlenir" yöntemiyle çalışır.
 
 | Hazır ayar | Hedef | Günlük kayıp | Maks. kayıp | Düşüş | Min. gün |
 | --- | --- | --- | --- | --- | --- |

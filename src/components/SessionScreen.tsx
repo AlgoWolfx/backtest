@@ -34,7 +34,7 @@ export function describeRules(r: AccountRules, balance: number): string {
   const $ = (v: number) => fmtMoney(v);
   const parts: string[] = [];
   if (r.profitTargetPct != null) parts.push(`hedef ${$(balance * (1 + r.profitTargetPct / 100))} (+%${r.profitTargetPct})`);
-  if (r.dailyLossPct != null) parts.push(`günlük en fazla ${$((balance * r.dailyLossPct) / 100)} kayıp (NY 17:00'de sıfırlanır)`);
+  if (r.dailyLossPct != null) parts.push(`günlük en fazla ${$((balance * r.dailyLossPct) / 100)} kayıp (${r.resetMode === 'cet0' ? 'Avrupa gece yarısı CE(S)T 00:00' : 'NY 17:00'}'de sıfırlanır)`);
   if (r.maxLossPct != null) parts.push(`${r.drawdownType === 'trailing' ? 'zirveden' : 'başlangıçtan'} en fazla ${$((balance * r.maxLossPct) / 100)} kayıp`);
   if (r.minTradingDays) parts.push(`en az ${r.minTradingDays} işlem günü`);
   if (!parts.length) return 'Kural yok: hesap patlamaz, hedef yok (serbest kişisel hesap).';
@@ -46,7 +46,7 @@ export function SessionScreen() {
   const symbols = useStore((s) => s.symbols);
   const loading = useStore((s) => s.loading);
   const available = symbols.filter((s) => s.available);
-  const [form, setForm] = useState({ name: '', symbol: 'EURUSD', date: '2025-01-06', time: '02:00', balance: 100000, source: 'histdata' as DataSource });
+  const [form, setForm] = useState({ name: '', symbol: 'EURUSD', date: '2025-01-06', time: '02:00', balance: 100000, source: 'histdata' as DataSource, commission: 0 });
   const ready = (src: DataSource) => symbols.some((s) => s.sources?.[src]);
   // Dukascopy indirildiyse varsayılan kaynak o olsun.
   useEffect(() => {
@@ -70,7 +70,7 @@ export function SessionScreen() {
     if (startTime == null) return;
     setBusy(true);
     try {
-      await createSession({ name: form.name || `${form.symbol} ${form.date}`, symbol: form.symbol, startTime, balance: form.balance, source: form.source, rules });
+      await createSession({ name: form.name || `${form.symbol} ${form.date}`, symbol: form.symbol, startTime, balance: form.balance, source: form.source, rules, commissionPerLot: form.commission });
     } finally {
       setBusy(false);
     }
@@ -145,6 +145,17 @@ export function SessionScreen() {
                 <option value="static">Statik (başlangıçtan)</option>
                 <option value="trailing">Trailing (zirveden)</option>
               </select>
+            </label>
+            <label>
+              <span>Günlük sıfırlama</span>
+              <select value={rules.resetMode ?? 'ny17'} onChange={(e) => setRule({ resetMode: e.target.value as AccountRules['resetMode'] })}>
+                <option value="ny17">NY 17:00 (forex günü)</option>
+                <option value="cet0">Avrupa gece yarısı (CE(S)T 00:00)</option>
+              </select>
+            </label>
+            <label>
+              <span>Komisyon ($ / lot, gidiş-dönüş)</span>
+              <input type="number" min={0} step={0.5} value={form.commission} onChange={(e) => setForm({ ...form, commission: Math.max(0, Number(e.target.value) || 0) })} />
             </label>
             <label>
               <span>Min. işlem günü</span>
