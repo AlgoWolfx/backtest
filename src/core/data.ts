@@ -21,20 +21,10 @@ export interface SymbolMeta {
   builtAt: string;
   source: string;
   format?: number;
-  /** OANDA: kapanışlardaki spread (medyan, %90) */
+  /** Kapanışlardaki spread (medyan, %90) */
   spread?: { median: number; p90: number };
   /** Dukascopy derlemesi: ask'ı bulunmayıp ask=bid yazılan dakika sayısı (bu dakikalarda spread gerçekte bilinmiyor) */
   askMissingMinutes?: number;
-  histdata?: { minutes: number; gaps: number; missingHoursByYear: Record<string, number>; ohlcFixed: number };
-  dukascopy?: {
-    daysCached: number;
-    daysWithData: number;
-    factor: number | null;
-    crossCheck: { days: number; minutes: number; identical: number; maxDiffPoints: number; badDays: { day: string; overlap: number; identicalPct: number }[] };
-    filledMinutes: number;
-    filledByYear: Record<string, number>;
-    error?: string;
-  };
 }
 
 /** Bir 1m mumun kaynağı. */
@@ -47,15 +37,13 @@ export function sourceName(d: Pick<M1Data, 'source'>, src: number): string {
   return sourceLabel(d.source);
 }
 
-export type DataSource = 'dukascopy' | 'histdata' | 'oanda';
+export type DataSource = 'dukascopy';
 export const DATA_SOURCES: { id: DataSource; label: string; detail: string }[] = [
-  { id: 'dukascopy', label: 'Dukascopy', detail: 'Dukascopy 1m bid + ask (orijinal akış, gerçek spread, boşluksuz), önerilen' },
-  { id: 'histdata', label: 'HistData', detail: "HistData.com 1m bid (Dukascopy akışı, 2023'te boşluklu), spread yok" },
-  { id: 'oanda', label: 'OANDA', detail: 'OANDA 1m bid + ask (gerçek spread), API anahtarı gerekir' },
+  { id: 'dukascopy', label: 'Dukascopy', detail: 'Dukascopy 1m bid + ask (orijinal akış, gerçek spread)' },
 ];
 
 export interface SymbolInfo extends SymbolSpec {
-  /** HistData verisi var mı (geriye dönük uyumluluk) */
+  /** Sembolün verisi indirilmiş mi */
   available: boolean;
   meta: SymbolMeta | null;
   /** Kaynak başına meta (yoksa o kaynakta veri yok) */
@@ -76,7 +64,7 @@ export interface M1Data {
   c: Int32Array;
   /** 0 = ana kaynak, 1 = Dukascopy dolgusu */
   src: Uint8Array;
-  /** Ask fiyatları (yalnızca kaynakta varsa, ör. OANDA) */
+  /** Ask fiyatları (yalnızca kaynakta varsa) */
   ask?: { o: Int32Array; h: Int32Array; l: Int32Array; c: Int32Array };
   meta: SymbolMeta;
 }
@@ -96,7 +84,7 @@ export interface AggData {
 }
 
 const cache = new Map<string, Promise<M1Data>>();
-// Önbellek veri nesnesine bağlıdır: kaynak (HistData / Dukascopy) değişince aynı sembolün eski mumları kullanılmaz.
+// Önbellek veri nesnesine bağlıdır: veri yeniden yüklenince aynı sembolün eski mumları kullanılmaz.
 const aggCache = new WeakMap<M1Data, Map<TF, AggData>>();
 
 export function loadSymbol(info: SymbolInfo, source: DataSource, onProgress?: (p: number) => void): Promise<M1Data> {
@@ -130,7 +118,7 @@ async function fetchBars(info: SymbolInfo, source: DataSource, onProgress?: (p: 
   // format 1: 5 x Int32 | format 2: + kaynak (Uint8) | format 3: + ask OHLC (4 x Int32) + kaynak
   const per = meta.format === 3 ? 37 : meta.format === 2 ? 21 : 20;
   const ints = meta.format === 3 ? 9 : 5;
-  if (off !== n * per) throw new Error(`${info.id} veri dosyası bozuk (beklenen ${n * per}, gelen ${off} bayt). Sayfayı yenileyin veya "npm run data -- --build-only" çalıştırın.`);
+  if (off !== n * per) throw new Error(`${info.id} veri dosyası bozuk (beklenen ${n * per}, gelen ${off} bayt). Sayfayı yenileyin veya "npm run data" ile veriyi yeniden indirin.`);
   const all = new Int32Array(buf.buffer, 0, ints * n);
   return {
     id: `${source}:${info.id}`,

@@ -12,73 +12,32 @@ Terminalden:
 
 ```bash
 npm install        # ilk seferde
-npm run data:dukascopy   # Dukascopy bid+ask verisini indir ve derle (ilk seferde ~1,5 saat)
+npm run data              # Dukascopy bid+ask verisini indir ve derle (ilk seferde ~1,5 saat)
 npm start                # arayüzü derle ve sunucuyu başlat
 ```
 
 Geliştirme modu (kod değiştikçe sayfa yenilenir): `npm run dev`
 
-## Veri kaynakları
+## Veri
 
-Her oturum bir veri kaynağıyla açılır; üst çubuktaki seçiciyle (açık işlem yokken) değiştirilebilir.
-Aynı mumu iki akışta karşılaştırmak için kullanışlıdır.
-
-### Dukascopy (önerilen, ücretsiz, bid + ask)
-
-Dukascopy'nin (İsviçre bankası) orijinal 1 dakikalık akışı, **bid ve ask** ayrı ayrı (gerçek spread),
-2020'den bugüne, UTC zaman damgalı. HistData'daki 2023 boşlukları bu kaynakta yok. HistData ile
-dakika dakika karşılaştırmada %99,95-100 birebir aynıdır. Varsayılan kaynak budur.
+Tek kaynak **Dukascopy** (İsviçre bankası): orijinal 1 dakikalık akış, **bid ve ask** ayrı ayrı (gerçek
+spread), 2020'den bugüne, UTC zaman damgalı. 8 sembol: EURUSD, GBPUSD, USDJPY, XAUUSD, XAGUSD, US100,
+US500, DXY. Eksik dakikalar uydurulmaz (yılbaşı, tatil ve hafta sonu kapanışları dışında boşluk yoktur).
 
 ```bash
-npm run data:dukascopy                         # 8 sembol, 2020 → bugün (~1,5 saat, ~350 MB)
-npm run data:dukascopy -- EURUSD               # tek sembol
-npm run data:dukascopy -- --from=2026-10       # yalnızca son ay(lar)ı güncelle
-npm run data:dukascopy -- --build-only         # indirmeden yeniden derle
+npm run data                         # 8 sembol, 2020 → bugün (~1,5 saat, ~350 MB)
+npm run data -- EURUSD               # tek sembol
+npm run data -- --from=2026-10       # yalnızca son ay(lar)ı güncelle
+npm run data -- --build-only         # indirmeden yeniden derle
 ```
 
 Veri, [dukascopy-node](https://www.dukascopy-node.app) kütüphanesinin kullandığı servisten ay ay indirilir
 (`data/raw/dukascopy-full/<SEMBOL>/<BID|ASK>/<YYYY-MM>.json.gz`). Servis (AWS WAF) yalnızca tarayıcı
 başlıklarıyla (`Referer`/`Origin: https://www.dukascopy.com` ve Chrome User-Agent) tam veri döndürür; betik bunları ekler.
-Yarıda kalırsa kaldığı aydan devam eder. Çıktı: `data/bars-dukascopy/`. Oturum açarken varsayılan kaynak budur.
+Yarıda kalırsa kaldığı aydan devam eder. Çıktı: `data/bars-dukascopy/`.
 
-### HistData (eski kaynak, yalnızca bid; artık gerekli değil)
-
-- [HistData.com](https://www.histdata.com) 1 dakikalık **bid** verisi, 2020'den bugüne. 8 sembolün hepsi:
-  EURUSD, GBPUSD, USDJPY, XAUUSD, XAGUSD, US100 (NSXUSD), US500 (SPXUSD), DXY (UDXUSD).
-- **Bu veri Dukascopy'nin (İsviçre bankası) fiyat akışıdır:** Dukascopy'nin UTC zaman damgalı orijinal
-  dosyalarıyla dakika dakika karşılaştırıldığında %99,96 birebir aynıdır.
-- **Saat dilimi:** HistData belgelerinde "sabit EST" yazsa da dosyalar UTC-5 + **Avrupa** yaz saati
-  kuralıyla kodlanmış. Bu; NFP sıçramalarının (08:30 NY), US100/DXY günlük aralarının ve Dukascopy'nin
-  UTC verisiyle birebir eşleşmenin konumundan doğrulandı. Veri gerçek UTC'ye çevrilir.
-- **Eksik veri:** Eksik dakikalar uydurulmaz. HistData'nın **2023 yılında tüm sembollerde ~800+ saat**
-  boşluğu var (ör. 10 Mart 2023 08:00-09:00 NY, NFP saati); aynı saatler HistData'nın tick verisinde de
-  yok. Bu boşluklar Dukascopy'nin aynı akışından doldurulabilir (aşağıda). Replay sırasında boşluğa
-  girildiğinde grafiğin üstünde uyarı çıkar; açılış ekranındaki "Veri durumu" tablosu yıllara göre
-  eksik saatleri gösterir.
-- Güncelleme: `npm run data` (yalnızca eksik dosyalar + içinde bulunulan ay). Tek sembol: `npm run data -- EURUSD`.
-
-### Boşlukları eski Dukascopy .bi5 akışıyla doldurma (yalnızca HistData için, yavaş)
-
-```bash
-npm run fetch:dukascopy          # gereken günleri indirir (kaldığı yerden devam eder)
-npm run data -- --build-only     # boşlukları doldurur ve çapraz kontrol yapar
-```
-
-Dukascopy sunucusu çok sıkı hız sınırı uyguluyor (çoğu isteğe 503 döner, toplu indirme için ücretli
-S3 deposu öneriyor). Bu yüzden indirme saatler sürebilir; bir gece açık bırakılabilir. Sadece HistData
-boşluğu olan günler ve doğrulama örnekleri indirilir. Ortak dakikaların %90'ından azı aynı olan
-günlerden asla doldurma yapılmaz. Doldurulan dakikalar mum inceleyicide "Dukascopy" olarak görünür.
-
-### OANDA (isteğe bağlı, gerekli değil; yalnızca sahte sunucuyla test edildi)
-
-FX Replay ve TradingView'daki `OANDA:EURUSD` grafikleriyle aynı akış. Bid **ve ask** geldiği için
-işlemler **gerçek spread** ile simüle edilir. DXY OANDA'da yok (HistData kullanılır).
-
-1. [oanda.com](https://www.oanda.com) üzerinden ücretsiz **demo (fxTrade Practice)** hesabı açın.
-2. Hesap ayarlarından **API anahtarı** (Manage API Access) oluşturun.
-3. Proje klasöründe `.env` dosyası oluşturup içine yazın: `OANDA_TOKEN=anahtarınız`
-   (canlı hesap anahtarıysa ayrıca `OANDA_ENV=live`).
-4. `npm run data:oanda` (~20 dakika). Yeni oturumda "Veri kaynağı: OANDA" seçin.
+Eski HistData / OANDA kaynakları kaldırıldı; bu kaynaklarla açılmış eski oturumlar otomatik olarak
+Dukascopy verisiyle açılır (mumlar %99,95+ aynıdır, ancak işlem sonuçlarında küçük fark olabilir).
 
 ## Doğrulama
 
@@ -90,8 +49,7 @@ Uygulamanın saat kodundan bağımsız olarak (Intl saat dilimi veritabanıyla) 
 
 - 1H/4H/1D/1W/1M mumlarının doğru New York kovasına düşmesi (sembol başına 2000 örnek),
 - günlük ve 4H OHLC'nin 1m veriden bağımsız yeniden hesaplanmasıyla aynı olması,
-- Dukascopy (UTC) ile dakika dakika eşleşme, OANDA varsa HistData ile saat hizalaması,
-- sıra / tekrar / OHLC tutarlılığı, Cumartesi mumu, ani sıçramalar.
+- sıra / tekrar / OHLC tutarlılığı, ask ≥ bid, Cumartesi mumu, ani sıçramalar.
 
 Uygulama içinde: OHLC göstergesi (imlecin altındaki mum), **sağ tık → "Bu mumu incele"** (mumu
 oluşturan 1m mumlar, kaynaklarıyla) ve **sağ tık → "Görünen mumları CSV indir"** ile başka
@@ -100,7 +58,7 @@ OANDA:) fitillerde birkaç pip'e kadar fark normaldir; mum zamanları ve yapı a
 
 ## Mum oluşturma kuralları
 
-Üst zaman dilimleri 1m veriden New York saatine göre oluşturulur (TradingView/OANDA ile aynı):
+Üst zaman dilimleri 1m veriden New York saatine göre oluşturulur (TradingView ile aynı):
 
 | Zaman dilimi | Mum başlangıcı (NY) |
 | --- | --- |
@@ -224,8 +182,8 @@ Limit: Buy için giriş anlık fiyatın altında, Sell için üstünde; Stop: te
 
 **Simülasyon kuralları:**
 
-- Grafik bid fiyatıdır. Kaynakta ask varsa (Dukascopy, OANDA): long ask'tan açılır / bid ile kapanır, short
-  bid'den açılır / ask ile kapanır; SL/TP ilgili tarafın fiyatıyla tetiklenir. HistData'da ask olmadığından spread 0.
+- Grafik bid fiyatıdır. Kaynakta ask varsa (Dukascopy): long ask'tan açılır / bid ile kapanır, short
+  bid'den açılır / ask ile kapanır; SL/TP ilgili tarafın fiyatıyla tetiklenir.
 - **Komisyon:** oturum açarken "Komisyon ($ / lot, gidiş-dönüş)" girilir (varsayılan 0). Değer her işlemin kendisine yazılır; ayar sonradan değişse de eski işlemler değişmez. P&L ve R NET'tir (net R = brüt R - komisyon / ilk parasal risk); Risk % modunda lot, stop riski + komisyon bütçeyi aşmayacak şekilde hesaplanır. Kâr/zarar sonucu (win/loss/BE) net R'ye göre verilir (|R| < 0,1 = BE). Slippage ve swap modellenmez: elimizde tick/likidite ve broker oran verisi yok, uydurma sayı eklenmez. Aynı 1m mumda hem SL hem TP görülürse SL vurulmuş sayılır. Fiyat SL/TP'nin ötesinde
   açılırsa (gap) çıkış açılış fiyatından olur; hiçbir çıkış mumun işlem görmediği bir fiyattan yazılmaz.
 - **Mum içi sıra:** 1m OHLC, high/low sırasını söylemez; tick verisi olmadan kesin sıra iddia edilmez.
@@ -308,10 +266,8 @@ npm run verify     # gerçek veri doğrulaması
 npm run typecheck
 ```
 
-- `scripts/dukascopy-full.mjs`: Dukascopy bid+ask ay ay indirme + derleme (`data/bars-dukascopy/`, varsayılan kaynak)
-- `scripts/data.mjs`: HistData indirme + derleme (+ Dukascopy çapraz kontrol / doldurma)
-- `scripts/oanda.mjs`: OANDA indirme + derleme (`data/bars-oanda/`)
-- `scripts/dukascopy.mjs`, `scripts/fetch-dukascopy.mjs`: Dukascopy günlük dosyaları
+- `scripts/dukascopy-full.mjs`: Dukascopy bid+ask ay ay indirme + derleme (`data/bars-dukascopy/`)
+- `scripts/gaps.mjs`: veri boşluğu hesabı
 - `server/index.mjs`: veri, oturum API'si ve arayüz
 - `src/core/`: zaman dilimleri, birleştirme, işlem simülasyonu (saf fonksiyonlar)
 - `src/chart/`: lightweight-charts sarmalayıcısı ve çizim katmanı

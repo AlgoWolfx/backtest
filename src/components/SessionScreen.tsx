@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createSession, deleteSession, openSession, useStore } from '../store';
-import { DATA_SOURCES, type DataSource } from '../core/data';
+import { DATA_SOURCES } from '../core/data';
 import { ACCOUNT_PRESETS, type AccountRules } from '../core/account';
 import { fmtMoney, fmtNy } from '../format';
 import { fromNyInputs } from './Dialogs';
@@ -46,12 +46,7 @@ export function SessionScreen() {
   const symbols = useStore((s) => s.symbols);
   const loading = useStore((s) => s.loading);
   const available = symbols.filter((s) => s.available);
-  const [form, setForm] = useState({ name: '', symbol: 'EURUSD', date: '2025-01-06', time: '02:00', balance: 100000, source: 'histdata' as DataSource, commission: 0 });
-  const ready = (src: DataSource) => symbols.some((s) => s.sources?.[src]);
-  // Dukascopy indirildiyse varsayılan kaynak o olsun.
-  useEffect(() => {
-    if (symbols.some((s) => s.sources?.dukascopy)) setForm((f) => (f.source === 'histdata' ? { ...f, source: 'dukascopy' } : f));
-  }, [symbols]);
+  const [form, setForm] = useState({ name: '', symbol: 'EURUSD', date: '2025-01-06', time: '02:00', balance: 100000, commission: 0 });
   const [busy, setBusy] = useState(false);
   const [preset, setPreset] = useState('personal');
   const [rules, setRules] = useState<AccountRules>(ACCOUNT_PRESETS[0].rules);
@@ -70,7 +65,7 @@ export function SessionScreen() {
     if (startTime == null) return;
     setBusy(true);
     try {
-      await createSession({ name: form.name || `${form.symbol} ${form.date}`, symbol: form.symbol, startTime, balance: form.balance, source: form.source, rules, commissionPerLot: form.commission });
+      await createSession({ name: form.name || `${form.symbol} ${form.date}`, symbol: form.symbol, startTime, balance: form.balance, source: 'dukascopy', rules, commissionPerLot: form.commission });
     } finally {
       setBusy(false);
     }
@@ -96,17 +91,6 @@ export function SessionScreen() {
                 {available.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.id} · {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label title={DATA_SOURCES.find((x) => x.id === form.source)!.detail}>
-              <span>Veri kaynağı</span>
-              <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value as DataSource })}>
-                {DATA_SOURCES.map((d) => (
-                  <option key={d.id} value={d.id} disabled={!ready(d.id)}>
-                    {d.label}
-                    {!ready(d.id) ? ' (indirilmemiş)' : ''}
                   </option>
                 ))}
               </select>
@@ -222,7 +206,7 @@ export function SessionScreen() {
           <h2>Veri durumu</h2>
           <p className="hint">
             1 dakikalık veriden New York saatine göre üst zaman dilimleri oluşturulur. Yıl sütunları, normal işlem saatleri içinde verinin olmadığı süreyi gösterir (tatiller dahil). Eksik
-            dakikalar uydurulmaz. Dukascopy önerilen kaynaktır: orijinal akış, bid + ask (gerçek spread), boşluksuz.
+            dakikalar uydurulmaz. Veri Dukascopy 1m bid + ask akışıdır (gerçek spread).
           </p>
           <table className="data-status">
             <thead>

@@ -195,7 +195,7 @@ export const LAYOUTS: Record<LayoutId, { count: number; label: string }> = {
 export interface Session {
   id: string;
   name: string;
-  /** Veri kaynağı (eski oturumlarda yok = histdata) */
+  /** Veri kaynağı: her zaman Dukascopy (eski HistData / OANDA oturumları açılışta buna çevrilir) */
   source?: DataSource;
   /** Hesap kuralları ve durumu (eski oturumlarda yok = kuralsız kişisel hesap) */
   account?: Account;
