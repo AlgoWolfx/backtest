@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SESSION_SETTINGS } from './core/sessions';
-import type { Rect } from './core/types';
+import { DEFAULT_SESSION_SETTINGS } from '../core/sessions';
+import type { Rect } from '../core/types';
 import { loadRectTemplate, rectTemplateOf } from './drawingTemplates';
 import { sanitizeSessionSettings } from './sessionSettings';
 

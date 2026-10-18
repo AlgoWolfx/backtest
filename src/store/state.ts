@@ -2,8 +2,8 @@
 
 import { create } from 'zustand';
 import { revealedCount, type M1Data, type SymbolInfo } from '../core/data';
-import { loadTheme, type ChartTheme } from '../chartTheme';
-import { loadSessionSettings } from '../sessionSettings';
+import { loadTheme, type ChartTheme } from '../prefs/chartTheme';
+import { loadSessionSettings } from '../prefs/sessionSettings';
 import { type SessionSettings } from '../core/sessions';
 import { type Side, type Trade } from '../core/trading';
 import { balanceOf } from '../core/simulate';

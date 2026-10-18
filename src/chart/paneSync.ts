@@ -2,7 +2,7 @@
 // sürüklerken / kaydırırken / imleci gezdirirken yayın yapılır; replay ilerlemesi ve diğer ekranlara uygulanan
 // değişiklikler yeniden yayına yol açmaz (döngü yok).
 
-import { paneControllers } from '../chartRef';
+import { paneControllers } from './chartRef';
 import { syncOf, useStore } from '../store';
 import type { ChartController } from './ChartController';
 

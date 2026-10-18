@@ -1,14 +1,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { getSymbol } from '../../shared/symbols.js';
-import { hasReview, mistakeBreakdown, NO_MISTAKE, reviewSummary } from '../core/review';
-import { breakdown, computeStats, sessionOf, SESSIONS, weekdayOf, WEEKDAYS, closedTrades, type BreakdownRow, type EquityPoint } from '../core/stats';
-import { chronologyIssue, entryTime, EXECUTION_MODEL, type Trade } from '../core/trading';
-import { ACCOUNT_GROUPS, presetOf, type Account } from '../core/account';
-import { describeRules } from './SessionScreen';
-import { flagLabel, fmtMoney, fmtNy, fmtPrice, fmtR, reasonLabel } from '../format';
-import { shotUrl } from '../shots';
-import { editReview, setTradeNote, useStore } from '../store';
-import { Icons } from './icons';
+import { getSymbol } from '../../../shared/symbols.js';
+import { hasReview, mistakeBreakdown, NO_MISTAKE, reviewSummary } from '../../core/review';
+import { breakdown, computeStats, sessionOf, SESSIONS, weekdayOf, WEEKDAYS, closedTrades, type BreakdownRow, type EquityPoint } from '../../core/stats';
+import { chronologyIssue, entryTime, EXECUTION_MODEL, type Trade } from '../../core/trading';
+import { ACCOUNT_GROUPS, presetOf, type Account } from '../../core/account';
+import { describeRules } from '../session/SessionScreen';
+import { flagLabel, fmtMoney, fmtNy, fmtPrice, fmtR, reasonLabel } from '../../lib/format';
+import { shotUrl } from '../../lib/shots';
+import { editReview, setTradeNote, useStore } from '../../store';
+import { Icons } from '../common/icons';
 
 /** Performans ve işlem günlüğü (FX Replay "Analytics / Journal" benzeri). */
 export function PerformancePage() {

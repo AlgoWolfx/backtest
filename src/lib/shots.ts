@@ -1,11 +1,11 @@
 // İşlem ekran görüntüleri: işlem açıldığında ve kapandığında grafiğin o anki hâli kaydedilir.
 // Görüntünün üstüne sembol, zaman dilimi, NY saati ve işlem bilgisi yazılır.
 
-import { getSymbol } from '../shared/symbols.js';
-import { controllerFor } from './chartRef';
-import { tfInfo } from './core/timeframes';
+import { getSymbol } from '../../shared/symbols.js';
+import { controllerFor } from '../chart/chartRef';
+import { tfInfo } from '../core/timeframes';
 import { fmtMoney, fmtNy, fmtPrice, fmtR, reasonLabel } from './format';
-import { onTradeEvent, setTradeShot, toast, useStore, type TradeEvent } from './store';
+import { onTradeEvent, setTradeShot, toast, useStore, type TradeEvent } from '../store';
 
 const shotUrl = (sessionId: string, name: string) => `/api/sessions/${sessionId}/shots/${name}`;
 export { shotUrl };

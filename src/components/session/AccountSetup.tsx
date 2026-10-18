@@ -2,8 +2,8 @@
 // kural alanları ve doların karşılıklarıyla kural özeti. Tutarsız kurallar için uyarı / hata gösterir.
 
 import { useEffect, useState } from 'react';
-import { ACCOUNT_GROUPS, ACCOUNT_PRESETS, groupOf, presetOf, ruleAmounts, validateRules, type AccountGroup, type AccountRules } from '../core/account';
-import { fmtMoney } from '../format';
+import { ACCOUNT_GROUPS, ACCOUNT_PRESETS, groupOf, presetOf, ruleAmounts, validateRules, type AccountGroup, type AccountRules } from '../../core/account';
+import { fmtMoney } from '../../lib/format';
 
 const SIZES = [5_000, 10_000, 25_000, 50_000, 100_000, 200_000];
 const sizeLabel = (v: number) => `${v / 1000}K`;

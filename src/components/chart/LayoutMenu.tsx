@@ -2,9 +2,9 @@
 // olarak görünür) ve "Yerleşimde senkronize et" anahtarları (sembol, aralık, artı işareti, zaman, tarih aralığı).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LAYOUT_IDS, LAYOUTS, isLayoutId, layoutGeometry, type LayoutId } from '../core/layouts';
-import type { Session, SyncCfg } from '../core/types';
-import { setLayout, setSync, syncOf, useStore } from '../store';
+import { LAYOUT_IDS, LAYOUTS, isLayoutId, layoutGeometry, type LayoutId } from '../../core/layouts';
+import type { Session, SyncCfg } from '../../core/types';
+import { setLayout, setSync, syncOf, useStore } from '../../store';
 
 const FAV_KEY = 'backtest.layoutFavs';
 

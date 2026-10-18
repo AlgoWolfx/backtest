@@ -2,13 +2,13 @@
 // Taşınabilir ve küçültülebilir; "Atla" ile kapatılırsa Performans > işlem günlüğünden sonradan doldurulabilir.
 
 import { useEffect, useState } from 'react';
-import { getSymbol } from '../../shared/symbols.js';
-import { MISTAKE_TAGS, NO_MISTAKE } from '../core/review';
-import type { Trade } from '../core/trading';
-import { fmtMoney, fmtNy, fmtPrice, fmtR, reasonLabel } from '../format';
-import { saveReview, skipReview, useStore } from '../store';
-import { useWindow } from '../useWindow';
-import { Icons } from './icons';
+import { getSymbol } from '../../../shared/symbols.js';
+import { MISTAKE_TAGS, NO_MISTAKE } from '../../core/review';
+import type { Trade } from '../../core/trading';
+import { fmtMoney, fmtNy, fmtPrice, fmtR, reasonLabel } from '../../lib/format';
+import { saveReview, skipReview, useStore } from '../../store';
+import { useWindow } from '../../lib/useWindow';
+import { Icons } from '../common/icons';
 
 export function TradeReviewModal() {
   const id = useStore((s) => s.reviewQueue[0]);

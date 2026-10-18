@@ -11,7 +11,7 @@ import {
   type SessionDef,
   type SessionSettings,
   type TdoSettings,
-} from './core/sessions';
+} from '../core/sessions';
 
 const KEY = 'backtest.geraltSessions';
 

@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { getSymbol } from '../../shared/symbols.js';
-import { entryTime, liquidationPnl, openR, type Trade } from '../core/trading';
-import { fmtMoney, fmtNyShort, fmtPrice, fmtR, reasonLabel } from '../format';
-import { closeTradeManual, exitPriceNow, setSymbol, useStore } from '../store';
+import { getSymbol } from '../../../shared/symbols.js';
+import { entryTime, liquidationPnl, openR, type Trade } from '../../core/trading';
+import { fmtMoney, fmtNyShort, fmtPrice, fmtR, reasonLabel } from '../../lib/format';
+import { closeTradeManual, exitPriceNow, setSymbol, useStore } from '../../store';
 
 const RESULT_LABEL = { win: 'Win', loss: 'Loss', be: 'BE' } as const;
 

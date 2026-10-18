@@ -1,5 +1,5 @@
-import type { SymbolSpec } from '../shared/symbols.js';
-import { nyOffset, toNyLocal } from '../shared/nytime.js';
+import type { SymbolSpec } from '../../shared/symbols.js';
+import { nyOffset, toNyLocal } from '../../shared/nytime.js';
 
 const DAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 const MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];

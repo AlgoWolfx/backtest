@@ -4,8 +4,8 @@ import { TIMEFRAMES } from '../core/timeframes';
 import { liquidationPnl } from '../core/trading';
 import { snapshot } from '../core/account';
 import { type Tool } from '../core/types';
-import { fmtMoney } from '../format';
-import type { ChartType } from '../chartTheme';
+import { fmtMoney } from '../lib/format';
+import type { ChartType } from '../prefs/chartTheme';
 import {
   balanceOf,
   clearDrawings,
@@ -27,11 +27,11 @@ import {
   useStore,
   setSessionSettings,
 } from '../store';
-import { Icons } from './icons';
-import { LayoutMenu } from './LayoutMenu';
-import { FAV_CANDIDATES, setFavBarVisible, toggleFavTool, useFavBar } from '../favTools';
-import { toggleFullscreen, useFullscreen } from '../fullscreen';
-import { ReplayClock, ReplayControls } from './ReplayControls';
+import { Icons } from './common/icons';
+import { LayoutMenu } from './chart/LayoutMenu';
+import { FAV_CANDIDATES, setFavBarVisible, toggleFavTool, useFavBar } from '../prefs/favTools';
+import { toggleFullscreen, useFullscreen } from '../lib/fullscreen';
+import { ReplayClock, ReplayControls } from './replay/ReplayControls';
 
 // ---------------------------------------------------------------- üst çubuk
 

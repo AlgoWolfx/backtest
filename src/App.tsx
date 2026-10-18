@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
-import { chartRef } from './chartRef';
+import { chartRef } from './chart/chartRef';
 import { TIMEFRAMES, type TF } from './core/timeframes';
 import { LAYOUTS, type Tool } from './core/types';
 import { BottomBar, LeftToolbar, TopBar } from './components/Bars';
 import { ChartArea } from './components/ChartView';
 import { ChartSettings, DrawingEditor, JumpDialog, Toast } from './components/Dialogs';
-import { SessionScreen } from './components/SessionScreen';
-import { TradePanel } from './components/TradePanel';
-import { PerformancePage } from './components/PerformancePage';
-import { TradeReviewModal } from './components/TradeReview';
-import { toggleFullscreen } from './fullscreen';
+import { SessionScreen } from './components/session/SessionScreen';
+import { TradePanel } from './components/trades/TradePanel';
+import { PerformancePage } from './components/performance/PerformancePage';
+import { TradeReviewModal } from './components/trades/TradeReview';
+import { toggleFullscreen } from './lib/fullscreen';
 import { cancelTicket, copySelected, deleteDrawing, forwardToBarClose, forwardToNextSessionBoundary, init, pasteClipboard, redo, setTf, stepBack, stepForward, toast, toggleMaxPane, togglePlay, undo, useStore } from './store';
 
 const TOOL_KEYS: Record<string, Tool> = { KeyT: 'trend', KeyH: 'hline', KeyR: 'rect', KeyF: 'fib', KeyL: 'long', KeyS: 'short', KeyM: 'measure' };

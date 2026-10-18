@@ -8,7 +8,7 @@ import { nextBoundary } from '../core/sessions';
 import { rewindBlockedBy } from '../core/trading';
 import { activeTrades, simulate as simulateRange, type SimResult } from '../core/simulate';
 import { type Session } from '../core/types';
-import { fmtNyShort, fmtPrice, reasonLabel } from '../format';
+import { fmtNyShort, fmtPrice, reasonLabel } from '../lib/format';
 import { get, set, toast, patchSession, currentData } from './state';
 import { mapDrawing } from './drawings';
 import { emitTrade, queueReview } from './trades';

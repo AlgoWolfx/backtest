@@ -26,8 +26,8 @@ import {
 import type { SymbolSpec } from '../../shared/symbols.js';
 import { aggIndexOfM1, aggregate, revealedCount, upperBound, visibleBar, type AggData, type Bar, type M1Data } from '../core/data';
 import { tfInfo, type TF } from '../core/timeframes';
-import { MONTHS, fmtShifted, pad } from '../format';
-import type { ChartTheme } from '../chartTheme';
+import { MONTHS, fmtShifted, pad } from '../lib/format';
+import type { ChartTheme } from '../prefs/chartTheme';
 import { useStore } from '../store';
 import { DrawingLayer, hexToRgba } from './DrawingLayer';
 import { SessionLayer } from './SessionLayer';

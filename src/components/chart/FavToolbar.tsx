@@ -1,10 +1,10 @@
 // Grafik üstündeki favori araç çubuğu (TradingView gibi): tutamaçtan sürüklenir, simgeye tıklayınca araç seçilir.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Tool } from '../core/types';
-import { clampPos, setFavBarPos, useFavBar, type FavBarPos } from '../favTools';
-import { useStore } from '../store';
-import { Icons } from './icons';
+import type { Tool } from '../../core/types';
+import { clampPos, setFavBarPos, useFavBar, type FavBarPos } from '../../prefs/favTools';
+import { useStore } from '../../store';
+import { Icons } from '../common/icons';
 
 const ICONS: Partial<Record<Tool, () => React.JSX.Element>> = {
   trend: Icons.trend,

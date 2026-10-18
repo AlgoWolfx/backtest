@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { DEFAULT_SESSION_SETTINGS, type LabelPos, type LabelSize, type LabelVPos, type LineStyleName, type SessionDef, type SessionSettings, type TdoSettings } from '../core/sessions';
-import { setSessionSettings, useStore } from '../store';
+import { DEFAULT_SESSION_SETTINGS, type LabelPos, type LabelSize, type LabelVPos, type LineStyleName, type SessionDef, type SessionSettings, type TdoSettings } from '../../core/sessions';
+import { setSessionSettings, useStore } from '../../store';
 
 const STYLES: LineStyleName[] = ['Solid', 'Dashed', 'Dotted'];
 const POS: LabelPos[] = ['Sağ', 'Başlangıç'];

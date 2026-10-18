@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampOffset } from '../useWindow';
+import { clampOffset } from '../lib/useWindow';
 import { hasReview, mistakeBreakdown, MISTAKE_TAGS, NO_MISTAKE, reviewSummary } from './review';
 import type { Trade, TradeReview } from './trading';
 

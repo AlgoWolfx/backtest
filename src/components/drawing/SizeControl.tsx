@@ -1,12 +1,12 @@
 // Pozisyon aracının (Long / Short) boyutu: risk yüzdesi veya sabit lot. Henüz emre dönmemiş ve bekleyen (limit / stop)
 // pozisyonlarda düzenlenir; bekleyen emirde değişiklik emre de yansır (lot yeniden hesaplanır).
 
-import { getSymbol } from '../../shared/symbols.js';
-import { lotsForRisk, stopRiskPerLot } from '../core/trading';
-import type { Position } from '../core/types';
-import { fmtMoney } from '../format';
-import { balanceOf, updateDrawing, useStore } from '../store';
-import { NumberInput } from './Bars';
+import { getSymbol } from '../../../shared/symbols.js';
+import { lotsForRisk, stopRiskPerLot } from '../../core/trading';
+import type { Position } from '../../core/types';
+import { fmtMoney } from '../../lib/format';
+import { balanceOf, updateDrawing, useStore } from '../../store';
+import { NumberInput } from '../Bars';
 
 export function SizeControl({ d, record }: { d: Position; record: boolean }) {
   const session = useStore((s) => s.session);

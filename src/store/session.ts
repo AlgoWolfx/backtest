@@ -6,7 +6,7 @@ import { newAccount, type AccountRules } from '../core/account';
 import { activeTrades } from '../core/simulate';
 import { isLayoutId } from '../core/layouts';
 import { DEFAULT_FIB, type Session } from '../core/types';
-import { fmtNyShort } from '../format';
+import { fmtNyShort } from '../lib/format';
 import { useStore, get, set, toast } from './state';
 import { stopPlay } from './replay';
 import { history } from './drawings';

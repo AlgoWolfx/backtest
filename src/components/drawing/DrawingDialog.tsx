@@ -3,19 +3,19 @@
 // long / short pozisyon. Değişiklikler canlı uygulanır; İptal (veya Esc / ×) pencere açıldığı hâle döndürür.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { getSymbol } from '../../shared/symbols.js';
-import { nyLocalToUtc, toNyLocal } from '../../shared/nytime.js';
-import { hexToRgba } from '../chart/drawUtil';
-import { TIMEFRAMES, type TF } from '../core/timeframes';
-import { lotsForRisk, stopRiskPerLot, usdPerPriceUnit } from '../core/trading';
-import { DEFAULT_FIB, type Drawing, type Fib, FibLevel, HLine, LineEnd, LineStyleName, Position, Rect, RectExtend, StatsMode, TextHAlign, TextVAlign, TrendLine } from '../core/types';
-import { clearTemplate, factoryReset, loadTemplate, saveTemplate, templateOf } from '../drawingTemplates';
-import { fmtDistance, fmtMoney } from '../format';
-import { balanceOf, placeOrderFromDrawing, recordUndo, setFibDefaults, toast, updateDrawing, useStore } from '../store';
-import { useWindow } from '../useWindow';
-import { NumberInput } from './Bars';
+import { getSymbol } from '../../../shared/symbols.js';
+import { nyLocalToUtc, toNyLocal } from '../../../shared/nytime.js';
+import { hexToRgba } from '../../chart/drawUtil';
+import { TIMEFRAMES, type TF } from '../../core/timeframes';
+import { lotsForRisk, stopRiskPerLot, usdPerPriceUnit } from '../../core/trading';
+import { DEFAULT_FIB, type Drawing, type Fib, FibLevel, HLine, LineEnd, LineStyleName, Position, Rect, RectExtend, StatsMode, TextHAlign, TextVAlign, TrendLine } from '../../core/types';
+import { clearTemplate, factoryReset, loadTemplate, saveTemplate, templateOf } from '../../prefs/drawingTemplates';
+import { fmtDistance, fmtMoney } from '../../lib/format';
+import { balanceOf, placeOrderFromDrawing, recordUndo, setFibDefaults, toast, updateDrawing, useStore } from '../../store';
+import { useWindow } from '../../lib/useWindow';
+import { NumberInput } from '../Bars';
 import { SizeControl } from './SizeControl';
-import { Icons } from './icons';
+import { Icons } from '../common/icons';
 
 type Editable = Rect | TrendLine | HLine | Fib | Position;
 type Tab = 'style' | 'text' | 'inputs' | 'coords' | 'vis';

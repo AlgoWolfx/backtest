@@ -1,13 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { nyLocalToUtc, toNyLocal } from '../../shared/nytime.js';
-import { fmtNy, pad } from '../format';
+import { fmtNy, pad } from '../lib/format';
 import { currentData, drawingsOf, jumpTo, setChartTheme, useStore } from '../store';
-import { DEFAULT_THEME, THEME_PRESETS, withColors, type ChartTheme, type ChartType } from '../chartTheme';
+import { DEFAULT_THEME, THEME_PRESETS, withColors, type ChartTheme, type ChartType } from '../prefs/chartTheme';
 import { NumberInput } from './Bars';
-import { Icons } from './icons';
-import { SessionSettingsTab } from './SessionSettingsTab';
-import { DrawingDialog } from './DrawingDialog';
-import { useWindow } from '../useWindow';
+import { Icons } from './common/icons';
+import { SessionSettingsTab } from './settings/SessionSettingsTab';
+import { DrawingDialog } from './drawing/DrawingDialog';
+import { useWindow } from '../lib/useWindow';
 
 export function Modal({ title, onClose, children, width = 420, bare = false, wkey = 'modal' }: { title: string; onClose: () => void; children: ReactNode; width?: number; bare?: boolean; wkey?: string }) {
   const win = useWindow(wkey);

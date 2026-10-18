@@ -9,12 +9,12 @@ import type { IPrimitivePaneView, ISeriesPrimitive, ISeriesPrimitiveAxisView, Pr
 import { getSymbol } from '../../shared/symbols.js';
 import { lotsForRisk, liquidationPnl, openR, stopRiskPerLot, usdPerPriceUnit, widenStop, type Trade } from '../core/trading';
 import type { Drawing, Fib, HLine, LineStyleName, LineText, NewDrawing, Position, Pt, Rect, Session, TextHAlign, Tool, TrendLine } from '../core/types';
-import { loadRectTemplate, loadTemplate } from '../drawingTemplates';
+import { loadRectTemplate, loadTemplate } from '../prefs/drawingTemplates';
 import { dashOf, hexToRgba, rectFillCss } from './drawUtil';
-import { TOOL_DEFAULTS } from '../drawingTemplates';
+import { TOOL_DEFAULTS } from '../prefs/drawingTemplates';
 import { arrowHead, screenAngleDeg, fmtDuration } from '../core/geometry';
 import { fibLabel, fibValue, trendStatsLines } from '../core/drawStats';
-import { fmtDistance, fmtMoney, fmtPrice, fmtR, reasonLabel } from '../format';
+import { fmtDistance, fmtMoney, fmtPrice, fmtR, reasonLabel } from '../lib/format';
 import { tfInfo } from '../core/timeframes';
 import { bucketEndAfter } from '../core/replay';
 import { addDrawing, balanceOf, bufferedSl, placeOrderFromDrawing, deleteDrawing, drawingsOf, exitPriceNow, jumpTo, lastBarTime, recordUndo, ticketClick, ticketEntry, ticketStep, updateDrawing, useStore } from '../store';

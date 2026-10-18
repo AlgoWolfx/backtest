@@ -1,7 +1,7 @@
 // Kullanıcı ayarları: grafik teması, seans katmanı, varsayılan risk / lot / Fib seviyeleri.
 
-import { saveTheme, type ChartTheme } from '../chartTheme';
-import { saveSessionSettings } from '../sessionSettings';
+import { saveTheme, type ChartTheme } from '../prefs/chartTheme';
+import { saveSessionSettings } from '../prefs/sessionSettings';
 import { type SessionSettings } from '../core/sessions';
 import { type Session } from '../core/types';
 import { set, patchSession } from './state';

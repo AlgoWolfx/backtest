@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { DEFAULT_SESSION_SETTINGS as DEFAULT_SS, nextBoundary, sessionBoundaries } from '../core/sessions';
-import { NY_PRESETS } from '../core/replay';
-import { TIMEFRAMES, tfInfo, type TF } from '../core/timeframes';
-import { fmtNy, nyOffsetLabel } from '../format';
-import { forwardToBarClose, forwardToNextSessionBoundary, forwardToNyTime, setSpeed, setStepSync, setStepTf, stepBack, stepForward, stopPlay, togglePlay, useStore } from '../store';
-import { Icons } from './icons';
+import { DEFAULT_SESSION_SETTINGS as DEFAULT_SS, nextBoundary, sessionBoundaries } from '../../core/sessions';
+import { NY_PRESETS } from '../../core/replay';
+import { TIMEFRAMES, tfInfo, type TF } from '../../core/timeframes';
+import { fmtNy, nyOffsetLabel } from '../../lib/format';
+import { forwardToBarClose, forwardToNextSessionBoundary, forwardToNyTime, setSpeed, setStepSync, setStepTf, stepBack, stepForward, stopPlay, togglePlay, useStore } from '../../store';
+import { Icons } from '../common/icons';
 
 const SPEEDS = [0.5, 1, 2, 4, 8, 16, 32];
 const STEP_TFS: TF[] = ['1m', '2m', '3m', '5m', '15m', '30m', '1h', '4h', '1D'];

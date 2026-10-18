@@ -1,5 +1,5 @@
-import type { ChartController } from './chart/ChartController';
-import { useStore } from './store';
+import type { ChartController } from './ChartController';
+import { useStore } from '../store';
 
 /** Çoklu ekranda her grafiğin denetleyicisi (ekran numarasına göre). */
 export const paneControllers = new Map<number, ChartController>();

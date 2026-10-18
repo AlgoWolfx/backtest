@@ -1,8 +1,8 @@
 // TradingView "Şablon" menüsünün karşılığı: her çizim türü için stilleri varsayılan olarak kaydetme / uygulama.
 // Yalnızca stil alanları saklanır (koordinatlar, metin ve görünürlük şablona girmez); tarayıcıda saklanır.
 
-import { hexToRgba } from './chart/drawUtil';
-import type { Drawing, FibLevel, Rect } from './core/types';
+import { hexToRgba } from '../chart/drawUtil';
+import type { Drawing, FibLevel, Rect } from '../core/types';
 
 type TemplateType = 'rect' | 'trend' | 'hline' | 'fib' | 'long' | 'short';
 

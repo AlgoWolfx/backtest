@@ -2,7 +2,7 @@
 // üstünde taşınabilir bir çubukta toplanır. Favoriler, konum ve görünürlük tarayıcıda saklanır.
 
 import { useEffect, useState } from 'react';
-import type { Tool } from './core/types';
+import type { Tool } from '../core/types';
 
 /** Favoriye eklenebilen araçlar (imleç hariç). */
 export const FAV_CANDIDATES: Tool[] = ['trend', 'hline', 'rect', 'fib', 'long', 'short', 'measure'];

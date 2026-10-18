@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hexToRgba, rectFillCss } from '../chart/drawUtil';
-import { STYLE_KEYS, TOOL_DEFAULTS, factoryReset } from '../drawingTemplates';
+import { STYLE_KEYS, TOOL_DEFAULTS, factoryReset } from '../prefs/drawingTemplates';
 import { DEFAULT_FIB } from './types';
 
 describe('rectFillCss', () => {
