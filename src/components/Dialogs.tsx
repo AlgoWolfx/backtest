@@ -1,15 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { getSymbol } from '../../shared/symbols.js';
 import { nyLocalToUtc, toNyLocal } from '../../shared/nytime.js';
-import { lotsForRisk, stopRiskPerLot, usdPerPriceUnit } from '../core/trading';
-import type { Drawing, FibLevel, Position } from '../core/types';
-import { fmtDistance, fmtMoney, fmtNy, pad } from '../format';
-import { balanceOf, currentData, deleteDrawing, drawingsOf, jumpTo, placeOrderFromDrawing, setChartTheme, setFibDefaults, updateDrawing, useStore } from '../store';
+import { fmtNy, pad } from '../format';
+import { currentData, drawingsOf, jumpTo, setChartTheme, useStore } from '../store';
 import { DEFAULT_THEME, THEME_PRESETS, withColors, type ChartTheme, type ChartType } from '../chartTheme';
 import { NumberInput } from './Bars';
 import { Icons } from './icons';
 import { SessionSettingsTab } from './SessionSettingsTab';
-import { DrawingDialog, TvColor } from './DrawingDialog';
+import { DrawingDialog } from './DrawingDialog';
 
 export function Modal({ title, onClose, children, width = 420, bare = false }: { title: string; onClose: () => void; children: ReactNode; width?: number; bare?: boolean }) {
   useEffect(() => {
@@ -34,192 +31,13 @@ export function Modal({ title, onClose, children, width = 420, bare = false }: {
 
 // ---------------------------------------------------------------- çizim ayarları
 
-const TITLES: Record<Drawing['type'], string> = {
-  hline: 'Yatay çizgi',
-  trend: 'Trend çizgisi',
-  rect: 'Dikdörtgen',
-  fib: 'Fibonacci düzeltme',
-  long: 'Long pozisyon',
-  short: 'Short pozisyon',
-};
-
 export function DrawingEditor() {
   const session = useStore((s) => s.session);
   const editingId = useStore((s) => s.editingId);
   const d = drawingsOf(session).find((x) => x.id === editingId);
   if (!d || !session) return null;
-  // Dikdörtgen, trend ve yatay çizgi: TradingView tarzı sekmeli pencere (Stil / Metin / Koordinatlar / Görünürlük)
-  if (d.type === 'rect' || d.type === 'trend' || d.type === 'hline') return <DrawingDialog key={d.id} d={d} />;
-  const close = () => useStore.setState({ editingId: null });
-  const spec = getSymbol(session.symbol);
-  const set = (patch: Partial<Drawing>) => updateDrawing(d.id, patch);
-
-  return (
-    <Modal title={TITLES[d.type]} onClose={close} width={d.type === 'fib' ? 460 : 400}>
-      {d.type === 'fib' && (
-        <>
-          <div className="form-row">
-            <span>Renk</span>
-            <TvColor color={d.color} onChange={(c) => set({ color: c })} withAlpha={false} />
-          </div>
-          <div className="form-row">
-            <span>Kalınlık</span>
-            <div className="seg">
-              {[1, 2, 3, 4].map((w) => (
-                <button key={w} className={d.width === w ? 'on' : ''} onClick={() => set({ width: w })}>
-                  {w}px
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="form-row">
-            <label className="check">
-              <input type="checkbox" checked={!!d.bgOn} onChange={(e) => set({ bgOn: e.target.checked })} /> <span>Arkaplan</span>
-            </label>
-            <TvColor color={d.color} alpha={d.bgAlpha ?? 0.15} onChange={(_c, a) => set({ bgAlpha: a, bgOn: a > 0 })} />
-          </div>
-          <label className="form-row check">
-            <input type="checkbox" checked={!!d.extendRight} onChange={(e) => set({ extendRight: e.target.checked })} />
-            <span>Sağa uzat</span>
-          </label>
-          <FibLevels levels={d.levels} baseColor={d.color} onChange={(levels) => set({ levels })} />
-        </>
-      )}
-      {(d.type === 'long' || d.type === 'short') && (
-        <>
-          <div className="form-row">
-            <span>Kâr bölgesi</span>
-            <TvColor color={d.profitColor ?? '#089981'} alpha={d.zoneAlpha ?? 0.2} onChange={(c, a) => set({ profitColor: c, zoneAlpha: a })} />
-          </div>
-          <div className="form-row">
-            <span>Zarar bölgesi</span>
-            <TvColor color={d.lossColor ?? '#f23645'} alpha={d.zoneAlpha ?? 0.2} onChange={(c, a) => set({ lossColor: c, zoneAlpha: a })} />
-          </div>
-          <PositionFields d={d} digits={spec.digits} />
-        </>
-      )}
-      <div className="modal-foot">
-        <button
-          className="btn danger"
-          onClick={() => {
-            deleteDrawing(d.id);
-            close();
-          }}
-        >
-          Sil
-        </button>
-        <div className="spacer" />
-        <button className="btn primary" onClick={close}>
-          Tamam
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
-function FibLevels({ levels, baseColor, onChange }: { levels: FibLevel[]; baseColor: string; onChange: (l: FibLevel[]) => void }) {
-  const [newLevel, setNewLevel] = useState('');
-  const sorted = [...levels].sort((a, b) => a.v - b.v);
-  const upd = (i: number, patch: Partial<FibLevel>) => onChange(sorted.map((l, j) => (j === i ? { ...l, ...patch } : l)));
-  return (
-    <div className="fib-levels">
-      <div className="fib-grid">
-        {sorted.map((l, i) => (
-          <div key={i} className="fib-level">
-            <input type="checkbox" checked={l.on} onChange={(e) => upd(i, { on: e.target.checked })} />
-            <NumberInput value={l.v} onChange={(v) => upd(i, { v })} />
-            <input type="color" className="color-input" title="Seviye rengi (çizgi, yazı ve arkaplan)" value={l.color ?? baseColor} onChange={(e) => upd(i, { color: e.target.value })} />
-            <button className="icon-btn" title="Seviyeyi kaldır" onClick={() => onChange(sorted.filter((_, j) => j !== i))}>
-              <Icons.close />
-            </button>
-          </div>
-        ))}
-      </div>
-      <div className="form-row">
-        <input className="num" placeholder="ör. 0.62" value={newLevel} onChange={(e) => setNewLevel(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
-        <button
-          className="btn small"
-          onClick={() => {
-            const v = Number(newLevel.replace(',', '.'));
-            if (Number.isFinite(v)) onChange([...sorted, { v, on: true }]);
-            setNewLevel('');
-          }}
-        >
-          Seviye ekle
-        </button>
-        <div className="spacer" />
-        <button className="btn small ghost" title="Yeni Fibonacci çizimleri bu seviyelerle başlasın" onClick={() => setFibDefaults(sorted)}>
-          Varsayılan yap
-        </button>
-      </div>
-      <p className="hint">0 = ikinci tıklanan nokta, 1 = ilk nokta. Dipten tepeye çizince 0 tepede olur.</p>
-    </div>
-  );
-}
-
-function PositionFields({ d, digits }: { d: Position; digits: number }) {
-  const session = useStore((s) => s.session)!;
-  const spec = getSymbol(session.symbol);
-  const trade = d.tradeId ? session.trades.find((t) => t.id === d.tradeId) : undefined;
-  const lockedEntry = trade && trade.status !== 'pending';
-  const locked = trade && (trade.status === 'closed' || trade.status === 'cancelled');
-  const risk = Math.abs(d.entry.p - d.sl);
-  const rr = risk ? Math.abs(d.tp - d.entry.p) / risk : 0;
-  const sized = trade ? trade.lots : lotsForRisk(spec, balanceOf(session), d.riskPct, d.entry.p, d.sl, session.commissionPerLot);
-  const lots = sized ?? 0; // null: risk bütçesine sığan lot yok
-  const r =(v: number) => Math.round(v * 10 ** digits) / 10 ** digits;
-  const long = d.type === 'long';
-  const valid = long ? d.sl < d.entry.p && d.tp > d.entry.p : d.sl > d.entry.p && d.tp < d.entry.p;
-  return (
-    <>
-      <div className="form-row">
-        <span>Giriş</span>
-        {lockedEntry ? <b>{d.entry.p.toFixed(digits)}</b> : <NumberInput value={d.entry.p} onChange={(p) => updateDrawing(d.id, { entry: { ...d.entry, p: r(p) } })} />}
-      </div>
-      <div className="form-row">
-        <span>Stop-loss</span>
-        {locked ? <b>{d.sl.toFixed(digits)}</b> : <NumberInput value={d.sl} onChange={(sl) => updateDrawing(d.id, { sl: r(sl) })} />}
-        <span className="muted">{fmtDistance(d.sl - d.entry.p, spec)}</span>
-      </div>
-      <div className="form-row">
-        <span>Take-profit</span>
-        {locked ? <b>{d.tp.toFixed(digits)}</b> : <NumberInput value={d.tp} onChange={(tp) => updateDrawing(d.id, { tp: r(tp) })} />}
-        <span className="muted">{fmtDistance(d.tp - d.entry.p, spec)}</span>
-      </div>
-      {!trade && (
-        <div className="form-row">
-          <span>Risk %</span>
-          <NumberInput value={d.riskPct} min={0.01} onChange={(riskPct) => updateDrawing(d.id, { riskPct })} />
-        </div>
-      )}
-      <div className="pos-summary">
-        <div>
-          R:R <b>{rr.toFixed(2)}</b>
-        </div>
-        <div>
-          Lot <b>{sized == null ? 'yok' : lots.toFixed(2)}</b>
-        </div>
-        <div>
-          Risk <b>{fmtMoney(stopRiskPerLot(spec, d.entry.p, d.sl) * lots)}</b>
-        </div>
-        <div>
-          Hedef <b>{fmtMoney(Math.abs(d.tp - d.entry.p) * lots * usdPerPriceUnit(spec, d.tp))}</b>
-        </div>
-      </div>
-      {!trade && sized == null && valid && <p className="hint neg">Risk bütçesine sığan lot yok; stopu daraltın veya risk %'sini artırın.</p>}
-      {!valid && <p className="hint neg">{long ? 'Long: SL girişin altında, TP üstünde olmalı.' : 'Short: SL girişin üstünde, TP altında olmalı.'}</p>}
-      {!trade && (
-        <div className="form-row">
-          <button className="btn primary" onClick={() => placeOrderFromDrawing(d.id, true)}>
-            Piyasa emri
-          </button>
-          <button className="btn" onClick={() => placeOrderFromDrawing(d.id, false)}>
-            Limit / Stop emri ({d.entry.p.toFixed(digits)})
-          </button>
-        </div>
-      )}
-    </>
-  );
+  // Tüm araçlar için TradingView tarzı sekmeli pencere (Stil / Metin / Girdiler / Kordinatlar / Görünürlük)
+  return <DrawingDialog key={d.id} d={d} />;
 }
 
 // ---------------------------------------------------------------- grafik ayarları

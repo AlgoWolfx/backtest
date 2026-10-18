@@ -174,25 +174,33 @@ da Pine'daki gibi 0 = opak, 100 = görünmez). Sinyal, bias, FVG/BOS/MSS yok; ya
 
 Üst çubuktaki **Ekran düzeni** menüsünden 1, 2 (yan yana / alt alta), 3 veya 4 ekran seçin. Her grafiğin sembolü ve zaman dilimi ayrıdır (ör. solda EURUSD 15m, sağda 4H, altta US100). Bir grafiğe tıklayınca **aktif** olur (mavi çerçeve): üst çubuktaki sembol / zaman dilimi, çizim araçları, Buy/Sell ve işlem paneli o grafiğe göre çalışır. Tüm grafikler aynı replay zamanını paylaşır (ileri sarma hepsini birlikte ilerletir). Çizimler sembole bağlıdır; aynı sembol iki grafikte görünüyorsa çizim ikisinde de çıkar. Düzen oturumla birlikte kaydedilir.
 
-## Çizim ayarları (TradingView tarzı)
+## Çizim araçları (TradingView tarzı)
 
-Dikdörtgen, trend çizgisi ve yatay çizgiye çift tıklayınca TradingView'daki gibi sekmeli bir pencere açılır
-(**Stil / Metin / Kordinatlar / Görünürlük**, altta **Şablon**, **İptal** ve **Tamam**). Değişiklikler canlı uygulanır;
-**İptal** (veya Esc / ×) pencere açıldığı hâle döndürür, **Tamam** korur, Ctrl+Z hepsini geri alır.
+Mevcut araçların hepsi (trend çizgisi, yatay çizgi, dikdörtgen, Fibonacci, long/short pozisyon) TradingView'daki gibi sekmeli
+bir pencereye sahiptir; çift tıklayınca veya sağ tık > Ayarlar ile açılır (**Stil / Metin / Girdiler / Kordinatlar /
+Görünürlük**, altta **Şablon**, **İptal**, **Tamam**). Değişiklikler canlı uygulanır; **İptal** (veya Esc / ×) pencere açıldığı
+hâle döndürür, **Tamam** korur, Ctrl+Z hepsini geri alır. Renk seçici TradingView'daki gibi palet, özel renk ve opaklık içerir.
 
-- **Dikdörtgen > Stil:** Uzat (yok / sola / sağa / iki yana), Kenar (renk + opaklık seçici, kalınlık, çizgi stili),
-  Orta çizgi (onay kutusu + renk + stil), **Arkaplan** (onay kutusu + renk + opaklık). Renk seçici TradingView'daki gibi palet,
-  özel renk ve opaklık kaydırıcısı içerir.
-- **Metin:** renk, boyut, kalın, italik, metin kutusu, metin hizalama (üst / içeri / alt ve sol / orta / sağ).
-- **Kordinatlar:** fiyat ve zaman (NY) değerleri elle düzenlenir. **Görünürlük:** çizimin hangi zaman dilimlerinde
-  görüneceği.
-- **Şablon:** stil alanlarını varsayılan olarak kaydet / varsayılanı uygula / fabrika ayarlarına dön (yeni dikdörtgenler
-  kayıtlı şablonla başlar; koordinat, metin ve görünürlük şablona girmez).
-- **Long / Short pozisyon:** kâr ve zarar bölgelerinin arkaplan rengi ve opaklığı. **Fibonacci:** seviyeler arası arkaplan
-  (opaklık) ve her seviye için ayrı renk.
+- **Trend çizgisi:** çizgi (renk + opaklık, kalınlık, stil), **sol uç / sağ uç** (normal veya ok), uzatma (yok / sola / sağa / iki
+  yana), orta nokta, fiyat etiketleri, **istatistik kutusu** (gizli / her zaman / seçiliyken; fiyat aralığı, % değişim, mum
+  sayısı, süre, mesafe, açı), metin (renk, boyut, kalın, italik, çizgi boyunca ve dikey hizalama).
+- **Yatay çizgi:** çizgi, sağ eksende fiyat etiketi açma/kapama, metin (hizalama dahil), fiyat koordinatı.
+- **Dikdörtgen:** uzatma, kenar (renk + opaklık, kalınlık, stil), orta çizgi (renk, stil), **arkaplan rengi ve opaklığı**, metin
+  (renk, boyut, kalın, italik, hizalama).
+- **Fibonacci:** trend çizgisi (renk, kalınlık, stil, aç/kapa), seviye çizgisi kalınlığı ve stili, seviye başına renk, **tek renk**,
+  uzatma (sola / sağa), **ters çevir**, fiyat ve seviye yazılarını aç/kapa, etiket konumu (sol/sağ, üst/orta/alt), arkaplan
+  (opaklık), seviye ekle/kaldır, varsayılan yap.
+- **Long / Short pozisyon:** kâr ve zarar bölgesi arkaplan renkleri ve opaklığı, giriş çizgisi ve yazı rengi, istatistikleri her
+  zaman göster, kompakt gösterim; **Girdiler** sekmesinde giriş / SL / TP / risk % ve emir butonları.
+- **Her araç:** kordinatlar (fiyat ve NY zamanı elle düzenlenir), **görünürlük** (hangi zaman dilimlerinde görüneceği),
+  **şablon** (stilleri varsayılan olarak kaydet / uygula / fabrika ayarlarına dön; yeni çizimler kayıtlı şablonla başlar).
+- **Yüzen araç çubuğu** (seçili çizimde): renk + opaklık, kalınlık, çizgi stili, **kilitle**, **kopyala**, ayarlar, sil.
+- **Sağ tık menüsü** (çizimin üstünde): ayarlar, kopyala, kilitle / kilidi aç, bu zaman diliminde gizle, öne getir, arkaya gönder, sil.
+- **Sol araç çubuğu:** mıknatıs **kapalı / zayıf / güçlü**, **çizim modunda kal** (çizim bitince araç seçili kalır), **tüm çizimleri
+  kilitle**. Kilitli çizim seçilir ama taşınamaz.
 
-Bu pencerenin düzeni ve alanları, paylaştığınız TradingView ekran görüntülerine göre kurulmuştur; TradingView'ın tüm araçları
-ve seçenekleri henüz yoktur (ör. sonraki adımlar: diğer çizim araçları, çizgi uç okları, aralık bazlı görünürlük kaydırıcıları).
+Bu özellikler paylaştığınız TradingView ekran görüntülerine ve bilinen davranışlara göre kurulmuştur; TradingView'ın bire bir
+kopyası değildir (yeni çizim araçları eklenmedi; yalnızca mevcut araçlar derinleştirildi).
 
 ## Grafik görünümü ve yenileme
 

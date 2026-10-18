@@ -26,17 +26,39 @@ interface Base {
   style?: LineStyleName;
   /** Görünürlük: bu zaman dilimlerinde çizim gizlenir (TradingView "Görünürlük" sekmesi); yoksa hepsinde görünür */
   hiddenTfs?: TF[];
+  /** Kilitli çizim seçilebilir ama taşınamaz / düzenlenemez (TradingView "Kilitle") */
+  locked?: boolean;
+  /** Çizgi opaklığı 0-1 (yok = 1): TradingView renk seçicisindeki opaklık */
+  lineAlpha?: number;
 }
 
 export type TextHAlign = 'left' | 'center' | 'right';
 export type TextVAlign = 'top' | 'middle' | 'bottom';
 export type RectExtend = 'none' | 'left' | 'right' | 'both';
 
-export interface HLine extends Base {
+/** Çizgi üstü metin ayarları (yatay çizgi ve trend çizgisi: TradingView "Metin" sekmesi) */
+export interface LineText {
+  text?: string;
+  textColor?: string;
+  textSize?: number;
+  bold?: boolean;
+  italic?: boolean;
+  /** Metnin çizgi boyunca konumu (yok = yatay çizgide sağ, trend çizgisinde orta) */
+  hAlign?: TextHAlign;
+  /** Metnin çizgiye göre dikey konumu (yok = üst) */
+  vAlign?: TextVAlign;
+}
+
+export interface HLine extends Base, LineText {
   type: 'hline';
   p: number;
+  /** Sağ eksendeki fiyat etiketi (yok = göster) */
+  showPriceLabel?: boolean;
 }
-export interface TrendLine extends Base {
+
+export type LineEnd = 'normal' | 'arrow';
+export type StatsMode = 'hidden' | 'always' | 'selected';
+export interface TrendLine extends Base, LineText {
   type: 'trend';
   a: Pt;
   b: Pt;
@@ -44,6 +66,19 @@ export interface TrendLine extends Base {
   extendRight?: boolean;
   /** Orta noktayı işaretle */
   midpoint?: boolean;
+  /** Uç biçimi: normal veya ok (TradingView "Sol uç / Sağ uç") */
+  leftEnd?: LineEnd;
+  rightEnd?: LineEnd;
+  /** Uç noktaların fiyat etiketleri (sağ eksende) */
+  showPriceLabels?: boolean;
+  /** İstatistik kutusu: gizli / her zaman / yalnızca seçiliyken (yok = gizli) ve gösterilecek kalemler */
+  statsMode?: StatsMode;
+  statPrice?: boolean;
+  statPct?: boolean;
+  statBars?: boolean;
+  statTime?: boolean;
+  statDist?: boolean;
+  statAngle?: boolean;
 }
 export interface Rect extends Base {
   type: 'rect';
@@ -87,6 +122,26 @@ export interface Fib extends Base {
   /** Seviyeler arasındaki arkaplan dolgusu (TradingView "Arkaplan"): açık mı ve opaklığı (yok = kapalı / 0.15) */
   bgOn?: boolean;
   bgAlpha?: number;
+  // --- TradingView "Fib Retracement" ayarları (hepsi isteğe bağlı) ---
+  /** Trend çizgisi (a-b kesikli çizgisi): göster (yok = evet), renk, kalınlık, stil */
+  showTrend?: boolean;
+  trendColor?: string;
+  trendWidth?: number;
+  trendStyle?: LineStyleName;
+  /** Seviye çizgilerinin kalınlığı/stili (yok = çizim kalınlığı / düz) */
+  levelWidth?: number;
+  levelStyle?: LineStyleName;
+  extendLeft?: boolean;
+  /** Seviyeleri ters çevir (0 ve 1 yer değiştirir) */
+  reverse?: boolean;
+  /** Yazıda fiyat ve seviye değeri (yok = ikisi de) */
+  showPrices?: boolean;
+  showLevels?: boolean;
+  /** Yazı konumu: yatay (sol/sağ) ve seviyeye göre dikey (üst/orta/alt); yok = sol / orta */
+  labelH?: 'left' | 'right';
+  labelV?: 'top' | 'middle' | 'bottom';
+  /** Tüm seviyelerde tek renk (çizim rengi) */
+  oneColor?: boolean;
 }
 export interface Position extends Base {
   type: 'long' | 'short';
@@ -100,6 +155,12 @@ export interface Position extends Base {
   profitColor?: string;
   lossColor?: string;
   zoneAlpha?: number;
+  /** Giriş çizgisi ve yazı rengi (yok = gri / beyaz) */
+  lineColor?: string;
+  textColor?: string;
+  /** İstatistikler: her zaman göster (yok = seçiliyken veya işlem varken) ve kompakt gösterim (tek satır) */
+  alwaysStats?: boolean;
+  compact?: boolean;
 }
 
 export type Drawing = HLine | TrendLine | Rect | Fib | Position;

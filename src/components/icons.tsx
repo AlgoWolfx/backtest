@@ -172,6 +172,29 @@ export const Icons = {
       <path d="M5 5l7 7-7 7M13 5l7 7-7 7" />
     </Svg>
   ),
+  stay: () => (
+    <Svg size={18}>
+      <path d="M5 4h14M8 4v6l-3 4h14l-3-4V4M12 14v6" />
+    </Svg>
+  ),
+  lock: () => (
+    <Svg size={18}>
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </Svg>
+  ),
+  unlock: () => (
+    <Svg size={18}>
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 7.5-1.8" />
+    </Svg>
+  ),
+  clone: () => (
+    <Svg size={18}>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V6a2 2 0 0 1 2-2h8" />
+    </Svg>
+  ),
   back: () => (
     <Svg size={18}>
       <path d="M15 18l-6-6 6-6" />

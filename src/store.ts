@@ -48,6 +48,10 @@ interface State {
   selectedId: string | null;
   editingId: string | null;
   magnet: boolean;
+  /** Mıknatıs gücü (TradingView "Zayıf / Güçlü mıknatıs") */
+  magnetMode: 'weak' | 'strong';
+  /** Çizim modunda kal: çizim bitince araç seçili kalır (TradingView "Stay in drawing mode") */
+  stayInDraw: boolean;
   hideDrawings: boolean;
   panelOpen: boolean;
   jumpOpen: boolean;
@@ -83,6 +87,8 @@ export const useStore = create<State>(() => ({
   selectedId: null,
   editingId: null,
   magnet: true,
+  magnetMode: 'strong',
+  stayInDraw: false,
   hideDrawings: false,
   panelOpen: false,
   jumpOpen: false,
@@ -616,6 +622,44 @@ export function pasteClipboard(shiftTime: (t: number) => number) {
   void _id;
   const newId = addDrawing(rest as NewDrawing);
   set({ selectedId: newId });
+}
+
+/** Çizimin bir kopyasını oluşturur (zaman noktaları shiftTime ile birkaç mum sağa kayar); aktif işleme bağlı pozisyonlar kopyalanmaz. */
+export function cloneDrawing(id: string, shiftTime: (t: number) => number): string | null {
+  const s = get().session;
+  const src = drawingsOf(s).find((x) => x.id === id);
+  if (!src) return null;
+  if ((src.type === 'long' || src.type === 'short') && src.tradeId) return null;
+  const c: Drawing = structuredClone(src);
+  let d: Drawing = c;
+  if ('entry' in c) d = { ...c, tradeId: undefined, entry: { ...c.entry, t: shiftTime(c.entry.t) }, tEnd: shiftTime(c.tEnd) };
+  else if ('a' in c) d = { ...c, a: { ...c.a, t: shiftTime(c.a.t) }, b: { ...c.b, t: shiftTime(c.b.t) } };
+  const { id: _id, locked: _l, ...rest } = d as Drawing & { locked?: boolean };
+  void _id;
+  void _l;
+  const newId = addDrawing(rest as NewDrawing);
+  set({ selectedId: newId });
+  return newId;
+}
+
+/** Çizimi en öne / en arkaya alır (TradingView "Öne getir / Arkaya gönder"). */
+export function reorderDrawing(id: string, where: 'front' | 'back') {
+  const s = get().session;
+  if (!s) return;
+  const list = drawingsOf(s);
+  const d = list.find((x) => x.id === id);
+  if (!d) return;
+  recordUndo();
+  const rest = list.filter((x) => x.id !== id);
+  patchSession((cur) => ({ drawings: { ...cur.drawings, [cur.symbol]: where === 'front' ? [...rest, d] : [d, ...rest] } }));
+}
+
+/** Bu sembolün tüm çizimlerini kilitler / kilidini açar (TradingView "Tüm çizimleri kilitle"). */
+export function setAllLocked(lock: boolean) {
+  const s = get().session;
+  if (!s) return;
+  recordUndo();
+  patchSession((cur) => ({ drawings: { ...cur.drawings, [cur.symbol]: drawingsOf(cur).map((d) => ({ ...d, locked: lock })) } }));
 }
 
 export function addDrawing(d: NewDrawing, record = true): string {
