@@ -17,7 +17,7 @@ import { fibLabel, fibValue, trendStatsLines } from '../core/drawStats';
 import { fmtDistance, fmtMoney, fmtPrice, fmtR, reasonLabel } from '../format';
 import { tfInfo } from '../core/timeframes';
 import { bucketEndAfter } from '../core/replay';
-import { addDrawing, balanceOf, placeOrderFromDrawing, deleteDrawing, drawingsOf, exitPriceNow, jumpTo, lastBarTime, recordUndo, ticketClick, ticketEntry, ticketStep, updateDrawing, useStore } from '../store';
+import { addDrawing, balanceOf, bufferedSl, placeOrderFromDrawing, deleteDrawing, drawingsOf, exitPriceNow, jumpTo, lastBarTime, recordUndo, ticketClick, ticketEntry, ticketStep, updateDrawing, useStore } from '../store';
 import type { ChartController } from './ChartController';
 
 type Part = 'body' | 'a' | 'b' | 'c1' | 'c2' | 'entry' | 'sl' | 'tp' | 'end';
@@ -912,12 +912,15 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       const dir = tool === 'long' ? 1 : -1;
       const p40 = this.c.yToPrice(y + 40);
       const dist = (this.c.atrAt(pt.L) ?? 0) * 1.5 || (p40 != null ? Math.abs(pt.p - p40) : pt.p * 0.002);
+      // Alt çubuktaki "SL +" tamponu araçla bırakılan pozisyonda da uygulanır; TP, tampon dahil gerçek stop mesafesinin 2R'si
+      const sl = bufferedSl(s, tool, this.c.roundPrice(pt.p - dir * dist));
+      const tp = this.c.roundPrice(pt.p + dir * Math.abs(pt.p - sl) * 2);
       id = addDrawing({
         type: tool,
         ...def,
         entry: P,
-        sl: this.c.roundPrice(pt.p - dir * dist),
-        tp: this.c.roundPrice(pt.p + dir * dist * 2),
+        sl,
+        tp,
         tEnd: this.c.logicalToTime(pt.L + 25),
         riskPct: s.riskPct,
         // Alt çubukta "Lot" seçiliyse çizim sabit lotla başlar (ayarlardan / araç çubuğundan değiştirilir)

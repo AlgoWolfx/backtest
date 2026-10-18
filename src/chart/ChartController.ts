@@ -62,6 +62,7 @@ export class ChartController {
   /** Kullanıcı bu grafiği kaydırdı / yakınlaştırdı */
   onUserRange: (() => void) | null = null;
   private hovering = false;
+  private removeUserWatch: (() => void) | null = null;
   private userUntil = 0;
   private quiet = false;
 
@@ -132,10 +133,12 @@ export class ChartController {
   /** Kullanıcı etkileşimini izler: fare basılıyken veya tekerlekten sonra kısa süre "kullanıcı" aralık değişimidir. */
   private watchUser() {
     const el = this.el;
-    el.addEventListener('pointerdown', () => (this.userUntil = Infinity), true);
-    window.addEventListener('pointerup', () => {
+    const onUp = () => {
       if (this.userUntil === Infinity) this.userUntil = performance.now() + 250;
-    });
+    };
+    el.addEventListener('pointerdown', () => (this.userUntil = Infinity), true);
+    window.addEventListener('pointerup', onUp);
+    this.removeUserWatch = () => window.removeEventListener('pointerup', onUp);
     el.addEventListener('wheel', () => (this.userUntil = performance.now() + 400), { capture: true, passive: true });
     el.addEventListener('mouseenter', () => (this.hovering = true));
     el.addEventListener('mouseleave', () => {
@@ -176,6 +179,7 @@ export class ChartController {
   }
 
   destroy() {
+    this.removeUserWatch?.();
     this.layer.dispose();
     this.chart.remove();
   }

@@ -10,6 +10,7 @@ import { chronologyIssue, closeTrade, decideLots, EXECUTION_MODEL, pendingType, 
 import { afterBalanceChange, newAccount, noteTradingDay, rollDay, type AccountRules } from './core/account';
 import { TOOL_DEFAULTS, loadTemplate } from './drawingTemplates';
 import { activeTrades, balanceOf, simulate as simulateRange, type SimResult } from './core/simulate';
+import { isLayoutId } from './core/layouts';
 import { DEFAULT_FIB, DEFAULT_SYNC, LAYOUTS, type Drawing, type LayoutId, type NewDrawing, type PaneCfg, type Position, type Session, type SyncCfg, type Tool } from './core/types';
 import { fmtNyShort, fmtPrice, reasonLabel } from './format';
 
@@ -258,9 +259,14 @@ export async function openSession(id: string, preloaded?: Session) {
   const session: Session = preloaded ?? (await fetch(`/api/sessions/${id}`).then((r) => r.json()));
   session.fibDefaults ??= DEFAULT_FIB;
   session.source = 'dukascopy'; // eski oturumlar (HistData / OANDA) aynı Dukascopy verisiyle açılır
-  const needed = new Set([session.symbol, ...(session.panes ?? []).map((p) => p.symbol), ...activeTrades(session).map((t) => t.symbol)]);
+  if (!isLayoutId(session.layout)) session.layout = '1'; // bilinmeyen düzen kimliği çökertmesin
+  // Ana sembolün verisi yoksa oturum boş ekranla açılmaz
+  if (!(await ensureData(session.symbol))) return;
+  const needed = new Set([...(session.panes ?? []).map((p) => p.symbol), ...activeTrades(session).map((t) => t.symbol)]);
   for (const sym of needed) await ensureData(sym);
-  set({ session, selectedId: null, editingId: null, tool: 'cursor', playing: false });
+  stopPlay();
+  history.clear();
+  set({ session, selectedId: null, editingId: null, tool: 'cursor', playing: false, ticket: null, pickingStart: false, maxPane: null, reviewQueue: [] });
   const bad = chronologyIssue(session.trades, session.replayTime);
   if (bad != null) toast(`Bu oturumun kronolojisi tutarsız: replay zamanından sonraya ait işlem kaydı var (${fmtNyShort(bad)} NY). Eski sürümde geri sarılmış olabilir; bakiye gelecekteki kapanışları içerir. Kayıtlar silinmedi; ölçüm için yeni oturum açın.`, 'error');
 }
@@ -269,7 +275,8 @@ export async function closeSession() {
   stopPlay();
   const s = get().session;
   if (s) await saveNow(s);
-  set({ session: null, selectedId: null, editingId: null, maxPane: null, reviewQueue: [] });
+  history.clear();
+  set({ session: null, selectedId: null, editingId: null, maxPane: null, reviewQueue: [], ticket: null, pickingStart: false });
   await refreshSessions();
 }
 
@@ -281,14 +288,19 @@ export async function deleteSession(id: string) {
 // ---------------------------------------------------------------- otomatik kayıt
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let lastSavedAt = 0;
+const MAX_SAVE_WAIT_MS = 10_000;
 async function saveNow(s: Session) {
+  lastSavedAt = Date.now();
   await fetch(`/api/sessions/${s.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) });
 }
 useStore.subscribe((state, prev) => {
   if (!state.session || state.session === prev.session) return;
   if (saveTimer) clearTimeout(saveTimer);
   const s = state.session;
-  saveTimer = setTimeout(() => saveNow(s).catch(() => toast('Oturum kaydedilemedi', 'error')), state.playing ? 3000 : 600);
+  // Oynatırken her adım zamanlayıcıyı sıfırlardı ve kayıt hiç yapılmazdı: en geç MAX_SAVE_WAIT_MS'de bir kaydedilir.
+  const overdue = Date.now() - lastSavedAt > MAX_SAVE_WAIT_MS;
+  saveTimer = setTimeout(() => saveNow(s).catch(() => toast('Oturum kaydedilemedi', 'error')), overdue ? 0 : state.playing ? 3000 : 600);
 });
 window.addEventListener('beforeunload', () => {
   const s = get().session;
@@ -549,7 +561,7 @@ export function setSlBuffer(slBuffer: number) {
 }
 
 /** Stop tamponunu uygular ve fiyat basamağına yuvarlar. */
-function bufferedSl(s: Session, side: Side, sl: number): number {
+export function bufferedSl(s: Session, side: Side, sl: number): number {
   const spec = getSymbol(s.symbol);
   const w = widenStop(spec, side, sl, s.slBuffer ?? 0);
   return Math.round(w * 10 ** spec.digits) / 10 ** spec.digits;
@@ -564,9 +576,11 @@ export function drawingsOf(s: Session | null): Drawing[] {
 // ---- geri al / yinele (sembol başına çizim geçmişi; işlemler geri alınmaz)
 
 const history = new Map<string, { past: Drawing[][]; future: Drawing[][] }>();
-const historyOf = (symbol: string) => {
-  let h = history.get(symbol);
-  if (!h) history.set(symbol, (h = { past: [], future: [] }));
+/** Geçmiş oturum + sembol başınadır: başka oturumdaki aynı sembolün çizimleri Ctrl+Z ile gelmez. */
+const historyOf = (s: Session) => {
+  const key = `${s.id}:${s.symbol}`;
+  let h = history.get(key);
+  if (!h) history.set(key, (h = { past: [], future: [] }));
   return h;
 };
 
@@ -574,7 +588,7 @@ const historyOf = (symbol: string) => {
 export function recordUndo() {
   const s = get().session;
   if (!s) return;
-  const h = historyOf(s.symbol);
+  const h = historyOf(s);
   h.past.push(drawingsOf(s));
   if (h.past.length > 200) h.past.shift();
   h.future = [];
@@ -614,7 +628,7 @@ function applyDrawings(next: Drawing[]) {
 export function undo() {
   const s = get().session;
   if (!s) return;
-  const h = historyOf(s.symbol);
+  const h = historyOf(s);
   const prev = h.past.pop();
   if (!prev) return toast('Geri alınacak çizim işlemi yok.');
   h.future.push(drawingsOf(s));
@@ -624,7 +638,7 @@ export function undo() {
 export function redo() {
   const s = get().session;
   if (!s) return;
-  const h = historyOf(s.symbol);
+  const h = historyOf(s);
   const next = h.future.pop();
   if (!next) return;
   h.past.push(drawingsOf(s));
@@ -725,6 +739,8 @@ export function updateDrawing(id: string, patch: Partial<Drawing>, record = true
         if (t.id !== u.tradeId) return t;
         if (t.status === 'open') return { ...t, sl: u.sl, tp: u.tp };
         if (t.status === 'pending') {
+          // Geçersiz seviyeler (ör. long'da SL girişin üstünde) emre yazılmaz: çizim düzelince eşitleme sürer.
+          if (!validLevels(t.side, u.entry.p, u.sl, u.tp)) return t;
           const price = entryPriceNow(t.symbol, t.side) ?? u.entry.p;
           // Bekleyen emir çizimle birlikte yeniden boyutlanır: sabit lot veya risk % (SL / giriş değişince lot yeniden hesaplanır).
           let lots = t.lots;

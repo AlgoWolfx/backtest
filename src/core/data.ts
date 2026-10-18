@@ -103,16 +103,23 @@ async function fetchBars(info: SymbolInfo, source: DataSource, onProgress?: (p: 
   if (!meta) throw new Error(`${info.id} için ${source} verisi yok.`);
   const res = await fetch(`/api/bars/${info.id}?source=${source}`);
   if (!res.ok) throw new Error(`${info.id} verisi yüklenemedi (${res.status})`);
+  // Content-Length yoksa (sıkıştırılmış / aracılı yanıt) parçalar toplanıp birleştirilir; varsa doğrudan tampona yazılır.
   const total = Number(res.headers.get('Content-Length')) || 0;
-  const buf = new Uint8Array(total);
   const reader = res.body!.getReader();
+  const chunks: Uint8Array[] = [];
   let off = 0;
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
-    buf.set(value, off);
+    chunks.push(value);
     off += value.length;
-    onProgress?.(total ? off / total : 0);
+    onProgress?.(total ? Math.min(1, off / total) : 0);
+  }
+  const buf = new Uint8Array(off);
+  let pos = 0;
+  for (const c of chunks) {
+    buf.set(c, pos);
+    pos += c.length;
   }
   const n = meta.count;
   // format 1: 5 x Int32 | format 2: + kaynak (Uint8) | format 3: + ask OHLC (4 x Int32) + kaynak
