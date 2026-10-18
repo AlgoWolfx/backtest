@@ -210,7 +210,11 @@ export interface Session {
   panes?: PaneCfg[];
   active?: number;
   stepTf: TF;
+  /** Adım zaman dilimi grafiğin zaman dilimini izler (yok = evet). Elle adım seçilince false olur. */
+  stepSync?: boolean;
   speed: number;
+  /** Stop tamponu: emirlerde SL bu kadar pip/puan daha geniş konur (yok = 0) */
+  slBuffer?: number;
   riskPct: number;
   lots: number;
   /** Komisyon, USD / lot, GİDİŞ-DÖNÜŞ (isteğe bağlı; yok = 0). Her işlem açılırken değeri işlemin kendisine yazılır. */

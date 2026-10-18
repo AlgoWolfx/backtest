@@ -2,11 +2,11 @@ import { create } from 'zustand';
 import { getSymbol } from '../shared/symbols.js';
 import { aggregate, aggIndexOfM1, loadSymbol, revealedCount, type DataSource, type M1Data, type SymbolInfo } from './core/data';
 import { bucketKey, type TF } from './core/timeframes';
-import { bucketEndAfter, nextNyTime } from './core/replay';
+import { bucketEndAfter, effectiveStepTf, nextNyTime } from './core/replay';
 import { loadTheme, saveTheme, type ChartTheme } from './chartTheme';
 import { loadSessionSettings, saveSessionSettings } from './sessionSettings';
 import { nextBoundary, type SessionSettings } from './core/sessions';
-import { chronologyIssue, closeTrade, decideLots, EXECUTION_MODEL, pendingType, rewindBlockedBy, type Side, type Trade } from './core/trading';
+import { chronologyIssue, closeTrade, decideLots, EXECUTION_MODEL, pendingType, rewindBlockedBy, widenStop, type Side, type Trade } from './core/trading';
 import { afterBalanceChange, newAccount, noteTradingDay, rollDay, type AccountRules } from './core/account';
 import { activeTrades, balanceOf, simulate as simulateRange, type SimResult } from './core/simulate';
 import { DEFAULT_FIB, LAYOUTS, defaultSplit, type Drawing, type LayoutId, type NewDrawing, type PaneCfg, type Position, type Session, type Tool } from './core/types';
@@ -423,7 +423,7 @@ export function stepForward(tf?: TF): boolean {
   const s = get().session;
   const d = currentData();
   if (!s || !d) return false;
-  const end = bucketEndAfter(d, s.replayTime, tf ?? s.stepTf);
+  const end = bucketEndAfter(d, s.replayTime, tf ?? effectiveStepTf(s));
   if (end == null) {
     toast('Veri sonuna ulaşıldı.');
     stopPlay();
@@ -471,9 +471,10 @@ export function stepBack() {
   if (activeTrades(s).length) return toast('Açık pozisyon veya bekleyen emir varken geri gidilemez.', 'error');
   const r = revealedCount(d, s.replayTime);
   if (r <= 1) return;
-  const key = bucketKey(s.stepTf, d.t[r - 1]);
+  const stepTf = effectiveStepTf(s);
+  const key = bucketKey(stepTf, d.t[r - 1]);
   let j = r - 1;
-  while (j > 1 && bucketKey(s.stepTf, d.t[j - 1]) === key) j--;
+  while (j > 1 && bucketKey(stepTf, d.t[j - 1]) === key) j--;
   const target = d.t[j - 1] + 60;
   if (rewindBlocked(s, target)) return;
   patchSession(() => ({ replayTime: target }));
@@ -519,8 +520,23 @@ export function stopPlay() {
 export function setSpeed(speed: number) {
   patchSession(() => ({ speed }));
 }
+/** Elle adım seçer ve eşlemeyi kapatır. */
 export function setStepTf(stepTf: TF) {
-  patchSession(() => ({ stepTf }));
+  patchSession(() => ({ stepTf, stepSync: false }));
+}
+/** Adımı grafiğin zaman dilimine bağlar. */
+export function setStepSync() {
+  patchSession(() => ({ stepSync: true }));
+}
+export function setSlBuffer(slBuffer: number) {
+  patchSession(() => ({ slBuffer }));
+}
+
+/** Stop tamponunu uygular ve fiyat basamağına yuvarlar. */
+function bufferedSl(s: Session, side: Side, sl: number): number {
+  const spec = getSymbol(s.symbol);
+  const w = widenStop(spec, side, sl, s.slBuffer ?? 0);
+  return Math.round(w * 10 ** spec.digits) / 10 ** spec.digits;
 }
 
 // ---------------------------------------------------------------- çizimler
@@ -838,7 +854,7 @@ export function ticketClick(price: number, tick: number, makeDrawing: (entry: nu
   const entry = ticketEntry(t)!;
   if (step === 'sl') {
     if (long ? price > entry - tick / 2 : price < entry + tick / 2) return toast(long ? 'Stop (SL) girişin altında olmalı.' : 'Stop (SL) girişin üstünde olmalı.', 'error');
-    return set({ ticket: { ...t, sl: price } });
+    return set({ ticket: { ...t, sl: bufferedSl(s, t.side, price) } });
   }
   if (long ? price < entry + tick / 2 : price > entry - tick / 2) return toast(long ? 'Hedef (TP) girişin üstünde olmalı.' : 'Hedef (TP) girişin altında olmalı.', 'error');
   const sl = t.sl!;
@@ -869,8 +885,8 @@ export function marketOrder(side: Side) {
   const dir = side === 'long' ? 1 : -1;
   const spec = getSymbol(s.symbol);
   const round = (p: number) => Math.round(p * d.scale) / d.scale;
-  const sl = round(price - dir * dist);
-  const tp = round(price + dir * dist * 2);
+  const sl = bufferedSl(s, side, round(price - dir * dist));
+  const tp = round(price + dir * Math.abs(price - sl) * 2); // 2R: tampon dahil gerçek stop mesafesine göre
   // Hızlı emir de normal ticket ile aynı boyutlandırma kuralını kullanır (Risk % veya sabit lot).
   const dec = decideLots(spec, { mode: get().sizing, lots: s.lots, riskPct: s.riskPct, balance: balanceOf(s), entry: price, sl, commissionPerLot: s.commissionPerLot });
   if (dec.error != null) return toast(dec.error, 'error');

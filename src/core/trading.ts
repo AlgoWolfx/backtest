@@ -123,6 +123,15 @@ export function lotRules(spec: SymbolSpec): { minLot: number; lotStep: number } 
 /** minLot / lotStep geçerli (sonlu ve > 0) mi? */
 const validLotRules = (r: { minLot: number; lotStep: number }) => Number.isFinite(r.minLot) && r.minLot > 0 && Number.isFinite(r.lotStep) && r.lotStep > 0;
 
+/**
+ * Stop tamponu: SL'yi, sembolün pip/puan biriminde `bufferPips` kadar girişten uzaklaştırır
+ * (long'da aşağı, short'ta yukarı). Geçersiz veya sıfır tampon stopu değiştirmez.
+ */
+export function widenStop(spec: SymbolSpec, side: Side, sl: number, bufferPips: number): number {
+  if (!Number.isFinite(bufferPips) || bufferPips <= 0) return sl;
+  return sl - dirOf(side) * bufferPips * spec.pip;
+}
+
 /** Stop'ta 1 lotun USD zararı. JPY dönüşümü, gerçekleşen SL P&L'sinin (calcPnl) kullandığı çıkış kuruyla (SL) yapılır. */
 export const stopRiskPerLot = (spec: SymbolSpec, entry: number, sl: number): number => Math.abs(entry - sl) * usdPerPriceUnit(spec, sl);
 

@@ -23,6 +23,7 @@ import {
   setLayout,
   setLots,
   setRiskPct,
+  setSlBuffer,
   setSymbol,
   setTf,
   useStore,
@@ -355,6 +356,8 @@ export function BottomBar() {
   const kind = useStore((s) => s.orderKind);
   const sizing = useStore((s) => s.sizing);
   const ticket = useStore((s) => s.ticket);
+  const slBuffer = useStore((s) => s.session?.slBuffer ?? 0);
+  const symbolPip = useStore((s) => (s.session ? getSymbol(s.session.symbol).pipLabel : 'pip'));
   const KINDS: { id: OrderKind; label: string; hint: string }[] = [
     { id: 'market', label: 'Market', hint: 'Anlık fiyattan gir; SL ve TP noktalarını grafikte tıklayarak seç' },
     { id: 'limit', label: 'Limit', hint: 'Giriş, SL ve TP noktalarını grafikte sırayla tıkla (giriş anlık fiyatın lehine tarafında)' },
@@ -401,6 +404,11 @@ export function BottomBar() {
             <NumberInput value={lots} min={0.01} step={0.01} onChange={setLots} />
           </label>
         )}
+        <label className="field" title={`Stop tamponu: SL'ye tıkladığın noktanın ${symbolPip} kadar ötesine konur (long'da aşağı, short'ta yukarı). Risk % modunda lot genişlemiş stopa göre hesaplanır. 0 = kapalı`}>
+          <span>SL +</span>
+          <NumberInput value={slBuffer} min={0} step={0.5} onChange={setSlBuffer} />
+          <span className="muted">{symbolPip}</span>
+        </label>
       </div>
 
       <ReplayControls />

@@ -3,7 +3,7 @@ import { DEFAULT_SESSION_SETTINGS as DEFAULT_SS, nextBoundary, sessionBoundaries
 import { NY_PRESETS } from '../core/replay';
 import { TIMEFRAMES, tfInfo, type TF } from '../core/timeframes';
 import { fmtNy, nyOffsetLabel } from '../format';
-import { forwardToBarClose, forwardToNextSessionBoundary, forwardToNyTime, setSpeed, setStepTf, stepBack, stepForward, stopPlay, togglePlay, useStore } from '../store';
+import { forwardToBarClose, forwardToNextSessionBoundary, forwardToNyTime, setSpeed, setStepSync, setStepTf, stepBack, stepForward, stopPlay, togglePlay, useStore } from '../store';
 import { Icons } from './icons';
 
 const SPEEDS = [0.5, 1, 2, 4, 8, 16, 32];
@@ -39,6 +39,7 @@ function HoldButton({ onStep, title, children, className = 'icon-btn' }: { onSte
 export function ReplayControls() {
   const playing = useStore((s) => s.playing);
   const stepTf = useStore((s) => s.session?.stepTf ?? '1m');
+  const stepSync = useStore((s) => s.session?.stepSync !== false);
   const speed = useStore((s) => s.session?.speed ?? 1);
   const tf = useStore((s) => s.session?.tf ?? '15m');
   const picking = useStore((s) => s.pickingStart);
@@ -68,7 +69,13 @@ export function ReplayControls() {
       <ForwardMenu />
       <NextSession />
       <span className="rsep" />
-      <select className="select" value={stepTf} onChange={(e) => setStepTf(e.target.value as TF)} title="Her adımda ve oynatırken ilerlenecek süre">
+      <select
+        className="select"
+        value={stepSync ? 'sync' : stepTf}
+        onChange={(e) => (e.target.value === 'sync' ? setStepSync() : setStepTf(e.target.value as TF))}
+        title="Her adımda ve oynatırken ilerlenecek süre. 'Grafikle eş': seçtiğin grafik zaman dilimi kadar ilerler"
+      >
+        <option value="sync">Adım: Grafikle eş ({tfInfo(tf).label})</option>
         {STEP_TFS.map((t) => (
           <option key={t} value={t}>
             Adım: {TIMEFRAMES.find((x) => x.id === t)!.label}
