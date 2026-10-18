@@ -5,7 +5,7 @@ import { nyLocalToUtc } from '../../shared/nytime.js';
 import type { M1Data } from './data';
 import { newAccount, type AccountRules } from './account';
 import { simulate } from './simulate';
-import { applyCandle, calcPnl, chronologyIssue, EXECUTION_MODEL, exitSide, lotsForRisk, stopRiskPerLot, type Candle, type Trade } from './trading';
+import { applyCandle, calcPnl, chronologyIssue, closeTrade, EXECUTION_MODEL, exitSide, lotsForRisk, moneyR, stopRiskPerLot, type Candle, type Trade } from './trading';
 import type { Session } from './types';
 
 const eur = getSymbol('EURUSD');
@@ -110,8 +110,8 @@ describe('#2 kanıtlanabilir TP ile gerçekten belirsiz TP', () => {
     expect(r.flags).toEqual(expect.arrayContaining(['fill-bar-sl-unknown', 'sl-tp-same-bar']));
   });
 
-  it('yürütme modeli sürümü 2', () => {
-    expect(EXECUTION_MODEL).toBe(2);
+  it('yürütme modeli sürümü 3', () => {
+    expect(EXECUTION_MODEL).toBe(3);
   });
 });
 
@@ -256,5 +256,71 @@ describe('#7 eski oturumlarda tutarsız kronoloji uyarısı', () => {
     expect(chronologyIssue([closed(2000)], 1000)).toBe(2000);
     expect(chronologyIssue([closed(900)], 1000)).toBeNull();
     expect(chronologyIssue([], 1000)).toBeNull();
+  });
+});
+
+// ---- üçüncü tur
+function m1ask(bid: C[], ask: C[]): M1Data {
+  const d = m1(bid);
+  const mk = (f: (c: C) => number) => Int32Array.from(ask.map((c) => Math.round(f(c) * SCALE)));
+  d.ask = { o: mk((c) => c.o), h: mk((c) => c.h), l: mk((c) => c.l), c: mk((c) => c.c) };
+  return d;
+}
+
+describe('#4 değişken spreadli hedge: gözlenen açılış/kapanış quote çiftleri', () => {
+  const long = open('L', 'long', 1.1, 1.0, 1.2);
+  const short = open('S', 'short', 1.1, 1.2, 1.0);
+  const r15 = () => rules({ dailyLossPct: 0.15 }); // $150
+
+  it('Astra örneği: açılışta bid 1.1000 / ask 1.1020 -> equity 99800, günlük limit aşılır', () => {
+    const d = m1ask([{ t: T0, o: 1.1, h: 1.11, l: 1.09, c: 1.1 }], [{ t: T0, o: 1.102, h: 1.111, l: 1.091, c: 1.1001 }]);
+    const r = run(sess([long, short], T0, r15()), d);
+    expect(r.account!.state.minEquity).toBeLessThanOrEqual(99800 + 1e-6);
+    expect(r.breach).toMatch(/Günlük/);
+    expect(r.account!.state.status).toBe('failed');
+  });
+
+  it('simetrik: kapanış spreadi uçlardan daha geniş (ask close 1.1030) -> equity 99700, günlük limit aşılır', () => {
+    const d = m1ask([{ t: T0, o: 1.1, h: 1.101, l: 1.099, c: 1.1 }], [{ t: T0, o: 1.1001, h: 1.1011, l: 1.0991, c: 1.103 }]);
+    const r = run(sess([long, short], T0, r15()), d);
+    expect(r.account!.state.minEquity).toBeLessThanOrEqual(99700 + 1e-6);
+    expect(r.breach).toMatch(/Günlük/);
+  });
+
+  it('aynı mumda dolan işlem açılış senaryosunda sayılmaz (henüz yoktu)', () => {
+    const pending: Trade = { ...open('P', 'long', 1.1, 1.0, 1.2), status: 'pending', orderType: 'limit', openedAt: undefined };
+    const d = m1ask([{ t: T0, o: 1.1, h: 1.1, l: 1.1, c: 1.1 }], [{ t: T0, o: 1.1002, h: 1.1002, l: 1.1, c: 1.1002 }]);
+    const r = run(sess([pending], T0, rules({ dailyLossPct: null })), d);
+    expect(r.trades[0].status).toBe('open');
+    expect(r.account!.state.minEquity).toBeGreaterThan(99990); // açılış senaryosunda 0 katkı
+  });
+});
+
+describe('#6 R tek kaynak: net K/Z / ilk parasal stop riski', () => {
+  const jpy = getSymbol('USDJPY');
+  const jt: Trade = { id: 'j', symbol: 'USDJPY', side: 'long', status: 'open', orderType: 'market', createdAt: 0, openedAt: 0, entry: 150, sl: 149, tp: 153, initialSl: 149, lots: 1 };
+
+  it('Astra örneği: USDJPY 150/149 -> 152, 1 lot, $7 komisyon: net R = 1.950096', () => {
+    const c = closeTrade(jpy, { ...jt, commissionPerLot: 7 }, 152, 60, 'tp');
+    expect(c.pnl).toBeCloseTo(200000 / 152 - 7, 6);
+    expect(c.r).toBeCloseTo((200000 / 152 - 7) / (100000 / 149), 9);
+    expect(c.r).toBeCloseTo(1.9500963158, 8);
+  });
+
+  it('komisyonsuz da parasal R: 1.960526 (fiyat-R 2 değil)', () => {
+    const c = closeTrade(jpy, jt, 152, 60, 'tp');
+    expect(c.r).toBeCloseTo(200000 / 152 / (100000 / 149), 9);
+    expect(c.r).toBeCloseTo(1.9605263, 6);
+  });
+
+  it('USD kotasyonunda parasal R fiyat-R ile aynıdır (eski sonuçlarla tutarlı)', () => {
+    const t: Trade = { ...jt, symbol: 'EURUSD', entry: 1.1, sl: 1.099, tp: 1.102, initialSl: 1.099 };
+    const c = closeTrade(eur, t, 1.102, 60, 'tp');
+    expect(c.r).toBeCloseTo(2, 9);
+    expect(moneyR(eur, t, calcPnl(eur, 'long', 1.1, 1.102, 1))).toBeCloseTo(2, 9);
+  });
+
+  it('kapanan işlem kapanış modelini taşır', () => {
+    expect(closeTrade(jpy, jt, 152, 60, 'tp').model).toBe(EXECUTION_MODEL);
   });
 });

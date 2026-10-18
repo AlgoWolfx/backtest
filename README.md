@@ -179,16 +179,22 @@ Limit: Buy için giriş anlık fiyatın altında, Sell için üstünde; Stop: te
   dolumdan sonra TP geçilmek zorundadır; bid/ask'ta ask >= bid olduğundan bu argümanlar spreadle de geçerlidir),
   kanıtlanamayan TP sayılmaz ve işaretlenir; SL görüldüyse muhafazakâr olarak zarar yazılır. SL dolum anında zaten
   tetiklenmişse çıkış, SL'ye en yakın **erişilebilir** fiyattan yazılır.
-- **Yürütme modeli sürümü:** Her oturum açıldığı modelin sürümünü saklar (şu an v2; eski oturumlar v1). Kural değişince
-  sürüm artar; eski oturumların kapanmış işlemleri yeniden hesaplanmaz. Performans sayfasında görünür.
+- **Yürütme modeli sürümü:** Oturum açıldığı sürümü saklar ve her kapanan işlem kapandığı andaki sürümü taşır (şu an v3;
+  eski oturumlar v1). Kural değişince sürüm artar; eski işlemler yeniden hesaplanmaz, eski oturumda devam edince
+  "v1 işlemleri + v3 işlemleri" olarak ayrı gösterilir (Performans sayfası).
 - **Equity ve komisyon:** Açık pozisyonun equity'si "şimdi likide edilirse net" değerdir (komisyon rezerve edilir,
   kapanışta tekrar düşülmez). Aynı sembolün pozisyonları ortak fiyat senaryosunda birlikte değerlenir (long bid'den, short
-  ask'tan); eşit long+short zarar üretmez. Farklı semboller için en kötü uçlar toplanır: bu tick bazlı kesin bir olay
-  değil, muhafazakâr bir alt sınırdır.
+  ask'tan); eşit long+short zarar üretmez. Equity dibi, **gözlenen** senkron quote çiftleri (mum açılışı ve kapanışı) ile
+  **varsayımsal** uç çiftlerinin (bid low + ask low, bid high + ask high) en kötüsüdür; değişken spreadde bid ve ask
+  uçlarının aynı anda oluştuğu garanti değildir, bu yüzden uç çiftleri alt/üst sınır sayılmaz. Farklı semboller için en
+  kötü senaryolar toplanır: seçilmiş muhafazakâr bir senaryodur, tick bazlı kesin bir olay değil. Bid/ask modelinde
+  geçerli bir quote'un her an ask >= bid olduğu varsayılır (veride ask < bid dakikası 0).
 - **Simüle edilmeyenler:** slippage, swap / gece taşıma maliyeti, margin kontrolü ve stop-out. Bunlar broker ve veri
   kaynağı gerektirir; uydurma sayı eklenmez. Lot hesabında JPY dönüşümü SL kuruyla yapılır (gerçekleşen SL zararı
   bütçeyi aşmaz).
-- R, ilk SL mesafesine göre hesaplanır; |R| < 0,1 ise sonuç BE sayılır. Bir işlem kapandığında oynatma durur.
+- **R = net K/Z / ilk parasal stop riski** (stopta 1 lotun USD zararı x lot). Lot hesabı, etiketler, CSV ve Performans aynı
+  tanımı kullanır; JPY gibi dönüşümlü çiftlerde fiyat mesafesi oranından (R:R) farklı olabilir. |R| < 0,1 ise sonuç BE sayılır.
+  Bir işlem kapandığında oynatma durur.
 
 İleri sarmalarda (NY saatine, mum kapanışına, tarihe git) açık işlem SL/TP'ye değerse veya bekleyen emir
 dolarsa sarma tam o dakikada durur. Oynatma da emir dolduğunda ve işlem kapandığında durur.

@@ -7,7 +7,7 @@
 import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import type { IPrimitivePaneView, ISeriesPrimitive, ISeriesPrimitiveAxisView, PrimitiveHoveredItem, SeriesAttachedParameter, Time } from 'lightweight-charts';
 import { getSymbol } from '../../shared/symbols.js';
-import { lotsForRisk, liquidationPnl, calcR, stopRiskPerLot, usdPerPriceUnit, type Trade } from '../core/trading';
+import { lotsForRisk, liquidationPnl, openR, stopRiskPerLot, usdPerPriceUnit, type Trade } from '../core/trading';
 import type { Drawing, Fib, LineStyleName, Position, Pt, Session, Tool, TrendLine } from '../core/types';
 import { fmtDistance, fmtMoney, fmtPrice, fmtR, reasonLabel } from '../format';
 import { tfInfo } from '../core/timeframes';
@@ -541,7 +541,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     else if (tr.status === 'open') {
       const px = exitPriceNow(tr) ?? tr.entry;
       const pnl = liquidationPnl(getSymbol(tr.symbol), tr, px);
-      const r = calcR(tr.side, tr.entry, px, tr.initialSl);
+      const r = openR(getSymbol(tr.symbol), tr, px);
       center = `Açık · ${fmtMoney(pnl, true)} · ${fmtR(r)}`;
       bg = pnl >= 0 ? '#067a67' : '#c12a37';
     } else if (tr.status === 'closed') {

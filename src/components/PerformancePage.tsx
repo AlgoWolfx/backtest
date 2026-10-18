@@ -104,11 +104,15 @@ export function PerformancePage() {
 function ModelNotes({ session }: { session: NonNullable<ReturnType<typeof useStore.getState>['session']> }) {
   const bad = chronologyIssue(session.trades, session.replayTime);
   const v = session.executionModel ?? 1;
+  // İşlem bazlı sürüm: eski oturumda devam edilince arşiv işlemleri eski, yeni kapanışlar güncel modelle hesaplanır.
+  const counts = new Map<number, number>();
+  for (const t of session.trades) if (t.status === 'closed') counts.set(t.model ?? v, (counts.get(t.model ?? v) ?? 0) + 1);
+  const mixed = [...counts.entries()].sort((a, b) => a[0] - b[0]).map(([m, n]) => `v${m}: ${n} işlem`).join(' + ');
   return (
     <section className="card model-notes">
       <p className="hint">
-        Yürütme modeli v{v}
-        {v < EXECUTION_MODEL ? ` (güncel v${EXECUTION_MODEL}; bu oturumdaki kapanmış işlemler eski kurallarla hesaplandı, yeniden hesaplanmaz)` : ''}. Komisyon: {session.commissionPerLot ? `${fmtMoney(session.commissionPerLot)} / lot, gidiş-dönüş` : 'yok'}. Simüle edilmeyenler: slippage, swap / gece taşıma maliyeti, margin kontrolü ve stop-out.
+        Yürütme modeli: oturum v{v} ile açıldı{mixed ? ` · kapanmış işlemler ${mixed}` : ''}
+        {counts.size > 1 || v < EXECUTION_MODEL ? ` (güncel v${EXECUTION_MODEL}; eski işlemler yeniden hesaplanmaz, yeni kapanışlar güncel modelle hesaplanır)` : ''}. Komisyon: {session.commissionPerLot ? `${fmtMoney(session.commissionPerLot)} / lot, gidiş-dönüş` : 'yok'}. Simüle edilmeyenler: slippage, swap / gece taşıma maliyeti, margin kontrolü ve stop-out.
       </p>
       {bad != null && <p className="hint neg">Eski kronoloji tutarsız: replay zamanından sonraya ait işlem kaydı var ({fmtNy(bad)} NY); bakiye gelecekteki kapanışları içerir. Kayıtlar silinmedi; ölçüm için yeni oturum açın.</p>}
     </section>

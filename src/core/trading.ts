@@ -38,8 +38,10 @@ export type TradeFlag = 'sl-tp-same-bar' | 'fill-bar-tp-unknown' | 'fill-bar-sl-
  * Yürütme (mum içi emir/çıkış) modeli sürümü. Oturum açılırken saklanır; eski oturumlarda yok = 1.
  *   1: ilk sürüm (3727f4a)
  *   2: açılış dolumu açık-pozisyon kurallarıyla; erişilebilir çıkış; kanıtlanabilir TP; net komisyon equity
+ *   3: R = net K/Z / ilk parasal stop riski (JPY dahil tek kaynak); equity dibine senkron açılış/kapanış quote'ları
+ * Kapanan her işlem, kapandığı andaki model sürümünü `model` alanında taşır; eski işlemler yeniden hesaplanmaz.
  */
-export const EXECUTION_MODEL = 2;
+export const EXECUTION_MODEL = 3;
 
 export interface Trade {
   id: string;
@@ -69,6 +71,8 @@ export interface Trade {
   flags?: TradeFlag[];
   /** Açılışta işleme yazılan komisyon (USD / lot, gidiş-dönüş); sonradan ayar değişse de bu işlem değişmez */
   commissionPerLot?: number;
+  /** Kapanışın hesaplandığı yürütme modeli sürümü (bkz. EXECUTION_MODEL); yok = oturumun açıldığı sürüm */
+  model?: number;
   /** Komisyon varsa: brüt K/Z ve ödenen komisyon. pnl = grossPnl - commission (NET) */
   grossPnl?: number;
   commission?: number;
@@ -88,11 +92,22 @@ export function calcPnl(spec: SymbolSpec, side: Side, entry: number, exit: numbe
   return dirOf(side) * (exit - entry) * lots * usdPerPriceUnit(spec, exit);
 }
 
+/** Fiyat mesafesi oranı (R:R gibi): (çıkış - giriş) / ilk stop mesafesi. K/Z raporlaması için moneyR kullanılır. */
 export function calcR(side: Side, entry: number, exit: number, initialSl: number | null): number | null {
   if (initialSl == null) return null;
   const risk = Math.abs(entry - initialSl);
   if (risk === 0) return null;
   return (dirOf(side) * (exit - entry)) / risk;
+}
+
+/**
+ * R: NET K/Z / ilk parasal stop riski (stop'ta 1 lotun USD zararı x lot). Lot hesabı, etiket, CSV ve performans
+ * aynı tanımı kullanır; JPY gibi dönüşümlü çiftlerde fiyat-mesafesi oranından farklıdır.
+ */
+export function moneyR(spec: SymbolSpec, tr: Pick<Trade, 'entry' | 'initialSl' | 'lots'>, netPnl: number): number | null {
+  if (tr.initialSl == null) return null;
+  const risk = stopRiskPerLot(spec, tr.entry, tr.initialSl) * tr.lots;
+  return risk > 0 && Number.isFinite(risk) ? netPnl / risk : null;
 }
 
 export function classify(r: number | null, pnl: number): TradeResult {
@@ -172,6 +187,9 @@ export function noLotReason(spec: SymbolSpec, balance: number, riskPct: number, 
 /** İşleme yazılı komisyonun toplamı (USD, gidiş-dönüş). */
 export const commissionOf = (tr: Pick<Trade, 'commissionPerLot' | 'lots'>): number => (tr.commissionPerLot ?? 0) * tr.lots;
 
+/** Açık pozisyonun şimdi likide edilirse R'si (net K/Z / ilk parasal risk); kapanıştaki R ile aynı tanım. */
+export const openR = (spec: SymbolSpec, tr: Trade, px: number): number | null => moneyR(spec, tr, liquidationPnl(spec, tr, px));
+
 /** Açık pozisyonun şimdi px fiyatından likide edilirse NET K/Z'si: komisyon rezerve edilir (kapanışta çift düşülmez). */
 export const liquidationPnl = (spec: SymbolSpec, tr: Trade, px: number): number => calcPnl(spec, tr.side, tr.entry, px, tr.lots) - commissionOf(tr);
 
@@ -183,13 +201,9 @@ export function closeTrade(spec: SymbolSpec, tr: Trade, exit: number, time: numb
   const gross = calcPnl(spec, tr.side, tr.entry, exit, tr.lots);
   const commission = (tr.commissionPerLot ?? 0) * tr.lots;
   const pnl = gross - commission;
-  let r = calcR(tr.side, tr.entry, exit, tr.initialSl);
-  if (r != null && commission > 0 && tr.initialSl != null) {
-    const riskUsd = stopRiskPerLot(spec, tr.entry, tr.initialSl) * tr.lots;
-    r -= commission / riskUsd;
-  }
+  const r = moneyR(spec, tr, pnl);
   const costs = commission > 0 ? { grossPnl: gross, commission } : {};
-  return { ...tr, ...costs, status: 'closed', exit, closedAt: time, exitReason: reason, pnl, r, result: classify(r, pnl) };
+  return { ...tr, ...costs, status: 'closed', exit, closedAt: time, exitReason: reason, pnl, r, result: classify(r, pnl), model: EXECUTION_MODEL };
 }
 
 /**
