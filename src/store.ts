@@ -4,6 +4,8 @@ import { aggregate, aggIndexOfM1, loadSymbol, revealedCount, type DataSource, ty
 import { bucketKey, type TF } from './core/timeframes';
 import { bucketEndAfter, nextNyTime } from './core/replay';
 import { loadTheme, saveTheme, type ChartTheme } from './chartTheme';
+import { loadSessionSettings, saveSessionSettings } from './sessionSettings';
+import { nextBoundary, type SessionSettings } from './core/sessions';
 import { chronologyIssue, closeTrade, decideLots, EXECUTION_MODEL, pendingType, rewindBlockedBy, type Side, type Trade } from './core/trading';
 import { afterBalanceChange, newAccount, noteTradingDay, rollDay, type AccountRules } from './core/account';
 import { activeTrades, balanceOf, simulate as simulateRange, type SimResult } from './core/simulate';
@@ -53,7 +55,11 @@ interface State {
   pickingStart: boolean;
   perfOpen: boolean;
   chartSettingsOpen: boolean;
+  /** Grafik ayarları açılırken gösterilecek sekme (tek seferlik istek) */
+  chartSettingsTab: string | null;
   chartTheme: ChartTheme;
+  /** Seans / killzone katmanı ayarları (tarayıcıda saklanır, tüm oturumlarda geçerli) */
+  sessionSettings: SessionSettings;
   /** Buy/Sell butonlarının emir tipi */
   orderKind: OrderKind;
   /** Emir boyutu: bakiyenin risk yüzdesi veya sabit lot */
@@ -83,7 +89,9 @@ export const useStore = create<State>(() => ({
   pickingStart: false,
   perfOpen: false,
   chartSettingsOpen: false,
+  chartSettingsTab: null,
   chartTheme: loadTheme(),
+  sessionSettings: loadSessionSettings(),
   orderKind: 'market',
   sizing: 'risk',
   ticket: null,
@@ -418,6 +426,20 @@ export function stepForward(tf?: TF): boolean {
 export function forwardToBarClose() {
   const s = get().session;
   if (s) stepForward(s.tf);
+}
+
+export function setSessionSettings(s: SessionSettings) {
+  saveSessionSettings(s);
+  set({ sessionSettings: s });
+}
+
+/** Bir sonraki seans başlangıcına / bitişine ileri sarar (hafta sonu atlanır, işlem olayında durur). */
+export function forwardToNextSessionBoundary() {
+  const s = get().session;
+  if (!s) return;
+  const b = nextBoundary(get().sessionSettings, s.replayTime);
+  if (!b) return toast('Görünür seans yok: Grafik ayarları > Seanslar bölümünden bir seans açın.', 'error');
+  forwardToNyTime(b.h, b.m);
 }
 
 /** Bir sonraki "NY hh:mm" anına ileri sarar (hafta sonu / tatil atlanır, işlem olayında durur). */

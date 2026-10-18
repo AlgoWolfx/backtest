@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { DEFAULT_SESSION_SETTINGS as DEFAULT_SS, nextBoundary, sessionBoundaries } from '../core/sessions';
 import { NY_PRESETS } from '../core/replay';
 import { TIMEFRAMES, tfInfo, type TF } from '../core/timeframes';
 import { fmtNy, nyOffsetLabel } from '../format';
-import { forwardToBarClose, forwardToNyTime, setSpeed, setStepTf, stepBack, stepForward, stopPlay, togglePlay, useStore } from '../store';
+import { forwardToBarClose, forwardToNextSessionBoundary, forwardToNyTime, setSpeed, setStepTf, stepBack, stepForward, stopPlay, togglePlay, useStore } from '../store';
 import { Icons } from './icons';
 
 const SPEEDS = [0.5, 1, 2, 4, 8, 16, 32];
@@ -65,6 +66,7 @@ export function ReplayControls() {
         <Icons.barClose />
       </button>
       <ForwardMenu />
+      <NextSession />
       <span className="rsep" />
       <select className="select" value={stepTf} onChange={(e) => setStepTf(e.target.value as TF)} title="Her adımda ve oynatırken ilerlenecek süre">
         {STEP_TFS.map((t) => (
@@ -84,11 +86,25 @@ export function ReplayControls() {
   );
 }
 
+/** Bir sonraki seans başlangıcına/bitişine git ("seans seans" ilerleme). */
+function NextSession() {
+  const replayTime = useStore((s) => s.session?.replayTime ?? 0);
+  const settings = useStore((s) => s.sessionSettings);
+  const nb = useMemo(() => (replayTime ? nextBoundary(settings, replayTime) : null), [settings, replayTime]);
+  return (
+    <button className="btn small ghost" disabled={!nb} onClick={forwardToNextSessionBoundary} title={nb ? `Sonraki seans sınırına git: ${nb.label} NY (N)` : 'Görünür seans yok (Grafik ayarları > Seanslar)'}>
+      <Icons.sessionNext /> {nb ? nb.label.replace(' başlangıcı', ' ▸').replace(' bitişi', ' ◂') : 'Seans'}
+    </button>
+  );
+}
+
 /** "İleri sar" menüsü: mum kapanışı, NY seans saatleri, özel saat. */
 function ForwardMenu() {
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState('08:30');
   const tf = useStore((s) => s.session?.tf ?? '15m');
+  const sessions = useStore((s) => s.sessionSettings.sessions);
+  const boundaries = useMemo(() => sessionBoundaries({ ...DEFAULT_SS, sessions }), [sessions]);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -124,6 +140,19 @@ function ForwardMenu() {
               </button>
             ))}
           </div>
+          {boundaries.length > 0 && (
+            <>
+              <div className="menu-title">Seans sınırları (Grafik ayarları &gt; Seanslar)</div>
+              <div className="preset-grid">
+                {boundaries.map((b) => (
+                  <button key={`${b.sessionId}${b.kind}`} className="preset" onClick={() => go(b.h, b.m)} title={`${b.label} NY`}>
+                    <b>{b.kind === 'start' ? '▸' : '◂'} {b.label.replace(' başlangıcı', '').replace(' bitişi', '')}</b>
+                    <span>{b.kind === 'start' ? 'başlangıç' : 'bitiş'} {String(b.h).padStart(2, '0')}:{String(b.m).padStart(2, '0')}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
           <div className="menu-custom">
             <input type="time" value={custom} onChange={(e) => setCustom(e.target.value)} onKeyDown={(e) => (e.key === 'Enter' ? goCustom() : e.stopPropagation())} />
             <span className="muted">NY</span>

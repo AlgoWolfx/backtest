@@ -24,8 +24,10 @@ import {
   setSymbol,
   setTf,
   useStore,
+  setSessionSettings,
 } from '../store';
 import { Icons } from './icons';
+import { toggleFullscreen, useFullscreen } from '../fullscreen';
 import { ReplayClock, ReplayControls } from './ReplayControls';
 
 // ---------------------------------------------------------------- üst çubuk
@@ -65,6 +67,33 @@ function LayoutPicker() {
   );
 }
 
+/** Seans / killzone katmanını açıp kapatır (ayrıntılar Grafik ayarları > Seanslar). */
+function SessionToggle() {
+  const s = useStore((st) => st.sessionSettings);
+  return (
+    <button
+      className={`btn ghost ${s.enabled ? 'on' : ''}`}
+      onClick={() => setSessionSettings({ ...s, enabled: !s.enabled })}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        useStore.setState({ chartSettingsOpen: true, chartSettingsTab: 'sessions' });
+      }}
+      title="Seans / killzone katmanı: aç-kapa. Sağ tık: seans ayarları"
+    >
+      <Icons.sessions /> Seanslar
+    </button>
+  );
+}
+
+function FullscreenButton() {
+  const on = useFullscreen();
+  return (
+    <button className={`btn ghost ${on ? 'on' : ''}`} onClick={toggleFullscreen} title="Tam ekran (Shift+F)">
+      {on ? <Icons.exitFullscreen /> : <Icons.fullscreen />}
+    </button>
+  );
+}
+
 export function TopBar() {
   const name = useStore((s) => s.session?.name);
   const symbol = useStore((s) => s.session?.symbol ?? '');
@@ -97,6 +126,8 @@ export function TopBar() {
       </button>
       <div className="spacer" />
       <AccountInfo />
+      <SessionToggle />
+      <FullscreenButton />
       <button className="btn ghost" onClick={() => useStore.setState({ chartSettingsOpen: true })} title="Grafik renkleri ve görünüm ayarları">
         <Icons.settings />
       </button>

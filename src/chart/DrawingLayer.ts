@@ -8,7 +8,8 @@ import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import type { IPrimitivePaneView, ISeriesPrimitive, ISeriesPrimitiveAxisView, PrimitiveHoveredItem, SeriesAttachedParameter, Time } from 'lightweight-charts';
 import { getSymbol } from '../../shared/symbols.js';
 import { lotsForRisk, liquidationPnl, openR, stopRiskPerLot, usdPerPriceUnit, type Trade } from '../core/trading';
-import type { Drawing, Fib, LineStyleName, Position, Pt, Session, Tool, TrendLine } from '../core/types';
+import type { Drawing, Fib, LineStyleName, Position, Pt, Rect, Session, Tool, TrendLine } from '../core/types';
+import { loadRectTemplate } from '../drawingTemplates';
 import { fmtDistance, fmtMoney, fmtPrice, fmtR, reasonLabel } from '../format';
 import { tfInfo } from '../core/timeframes';
 import { bucketEndAfter } from '../core/replay';
@@ -118,6 +119,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
   requestUpdate() {
     this.version++;
     this.requestRedraw?.();
+    this.c.sessions?.requestUpdate();
   }
   hitTest(x: number, y: number): PrimitiveHoveredItem | null {
     if (useStore.getState().pickingStart) return { cursorStyle: 'pointer', externalId: '', zOrder: 'top' };
@@ -201,6 +203,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.textBaseline = 'middle';
       for (const d of drawings) {
+        if (d.hiddenTfs?.includes(this.c.tf)) continue; // Görünürlük: bu zaman diliminde gizli
         const active = d.id === st.selectedId || d.id === this.hoverId;
         ctx.save();
         switch (d.type) {
@@ -236,22 +239,32 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
             const bxr = this.X(d.b.t);
             const left = d.extendLeft ? -2 : Math.min(x1, bxr);
             const right = d.extendRight ? mediaSize.width + 2 : Math.max(x1, bxr);
-            ctx.fillStyle = d.fill;
-            ctx.fillRect(left, Math.min(y1, y2), right - left, Math.abs(y2 - y1));
-            ctx.strokeStyle = d.color;
-            ctx.lineWidth = d.width;
-            ctx.setLineDash(dashOf(d.style, d.width));
-            ctx.strokeRect(left + 0.5, Math.min(y1, y2) + 0.5, right - left, Math.abs(y2 - y1));
+            const fillOn = d.fillOn ?? (d.fillAlpha ?? 0.15) > 0;
+            if (fillOn) {
+              ctx.fillStyle = d.fillColor ? hexToRgba(d.fillColor, d.fillAlpha ?? 0.15) : d.fill;
+              ctx.fillRect(left, Math.min(y1, y2), right - left, Math.abs(y2 - y1));
+            }
+            const borderCss = hexToRgba(d.borderColor ?? d.color, d.borderAlpha ?? 1);
+            if (d.borderOn !== false) {
+              ctx.strokeStyle = borderCss;
+              ctx.lineWidth = d.width;
+              ctx.setLineDash(dashOf(d.style, d.width));
+              ctx.strokeRect(left + 0.5, Math.min(y1, y2) + 0.5, right - left, Math.abs(y2 - y1));
+            }
             if (d.midline) {
               const ym = Math.round((y1 + y2) / 2) + 0.5;
-              ctx.setLineDash([5, 4]);
+              const mw = d.midWidth ?? 1;
+              ctx.strokeStyle = d.midColor ?? borderCss;
+              ctx.lineWidth = mw;
+              ctx.setLineDash(d.midStyle ? dashOf(d.midStyle, mw) : [5, 4]);
               ctx.beginPath();
               ctx.moveTo(left, ym);
               ctx.lineTo(right, ym);
               ctx.stroke();
-              this.label(ctx, fmtPrice((d.a.p + d.b.p) / 2, this.c.spec!), Math.min(right, mediaSize.width) - 38, ym, d.color);
+              this.label(ctx, fmtPrice((d.a.p + d.b.p) / 2, this.c.spec!), Math.min(right, mediaSize.width) - 38, ym, d.midColor ?? d.borderColor ?? d.color);
             }
             ctx.setLineDash([]);
+            if (d.text) this.drawRectText(ctx, d, left, right, Math.min(y1, y2), Math.max(y1, y2));
             if (active) {
               const bx = this.X(d.b.t);
               for (const [hx, hy] of [[x1, y1], [bx, y2], [x1, y2], [bx, y1]]) this.handle(ctx, hx, hy, d.color);
@@ -334,6 +347,29 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     }
     this.label(ctx, `${hint} · Esc: iptal`, w / 2, 24, '#2a2e39');
     void h;
+    ctx.restore();
+  }
+
+  /** Dikdörtgenin içindeki metin (TradingView "Metin" sekmesi): renk, boyut, kalın/italik, dikey ve yatay hizalama. */
+  private drawRectText(ctx: CanvasRenderingContext2D, d: Rect, left: number, right: number, top: number, bottom: number) {
+    const size = d.textSize ?? 14;
+    ctx.save();
+    ctx.font = `${d.italic ? 'italic ' : ''}${d.bold ? 'bold ' : ''}${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    ctx.fillStyle = d.textColor ?? '#ffffff';
+    ctx.textBaseline = 'middle';
+    const h = d.hAlign ?? 'right';
+    ctx.textAlign = h;
+    const pad = 6;
+    const x = h === 'left' ? left + pad : h === 'right' ? right - pad : (left + right) / 2;
+    const lines = d.text!.split('\n');
+    const lh = size * 1.25;
+    const total = lines.length * lh;
+    const v = d.vAlign ?? 'middle';
+    const y0 = v === 'top' ? top + pad : v === 'bottom' ? bottom - pad - total : (top + bottom) / 2 - total / 2;
+    ctx.beginPath();
+    ctx.rect(Math.max(left, 0), top, Math.min(right, this.width + 2) - Math.max(left, 0), bottom - top);
+    ctx.clip();
+    lines.forEach((ln, i) => ctx.fillText(ln, Math.min(Math.max(x, 0), this.width - 2), y0 + lh * (i + 0.5)));
     ctx.restore();
   }
 
@@ -451,16 +487,26 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     const xr = d.extendRight ? w : Math.max(xa, xb);
     ctx.lineWidth = d.width;
     ctx.textAlign = 'right';
+    if (d.bgOn) {
+      // Seviyeler arası arkaplan: her aralık, üst seviyenin rengiyle (TradingView gibi)
+      const on = d.levels.filter((l) => l.on).sort((a, b) => a.v - b.v);
+      for (let i = 1; i < on.length; i++) {
+        const y0 = this.Y(fibPrice(d, on[i - 1].v));
+        const y1 = this.Y(fibPrice(d, on[i].v));
+        ctx.fillStyle = hexToRgba(on[i].color ?? d.color, d.bgAlpha ?? 0.15);
+        ctx.fillRect(xl, Math.min(y0, y1), xr - xl, Math.abs(y1 - y0));
+      }
+    }
     for (const lv of d.levels) {
       if (!lv.on) continue;
       const p = fibPrice(d, lv.v);
       const y = Math.round(this.Y(p)) + 0.5;
-      ctx.strokeStyle = d.color;
+      ctx.strokeStyle = lv.color ?? d.color;
       ctx.beginPath();
       ctx.moveTo(xl, y);
       ctx.lineTo(xr, y);
       ctx.stroke();
-      ctx.fillStyle = d.color;
+      ctx.fillStyle = lv.color ?? d.color;
       ctx.fillText(`${+lv.v.toFixed(3)} (${fmtPrice(p, spec)})`, xl - 6, y);
     }
     ctx.setLineDash([4, 4]);
@@ -486,9 +532,12 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     const done = tr && (tr.status === 'closed' || tr.status === 'cancelled');
     ctx.globalAlpha = done ? 0.55 : 1;
 
-    ctx.fillStyle = 'rgba(8,153,129,0.2)';
+    const pc = d.profitColor ?? '#089981';
+    const lc = d.lossColor ?? '#f23645';
+    const za = d.zoneAlpha ?? 0.2;
+    ctx.fillStyle = hexToRgba(pc, za);
     ctx.fillRect(x0, Math.min(yE, yTP), x1 - x0, Math.abs(yTP - yE));
-    ctx.fillStyle = 'rgba(242,54,69,0.2)';
+    ctx.fillStyle = hexToRgba(lc, za);
     ctx.fillRect(x0, Math.min(yE, ySL), x1 - x0, Math.abs(ySL - yE));
 
     // İşlemin seyri: girişten çıkışa / anlık fiyata kadar koyu alan.
@@ -530,8 +579,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     if (showDetails) {
       const tpY = long ? Math.min(yTP, yE) - 11 : Math.max(yTP, yE) + 11;
       const slY = long ? Math.max(ySL, yE) + 11 : Math.min(ySL, yE) - 11;
-      this.label(ctx, `Hedef ${fmtPrice(d.tp, spec)} · ${fmtDistance(d.tp - d.entry.p, spec)} · ${fmtMoney(Math.abs(d.tp - d.entry.p) * lots * usdPerPriceUnit(spec, d.tp))}`, cx, tpY, '#089981');
-      this.label(ctx, `Stop ${fmtPrice(d.sl, spec)} · ${fmtDistance(d.sl - d.entry.p, spec)} · ${fmtMoney(riskUsd)}`, cx, slY, '#f23645');
+      this.label(ctx, `Hedef ${fmtPrice(d.tp, spec)} · ${fmtDistance(d.tp - d.entry.p, spec)} · ${fmtMoney(Math.abs(d.tp - d.entry.p) * lots * usdPerPriceUnit(spec, d.tp))}`, cx, tpY, d.profitColor ?? '#089981');
+      this.label(ctx, `Stop ${fmtPrice(d.sl, spec)} · ${fmtDistance(d.sl - d.entry.p, spec)} · ${fmtMoney(riskUsd)}`, cx, slY, d.lossColor ?? '#f23645');
     }
 
     let center: string;
@@ -555,8 +604,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     if (active) {
       const editable = this.allowedParts(d);
       if (editable.has('entry')) this.handle(ctx, x0, yE, '#d1d4dc');
-      if (editable.has('sl')) this.handle(ctx, x0, ySL, '#f23645');
-      if (editable.has('tp')) this.handle(ctx, x0, yTP, '#089981');
+      if (editable.has('sl')) this.handle(ctx, x0, ySL, d.lossColor ?? '#f23645');
+      if (editable.has('tp')) this.handle(ctx, x0, yTP, d.profitColor ?? '#089981');
       if (editable.has('end')) this.handle(ctx, x1, yE, '#d1d4dc');
     }
   }
@@ -583,7 +632,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
   hitTestAt(x: number, y: number): Hit | null {
     const st = useStore.getState();
     if (st.hideDrawings || !st.session || !this.c.agg || this.c.lastK < 0) return null;
-    const list = this.drawings(st.session);
+    const list = this.drawings(st.session).filter((d) => !d.hiddenTfs?.includes(this.c.tf));
     const near = (ax: number, ay: number) => Math.hypot(x - ax, y - ay) <= HANDLE_R + 3;
     // Önce seçili çizimin tutamaçları, sonra üstten alta diğerleri.
     const ordered = [...list].reverse().sort((a, b) => (b.id === st.selectedId ? 1 : 0) - (a.id === st.selectedId ? 1 : 0));
@@ -793,7 +842,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       const base = { ...def, a: P, b: { ...P } };
       id =
         tool === 'rect'
-          ? addDrawing({ type: 'rect', ...base, fill: hexToRgba(def.color, 0.15) })
+          ? addDrawing({ type: 'rect', ...base, fill: hexToRgba(def.color, 0.15), ...loadRectTemplate() })
           : tool === 'fib'
             ? addDrawing({ type: 'fib', ...base, levels: s.fibDefaults.map((l) => ({ ...l })) })
             : addDrawing({ type: 'trend', ...base });

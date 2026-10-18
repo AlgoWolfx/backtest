@@ -132,6 +132,9 @@ oluşturulur. Örneğin 1H mumun bitmesine 20 dakika varsa mum 40 dakikalık ver
 | Çizim ayarları (renk, çizgi stili, dolgu, orta çizgi %50 / orta nokta, sola-sağa uzatma) | çizime çift tık; seçili kare/trend için üstteki araç çubuğunda "½ Orta" |
 | Sil / iptal | Delete / Esc |
 | Mum inceleme, CSV, son muma git | grafikte sağ tık |
+| Sonraki seans sınırına git (seans seans ilerleme) | N (veya alt çubuktaki "Seans" düğmesi) |
+| Tam ekran | Shift+F (veya üst çubuktaki tam ekran düğmesi) |
+| Seans katmanını aç/kapat | üst çubuk "Seanslar" (sağ tık: ayarlar) |
 
 **Replay'i geri alma:** Kayıtlı bir işlem olayından (emir, açılış, kapanış) önceki bir zamana replay geri alınamaz;
 ölçüm kronolojisini korumak için (aksi halde gelecekteki kâr bakiyede kalırdı). Geçmişe bakmak için grafiği
@@ -141,9 +144,55 @@ geri sarılmış, kronolojisi tutarsız oturumlar açılışta ve Performans say
 Geri al yalnızca çizimleri etkiler; işlemler geri alınamaz. Aktif işleme bağlı pozisyon çizimi geri
 alma ile silinmez (SL/TP değişikliği geri alınabilir).
 
+## Seanslar, killzone ve likidite (GERALT Session Liquidity)
+
+Üst çubuktaki **Seanslar** düğmesi katmanı açıp kapatır; **Grafik ayarları > Seanslar** sekmesi `geralt.pine`
+(GERALT Session Liquidity v1.1.0) girdilerinin birebir karşılığıdır (grup adları ve sırası Pine'daki gibi; şeffaflıklar
+da Pine'daki gibi 0 = opak, 100 = görünmez). Sinyal, bias, FVG/BOS/MSS yok; yalnızca seans likiditesi:
+
+- **Seanslar (varsayılan, NY saati):** Asia 20:00-00:00, London 02:00-05:00, New York AM 09:30-12:00, New York Lunch
+  12:00-13:00, New York PM 13:30-16:00, CBDR 14:00-20:00. Saat, renk, High/Low yazısı düzenlenir; seans eklenip silinebilir.
+- **Killzone kutusu:** seans boyunca büyüyen, seans high/low aralığını kaplayan kutu (dolgu ve kenarlık şeffaflığı ayarlı).
+- **Canlı seans çizgileri:** seans açıkken güncel high/low, sağda kısa çizgi (uzunluk ve şeffaflık ayarlı).
+- **Likidite çizgileri:** seans bitince high ve low çizgisi **extreme mumdan** başlar, sağa uzar; fiyat seviyeye değince
+  (high >= seviye, low <= seviye; dokunuş da "alındı" sayılır) çizgi o mumda biter, silikleşir; yazısı alındığı muma gelir
+  (gösterilmesi ayarlı). "Kaç gün gösterilsin?" süresi dolunca (oluşumdan itibaren) seviye ve kutu silinir.
+- **True Day Open (00:00 NY):** günün ilk mumunun açılışı; bugünün çizgisi sağa uzar, geçmiş günler (varsayılan 3) soluk
+  renkte günün son mumunda biter; yazı yalnızca bugünde. 15 dk üstünde (4 saate kadar) 1m veriden okunduğu için de görünür.
+- **Zaman dilimi:** Pine'daki gibi seanslar varsayılan olarak yalnızca **15 dakika ve altında** çalışır ("En yüksek zaman
+  dilimi" ayarlanabilir); True Day Open ayrıca 4 saate kadar gösterilebilir.
+- **Etiketler:** yatay konum (Sağ / Başlangıç), dikey konum (Otomatik / Üst / Alt / Seviye), boyut (Tiny-Huge), sağa uzaklık
+  (mum), dikey uzaklık (tick).
+- **Geleceğe bakma yok:** Pine'daki `timenow` yerine replay zamanı kullanılır; tüm high/low değerleri, kutular ve "alındı"
+  durumları yalnızca açıklanmış mumlardan hesaplanır (devam eden seansın high/low'u o ana kadarki değerdir).
+- **Seans seans ilerleme:** Alt çubuktaki "Seans" düğmesi / **N** tuşu bir sonraki seans başlangıcına veya bitişine
+  ileri sarar (hafta sonu atlanır; açık işlem SL/TP'ye değerse veya emir dolarsa o dakikada durur). "NY saatine" menüsünde
+  tüm seans sınırları da listelenir.
+- Ayarlar tarayıcıda saklanır; tüm oturumlarda ve çoklu ekranda her grafikte geçerlidir.
+
 ## Çoklu ekran
 
 Üst çubuktaki **Ekran düzeni** menüsünden 1, 2 (yan yana / alt alta), 3 veya 4 ekran seçin. Her grafiğin sembolü ve zaman dilimi ayrıdır (ör. solda EURUSD 15m, sağda 4H, altta US100). Bir grafiğe tıklayınca **aktif** olur (mavi çerçeve): üst çubuktaki sembol / zaman dilimi, çizim araçları, Buy/Sell ve işlem paneli o grafiğe göre çalışır. Tüm grafikler aynı replay zamanını paylaşır (ileri sarma hepsini birlikte ilerletir). Çizimler sembole bağlıdır; aynı sembol iki grafikte görünüyorsa çizim ikisinde de çıkar. Düzen oturumla birlikte kaydedilir.
+
+## Çizim ayarları (TradingView tarzı)
+
+Dikdörtgen, trend çizgisi ve yatay çizgiye çift tıklayınca TradingView'daki gibi sekmeli bir pencere açılır
+(**Stil / Metin / Kordinatlar / Görünürlük**, altta **Şablon**, **İptal** ve **Tamam**). Değişiklikler canlı uygulanır;
+**İptal** (veya Esc / ×) pencere açıldığı hâle döndürür, **Tamam** korur, Ctrl+Z hepsini geri alır.
+
+- **Dikdörtgen > Stil:** Uzat (yok / sola / sağa / iki yana), Kenar (renk + opaklık seçici, kalınlık, çizgi stili),
+  Orta çizgi (onay kutusu + renk + stil), **Arkaplan** (onay kutusu + renk + opaklık). Renk seçici TradingView'daki gibi palet,
+  özel renk ve opaklık kaydırıcısı içerir.
+- **Metin:** renk, boyut, kalın, italik, metin kutusu, metin hizalama (üst / içeri / alt ve sol / orta / sağ).
+- **Kordinatlar:** fiyat ve zaman (NY) değerleri elle düzenlenir. **Görünürlük:** çizimin hangi zaman dilimlerinde
+  görüneceği.
+- **Şablon:** stil alanlarını varsayılan olarak kaydet / varsayılanı uygula / fabrika ayarlarına dön (yeni dikdörtgenler
+  kayıtlı şablonla başlar; koordinat, metin ve görünürlük şablona girmez).
+- **Long / Short pozisyon:** kâr ve zarar bölgelerinin arkaplan rengi ve opaklığı. **Fibonacci:** seviyeler arası arkaplan
+  (opaklık) ve her seviye için ayrı renk.
+
+Bu pencerenin düzeni ve alanları, paylaştığınız TradingView ekran görüntülerine göre kurulmuştur; TradingView'ın tüm araçları
+ve seçenekleri henüz yoktur (ör. sonraki adımlar: diğer çizim araçları, çizgi uç okları, aralık bazlı görünürlük kaydırıcıları).
 
 ## Grafik görünümü ve yenileme
 

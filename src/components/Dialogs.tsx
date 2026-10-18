@@ -1,15 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { getSymbol } from '../../shared/symbols.js';
 import { nyLocalToUtc, toNyLocal } from '../../shared/nytime.js';
-import { hexToRgba } from '../chart/DrawingLayer';
 import { lotsForRisk, stopRiskPerLot, usdPerPriceUnit } from '../core/trading';
 import type { Drawing, FibLevel, Position } from '../core/types';
 import { fmtDistance, fmtMoney, fmtNy, pad } from '../format';
 import { balanceOf, currentData, deleteDrawing, drawingsOf, jumpTo, placeOrderFromDrawing, setChartTheme, setFibDefaults, updateDrawing, useStore } from '../store';
 import { DEFAULT_THEME, THEME_PRESETS, withColors, type ChartTheme, type ChartType } from '../chartTheme';
-import { COLORS } from './DrawingToolbar';
 import { NumberInput } from './Bars';
 import { Icons } from './icons';
+import { SessionSettingsTab } from './SessionSettingsTab';
+import { DrawingDialog, TvColor } from './DrawingDialog';
 
 export function Modal({ title, onClose, children, width = 420, bare = false }: { title: string; onClose: () => void; children: ReactNode; width?: number; bare?: boolean }) {
   useEffect(() => {
@@ -48,99 +48,56 @@ export function DrawingEditor() {
   const editingId = useStore((s) => s.editingId);
   const d = drawingsOf(session).find((x) => x.id === editingId);
   if (!d || !session) return null;
+  // Dikdörtgen, trend ve yatay çizgi: TradingView tarzı sekmeli pencere (Stil / Metin / Koordinatlar / Görünürlük)
+  if (d.type === 'rect' || d.type === 'trend' || d.type === 'hline') return <DrawingDialog key={d.id} d={d} />;
   const close = () => useStore.setState({ editingId: null });
   const spec = getSymbol(session.symbol);
   const set = (patch: Partial<Drawing>) => updateDrawing(d.id, patch);
 
   return (
     <Modal title={TITLES[d.type]} onClose={close} width={d.type === 'fib' ? 460 : 400}>
-      {d.type !== 'long' && d.type !== 'short' && (
-        <div className="form-row">
-          <span>Renk</span>
-          <div className="swatches">
-            {COLORS.map((c) => (
-              <button key={c} className={`swatch ${d.color === c ? 'on' : ''}`} style={{ background: c }} onClick={() => set(d.type === 'rect' ? { color: c, fill: hexToRgba(c, d.fillAlpha ?? 0.15) } : { color: c })} />
-            ))}
-            <input type="color" className="color-input" title="Özel renk" value={d.color.length === 7 ? d.color : '#2962ff'} onChange={(e) => set(d.type === 'rect' ? { color: e.target.value, fill: hexToRgba(e.target.value, d.fillAlpha ?? 0.15) } : { color: e.target.value })} />
-          </div>
-        </div>
-      )}
-      {(d.type === 'hline' || d.type === 'trend' || d.type === 'rect') && (
-        <div className="form-row">
-          <span>Çizgi stili</span>
-          <div className="seg">
-            {([['solid', 'Düz'], ['dashed', 'Kesik'], ['dotted', 'Noktalı']] as const).map(([id, label]) => (
-              <button key={id} className={(d.style ?? 'solid') === id ? 'on' : ''} onClick={() => set({ style: id })}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {d.type === 'rect' && (
+      {d.type === 'fib' && (
         <>
           <div className="form-row">
-            <span>Dolgu</span>
+            <span>Renk</span>
+            <TvColor color={d.color} onChange={(c) => set({ color: c })} withAlpha={false} />
+          </div>
+          <div className="form-row">
+            <span>Kalınlık</span>
             <div className="seg">
-              {[0, 0.08, 0.15, 0.3, 0.5].map((a) => (
-                <button key={a} className={(d.fillAlpha ?? 0.15) === a ? 'on' : ''} onClick={() => set({ fillAlpha: a, fill: hexToRgba(d.color, a) })}>
-                  {a === 0 ? 'Yok' : `%${Math.round(a * 100)}`}
+              {[1, 2, 3, 4].map((w) => (
+                <button key={w} className={d.width === w ? 'on' : ''} onClick={() => set({ width: w })}>
+                  {w}px
                 </button>
               ))}
             </div>
           </div>
-          <label className="form-row check">
-            <input type="checkbox" checked={!!d.midline} onChange={(e) => set({ midline: e.target.checked })} />
-            <span>Orta çizgi (%50) ve fiyatı</span>
-          </label>
-          <label className="form-row check">
-            <input type="checkbox" checked={!!d.extendLeft} onChange={(e) => set({ extendLeft: e.target.checked })} />
-            <span>Sola uzat</span>
-          </label>
-        </>
-      )}
-      {d.type === 'trend' && (
-        <>
-          <label className="form-row check">
-            <input type="checkbox" checked={!!d.extendLeft} onChange={(e) => set({ extendLeft: e.target.checked })} />
-            <span>Sola uzat</span>
-          </label>
+          <div className="form-row">
+            <label className="check">
+              <input type="checkbox" checked={!!d.bgOn} onChange={(e) => set({ bgOn: e.target.checked })} /> <span>Arkaplan</span>
+            </label>
+            <TvColor color={d.color} alpha={d.bgAlpha ?? 0.15} onChange={(_c, a) => set({ bgAlpha: a, bgOn: a > 0 })} />
+          </div>
           <label className="form-row check">
             <input type="checkbox" checked={!!d.extendRight} onChange={(e) => set({ extendRight: e.target.checked })} />
             <span>Sağa uzat</span>
           </label>
-          <label className="form-row check">
-            <input type="checkbox" checked={!!d.midpoint} onChange={(e) => set({ midpoint: e.target.checked })} />
-            <span>Orta noktayı göster</span>
-          </label>
+          <FibLevels levels={d.levels} baseColor={d.color} onChange={(levels) => set({ levels })} />
         </>
       )}
-      {d.type !== 'long' && d.type !== 'short' && (
-        <div className="form-row">
-          <span>Kalınlık</span>
-          <div className="seg">
-            {[1, 2, 3, 4].map((w) => (
-              <button key={w} className={d.width === w ? 'on' : ''} onClick={() => set({ width: w })}>
-                {w}px
-              </button>
-            ))}
+      {(d.type === 'long' || d.type === 'short') && (
+        <>
+          <div className="form-row">
+            <span>Kâr bölgesi</span>
+            <TvColor color={d.profitColor ?? '#089981'} alpha={d.zoneAlpha ?? 0.2} onChange={(c, a) => set({ profitColor: c, zoneAlpha: a })} />
           </div>
-        </div>
+          <div className="form-row">
+            <span>Zarar bölgesi</span>
+            <TvColor color={d.lossColor ?? '#f23645'} alpha={d.zoneAlpha ?? 0.2} onChange={(c, a) => set({ lossColor: c, zoneAlpha: a })} />
+          </div>
+          <PositionFields d={d} digits={spec.digits} />
+        </>
       )}
-      {d.type === 'hline' && (
-        <div className="form-row">
-          <span>Fiyat</span>
-          <NumberInput value={d.p} onChange={(p) => set({ p })} />
-        </div>
-      )}
-      {(d.type === 'rect' || d.type === 'fib') && (
-        <label className="form-row check">
-          <input type="checkbox" checked={!!d.extendRight} onChange={(e) => set({ extendRight: e.target.checked })} />
-          <span>Sağa uzat</span>
-        </label>
-      )}
-      {d.type === 'fib' && <FibLevels levels={d.levels} onChange={(levels) => set({ levels })} />}
-      {(d.type === 'long' || d.type === 'short') && <PositionFields d={d} digits={spec.digits} />}
       <div className="modal-foot">
         <button
           className="btn danger"
@@ -160,7 +117,7 @@ export function DrawingEditor() {
   );
 }
 
-function FibLevels({ levels, onChange }: { levels: FibLevel[]; onChange: (l: FibLevel[]) => void }) {
+function FibLevels({ levels, baseColor, onChange }: { levels: FibLevel[]; baseColor: string; onChange: (l: FibLevel[]) => void }) {
   const [newLevel, setNewLevel] = useState('');
   const sorted = [...levels].sort((a, b) => a.v - b.v);
   const upd = (i: number, patch: Partial<FibLevel>) => onChange(sorted.map((l, j) => (j === i ? { ...l, ...patch } : l)));
@@ -171,6 +128,7 @@ function FibLevels({ levels, onChange }: { levels: FibLevel[]; onChange: (l: Fib
           <div key={i} className="fib-level">
             <input type="checkbox" checked={l.on} onChange={(e) => upd(i, { on: e.target.checked })} />
             <NumberInput value={l.v} onChange={(v) => upd(i, { v })} />
+            <input type="color" className="color-input" title="Seviye rengi (çizgi, yazı ve arkaplan)" value={l.color ?? baseColor} onChange={(e) => upd(i, { color: e.target.value })} />
             <button className="icon-btn" title="Seviyeyi kaldır" onClick={() => onChange(sorted.filter((_, j) => j !== i))}>
               <Icons.close />
             </button>
@@ -266,7 +224,7 @@ function PositionFields({ d, digits }: { d: Position; digits: number }) {
 
 // ---------------------------------------------------------------- grafik ayarları
 
-type SettingsTab = 'symbol' | 'status' | 'scales' | 'canvas';
+type SettingsTab = 'symbol' | 'status' | 'scales' | 'canvas' | 'sessions';
 const CHART_TYPES: { id: ChartType; label: string }[] = [
   { id: 'candles', label: 'Mumlar' },
   { id: 'hollow', label: 'Boş mumlar' },
@@ -278,7 +236,14 @@ const CHART_TYPES: { id: ChartType; label: string }[] = [
 export function ChartSettings() {
   const open = useStore((s) => s.chartSettingsOpen);
   const t = useStore((s) => s.chartTheme);
+  const wantedTab = useStore((s) => s.chartSettingsTab);
   const [tab, setTab] = useState<SettingsTab>('symbol');
+  useEffect(() => {
+    if (open && wantedTab) {
+      setTab(wantedTab as SettingsTab);
+      useStore.setState({ chartSettingsTab: null });
+    }
+  }, [open, wantedTab]);
   if (!open) return null;
   const upd = (patch: Partial<ChartTheme>) => setChartTheme({ ...t, ...patch });
   const color = (label: string, key: keyof ChartTheme) => (
@@ -318,6 +283,7 @@ export function ChartSettings() {
     { id: 'status', label: 'Durum çubuğu' },
     { id: 'scales', label: 'Ölçekler ve çizgiler' },
     { id: 'canvas', label: 'Tuval' },
+    { id: 'sessions', label: 'Seanslar' },
   ];
   return (
     <Modal title="Grafik ayarları" width={460} bare onClose={() => useStore.setState({ chartSettingsOpen: false })}>
@@ -362,6 +328,7 @@ export function ChartSettings() {
           </div>
         </>
       )}
+      {tab === 'sessions' && <SessionSettingsTab />}
       {tab === 'status' && (
         <>
           {check('Sembol adı', 'showSymbol')}

@@ -30,6 +30,7 @@ import { MONTHS, fmtShifted, pad } from '../format';
 import type { ChartTheme } from '../chartTheme';
 import { useStore } from '../store';
 import { DrawingLayer, hexToRgba } from './DrawingLayer';
+import { SessionLayer } from './SessionLayer';
 
 const INITIAL_WINDOW = 3000;
 const EXTEND_BY = 4000;
@@ -38,6 +39,8 @@ export class ChartController {
   readonly chart: IChartApi;
   readonly series: ISeriesApi<'Candlestick'>;
   readonly layer: DrawingLayer;
+  /** Seans / killzone / seans high-low katmanı (mumların arkasında ve üstünde) */
+  readonly sessions: SessionLayer;
 
   d: M1Data | null = null;
   agg: AggData | null = null;
@@ -106,7 +109,9 @@ export class ChartController {
       priceLineStyle: LineStyle.Dotted,
     });
     this.layer = new DrawingLayer(this);
+    this.sessions = new SessionLayer(this);
     this.applyTheme(useStore.getState().chartTheme);
+    this.series.attachPrimitive(this.sessions);
     this.series.attachPrimitive(this.layer);
     this.chart.timeScale().subscribeVisibleLogicalRangeChange((r) => this.maybeExtend(r));
   }
@@ -345,6 +350,13 @@ export class ChartController {
       if (info) out.push(info);
     }
     return out;
+  }
+
+  /** Görünür mantıksal aralığın zaman karşılığı [başlangıç, bitiş] (UTC); henüz bilinmiyorsa null. */
+  visibleTimeRange(): [number, number] | null {
+    const r = this.chart.timeScale().getVisibleLogicalRange();
+    if (!r || !this.agg || this.lastK < 0) return null;
+    return [this.logicalToTimeRaw(r.from), this.logicalToTimeRaw(r.to)];
   }
 
   /** Grafiği son muma kaydırır. */
