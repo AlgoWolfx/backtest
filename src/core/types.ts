@@ -175,6 +175,10 @@ export interface PaneCfg {
   tf: TF;
 }
 export type LayoutId = '1' | '2v' | '2h' | '3' | '4';
+/** Düzen başına varsayılan bölücü konumu (3 ekranda sol sütun 2/3 genişliğinde). */
+export const defaultSplit = (layout: LayoutId): { x: number; y: number } => ({ x: layout === '3' ? 2 / 3 : 0.5, y: 0.5 });
+export const SPLIT_MIN = 0.12;
+export const clampSplit = (v: number) => Math.min(1 - SPLIT_MIN, Math.max(SPLIT_MIN, v));
 export const LAYOUTS: Record<LayoutId, { count: number; label: string }> = {
   '1': { count: 1, label: 'Tek ekran' },
   '2v': { count: 2, label: '2 ekran (yan yana)' },
@@ -201,6 +205,8 @@ export interface Session {
   tf: TF;
   /** Çoklu ekran: düzen, her grafiğin ayarı ve aktif grafik (eski oturumlarda yok = tek ekran) */
   layout?: LayoutId;
+  /** Ekran bölücü konumları (0-1): x = sütun ayrımı, y = satır ayrımı. Yoksa düzenin varsayılanı. */
+  split?: { x: number; y: number };
   panes?: PaneCfg[];
   active?: number;
   stepTf: TF;

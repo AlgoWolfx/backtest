@@ -7,9 +7,9 @@ import { revealedCount, sourceLabel, sourceName, type M1Data } from '../core/dat
 import { tfInfo } from '../core/timeframes';
 import { downloadCsv } from '../csv';
 import { fmtNy, fmtNyShort, fmtPrice, fmtShifted } from '../format';
-import { activatePane, cloneDrawing, deleteDrawing, drawingsOf, hasClipboard, paneCfg, pasteClipboard, reorderDrawing, setChartTheme, updateDrawing, useStore } from '../store';
+import { activatePane, cloneDrawing, deleteDrawing, drawingsOf, hasClipboard, paneCfg, pasteClipboard, reorderDrawing, setChartTheme, setSplit, updateDrawing, useStore } from '../store';
 import type { ChartTheme } from '../chartTheme';
-import { LAYOUTS } from '../core/types';
+import { LAYOUTS, clampSplit, defaultSplit } from '../core/types';
 import { DrawingToolbar } from './DrawingToolbar';
 import { AccountMeters } from './Bars';
 import { Modal } from './Dialogs';
@@ -17,12 +17,52 @@ import { Modal } from './Dialogs';
 /** Çoklu ekran düzenine göre grafikleri yan yana / alt alta dizer. */
 export function ChartArea() {
   const layout = useStore((s) => s.session?.layout ?? '1');
+  const stored = useStore((s) => s.session?.split);
+  const { x, y } = { ...defaultSplit(layout), ...stored };
+  const col = `minmax(0, ${x}fr) minmax(0, ${1 - x}fr)`;
+  const row = `minmax(0, ${y}fr) minmax(0, ${1 - y}fr)`;
+  const style: React.CSSProperties | undefined =
+    layout === '2v' ? { gridTemplate: `minmax(0, 1fr) / ${col}` }
+    : layout === '2h' ? { gridTemplate: `${row} / minmax(0, 1fr)` }
+    : layout === '3' || layout === '4' ? { gridTemplate: `${row} / ${col}` }
+    : undefined;
+  const hasV = layout !== '1' && layout !== '2h';
+  const hasH = layout !== '1' && layout !== '2v';
   return (
-    <div className={`chart-area layout-${layout}`}>
+    <div className={`chart-area layout-${layout}`} style={style}>
       {Array.from({ length: LAYOUTS[layout].count }, (_, i) => (
         <ChartView key={i} pane={i} />
       ))}
+      {hasV && <Splitter axis="x" at={x} />}
+      {/* 3 ekranda yatay bölücü yalnız sağ sütunu böler */}
+      {hasH && <Splitter axis="y" at={y} fromX={layout === '3' ? x : 0} />}
     </div>
+  );
+}
+
+/** Grafikler arası sürüklenebilir bölücü (çift tık: varsayılan konum). */
+function Splitter({ axis, at, fromX = 0 }: { axis: 'x' | 'y'; at: number; fromX?: number }) {
+  const [drag, setDrag] = useState(false);
+  const move = (e: React.PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.parentElement!.getBoundingClientRect();
+    const v = axis === 'x' ? (e.clientX - r.left) / r.width : (e.clientY - r.top) / r.height;
+    setSplit({ [axis]: clampSplit(v) });
+  };
+  const style: React.CSSProperties = axis === 'x' ? { left: `${at * 100}%` } : { top: `${at * 100}%`, left: `${fromX * 100}%` };
+  return (
+    <div
+      className={`splitter splitter-${axis} ${drag ? 'drag' : ''}`}
+      style={style}
+      title="Sürükle: grafik boyutunu ayarla · Çift tık: sıfırla"
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        setDrag(true);
+      }}
+      onPointerMove={(e) => drag && move(e)}
+      onPointerUp={() => setDrag(false)}
+      onPointerCancel={() => setDrag(false)}
+      onDoubleClick={() => setSplit({ [axis]: defaultSplit(useStore.getState().session?.layout ?? '1')[axis] })}
+    />
   );
 }
 
