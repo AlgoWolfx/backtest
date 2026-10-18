@@ -51,4 +51,13 @@ export function reasonLabel(r: string | undefined): string {
   return r === 'tp' ? 'TP' : r === 'sl' ? 'SL' : r === 'breach' ? 'Limit ihlali' : r === 'manual' ? 'Manuel' : '—';
 }
 
+/** Mum içi sıra belirsizliği nedeniyle yapılan varsayımların kullanıcıya açıklaması. */
+export function flagLabel(f: string): string {
+  return f === 'sl-tp-same-bar'
+    ? 'Aynı 1m mumda SL ve TP ikisi de görüldü; sıra bilinemez, SL-önce varsayıldı.'
+    : f === 'fill-bar-tp-unknown'
+      ? 'Emir mum içinde doldu ve aynı mumda TP seviyesi de görüldü; sıra bilinemez, TP sayılmadı.'
+      : f;
+}
+
 export { MONTHS, DAYS };

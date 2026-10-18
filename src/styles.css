@@ -1093,6 +1093,10 @@ tbody tr:hover {
   margin: 6px 0 10px;
   font-size: 12px;
 }
+.amb {
+  color: #e0a43a;
+  cursor: help;
+}
 .entry-body {
   display: grid;
   grid-template-columns: 1fr 1fr 0.8fr;
