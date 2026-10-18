@@ -1,0 +1,10 @@
+node_modules/
+dist/
+data/raw/
+data/bars/
+data/*.log
+data/sessions/
+.env
+data/bars-oanda/
+data/*.md
+data/bars-dukascopy/
