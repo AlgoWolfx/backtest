@@ -62,4 +62,30 @@ export function tradingDay(t) {
   return Math.floor((toNyLocal(t) + 7 * HOUR) / DAY);
 }
 
+/**
+ * Avrupa (CE/CEST) UTC farkı (saniye): +3600 (kış) veya +7200 (yaz).
+ * AB yaz saati: Mart'ın son pazarı 01:00 UTC -> Ekim'in son pazarı 01:00 UTC. (ABD geçişlerinden farklı haftalarda!)
+ * @param {number} t UTC saniye
+ */
+export function cetOffset(t) {
+  const y = new Date(t * 1000).getUTCFullYear();
+  const lastSun = (m) => {
+    const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    const dow = new Date(Date.UTC(y, m, lastDay)).getUTCDay();
+    return Date.UTC(y, m, lastDay - dow, 1) / 1000;
+  };
+  return t >= lastSun(2) && t < lastSun(9) ? 2 * HOUR : HOUR;
+}
+
+/**
+ * Hesap günü numarası (günlük kayıp sıfırlaması ve işlem günü sayımı için).
+ *   'ny17': forex işlem günü, NY 17:00'de başlar (varsayılan; tradingDay ile aynı)
+ *   'cet0': Avrupa gece yarısı, CE(S)T 00:00'da başlar
+ * @param {number} t UTC saniye
+ * @param {'ny17'|'cet0'} [mode]
+ */
+export function resetDay(t, mode = 'ny17') {
+  return mode === 'cet0' ? Math.floor((t + cetOffset(t)) / DAY) : tradingDay(t);
+}
+
 export { HOUR, DAY };

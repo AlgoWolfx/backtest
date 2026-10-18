@@ -110,6 +110,8 @@ export interface Session {
   speed: number;
   riskPct: number;
   lots: number;
+  /** Komisyon, USD / lot, GİDİŞ-DÖNÜŞ (isteğe bağlı; yok = 0). Her işlem açılırken değeri işlemin kendisine yazılır. */
+  commissionPerLot?: number;
   trades: Trade[];
   drawings: Record<string, Drawing[]>;
   fibDefaults: FibLevel[];

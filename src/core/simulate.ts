@@ -69,7 +69,7 @@ export function simulate(s: Session, newTime: number, dataOf: (symbol: string) =
     const batch = cursors.filter((c) => c.i < c.to && c.d.t[c.i] === minT && hasActive(c.sym));
     const inBatch = new Set(batch.map((c) => c.sym));
     const closeTime = minT + 60;
-    if (account) account = { ...account, state: rollDay(account.state, minT, balance) };
+    if (account) account = { ...account, state: rollDay(account.state, minT, balance, account.rules.resetMode) };
 
     let changed = false;
     let closedNow = false;

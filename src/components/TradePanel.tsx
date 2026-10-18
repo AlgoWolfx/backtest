@@ -178,7 +178,7 @@ function HistoryTable({ trades }: { trades: Trade[] }) {
 }
 
 function exportCsv(name: string, trades: Trade[]) {
-  const head = ['parite', 'yon', 'acilis_ny', 'kapanis_ny', 'lot', 'entry', 'sl', 'tp', 'cikis', 'neden', 'r', 'kz_usd', 'sonuc'];
+  const head = ['parite', 'yon', 'acilis_ny', 'kapanis_ny', 'lot', 'entry', 'sl', 'tp', 'cikis', 'neden', 'r', 'kz_usd', 'sonuc', 'komisyon_usd', 'brut_kz_usd', 'mum_ici_varsayim'];
   const rows = [...trades].reverse().map((t) => [
     t.symbol,
     t.side,
@@ -193,6 +193,9 @@ function exportCsv(name: string, trades: Trade[]) {
     t.r != null ? t.r.toFixed(3) : '',
     (t.pnl ?? 0).toFixed(2),
     t.result ?? '',
+    (t.commission ?? 0).toFixed(2),
+    (t.grossPnl ?? t.pnl ?? 0).toFixed(2),
+    (t.flags ?? []).join('|'),
   ]);
   const csv = [head, ...rows].map((r) => r.join(',')).join('\n');
   const a = document.createElement('a');

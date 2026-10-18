@@ -53,6 +53,7 @@ export function PerformancePage() {
         <div className="perf-body">
           <section className="tiles">
             <Tile label="Net kâr / zarar" value={fmtMoney(stats.net, true)} sub={`${stats.netPct >= 0 ? '+' : ''}${stats.netPct.toFixed(2)}%`} tone={stats.net >= 0 ? 'pos' : 'neg'} hero />
+            {stats.commission > 0 && <Tile label="Komisyon" value={fmtMoney(-stats.commission)} sub={`brüt ${fmtMoney(stats.grossNet, true)} → net ${fmtMoney(stats.net, true)}`} tone="neg" />}
             <Tile label="İşlem" value={String(stats.trades)} sub={`${stats.wins} W · ${stats.losses} L · ${stats.bes} BE`} />
             <Tile label="Kazanma oranı" value={`${stats.winRate.toFixed(1)}%`} sub={`seri: ${stats.maxWinStreak} kazanç / ${stats.maxLossStreak} kayıp`} />
             <Tile label="Toplam R" value={fmtR(stats.totalR)} sub={`ortalama ${fmtR(stats.avgR)} / işlem`} tone={stats.totalR >= 0 ? 'pos' : 'neg'} />
@@ -211,7 +212,7 @@ function JournalEntry({ trade: t, n, balance, sessionId, onZoom }: { trade: Trad
       </header>
       <div className="entry-meta muted">
         Giriş {fmtPrice(t.entry, spec)} · SL {t.initialSl != null ? fmtPrice(t.initialSl, spec) : '—'} · TP {t.tp != null ? fmtPrice(t.tp, spec) : '—'} · Çıkış {t.exit != null ? fmtPrice(t.exit, spec) : '—'} (
-        {reasonLabel(t.exitReason)}) · {t.lots} lot{balance != null ? ` · bakiye ${fmtMoney(balance)}` : ''}
+        {reasonLabel(t.exitReason)}) · {t.lots} lot{t.commission ? ` · komisyon ${fmtMoney(-t.commission)} (brüt ${fmtMoney(t.grossPnl ?? 0, true)})` : ''}{balance != null ? ` · bakiye ${fmtMoney(balance)}` : ''}
         {t.flags?.length ? (
           <span className="amb" title={t.flags.map(flagLabel).join('\n')}>
             {' '}
