@@ -7,7 +7,7 @@ import { revealedCount, sourceLabel, sourceName, type M1Data } from '../core/dat
 import { tfInfo } from '../core/timeframes';
 import { downloadCsv } from '../csv';
 import { fmtNy, fmtNyShort, fmtPrice, fmtShifted } from '../format';
-import { activatePane, hasClipboard, paneCfg, pasteClipboard, setChartTheme, useStore } from '../store';
+import { activatePane, cloneDrawing, deleteDrawing, drawingsOf, hasClipboard, paneCfg, pasteClipboard, reorderDrawing, setChartTheme, updateDrawing, useStore } from '../store';
 import type { ChartTheme } from '../chartTheme';
 import { LAYOUTS } from '../core/types';
 import { DrawingToolbar } from './DrawingToolbar';
@@ -33,7 +33,7 @@ export function ChartView({ pane }: { pane: number }) {
   const multi = useStore((s) => LAYOUTS[s.session?.layout ?? '1'].count > 1);
   const isActive = useStore((s) => (s.session?.active ?? 0) === pane);
   const [c, setC] = useState<ChartController | null>(null);
-  const [menu, setMenu] = useState<{ x: number; y: number; L: number | null } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; L: number | null; drawingId?: string } | null>(null);
   const [inspectL, setInspectL] = useState<number | null>(null);
   const [scrolledAway, setScrolledAway] = useState(false);
 
@@ -74,7 +74,12 @@ export function ChartView({ pane }: { pane: number }) {
     const onContext = (e: MouseEvent) => {
       e.preventDefault();
       const rect = c.el.getBoundingClientRect();
-      setMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, L: c.xToLogical(e.clientX - rect.left) });
+      const lx = e.clientX - rect.left;
+      const ly = e.clientY - rect.top;
+      // Bir çizimin üstünde sağ tık: çizim menüsü (TradingView gibi)
+      const hit = c.layer.hitTestAt(lx, ly);
+      if (hit) useStore.setState({ selectedId: hit.id });
+      setMenu({ x: lx, y: ly, L: c.xToLogical(lx), drawingId: hit?.id });
     };
     c.el.addEventListener('contextmenu', onContext);
     // Tıklanan grafik, çizim araçları olayı işlemeden önce aktif olur (yakalama aşaması).
@@ -137,7 +142,10 @@ export function ChartView({ pane }: { pane: number }) {
           »
         </button>
       )}
-      {menu && c && (
+      {menu && c && menu.drawingId && (
+        <DrawingMenu c={c} menu={menu} onClose={() => setMenu(null)} />
+      )}
+      {menu && c && !menu.drawingId && (
         <div className="menu context" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
           <button className="menu-item" onClick={() => (c.resetView(), setMenu(null))}>
             Grafiği yenile <span>ölçek + konum sıfırla</span>
@@ -191,6 +199,41 @@ export function ChartView({ pane }: { pane: number }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Çizime sağ tık menüsü: ayarlar, kopyala, kilitle, bu zaman diliminde gizle, öne/arkaya, sil. */
+function DrawingMenu({ c, menu, onClose }: { c: ChartController; menu: { x: number; y: number; drawingId?: string }; onClose: () => void }) {
+  const session = useStore((s) => s.session);
+  const d = drawingsOf(session).find((x) => x.id === menu.drawingId);
+  if (!d) return null;
+  const isPos = d.type === 'long' || d.type === 'short';
+  const tf = c.tf;
+  const hiddenHere = !!d.hiddenTfs?.includes(tf);
+  const item = (label: string, fn: () => void, hint?: string, disabled = false) => (
+    <button
+      className="menu-item"
+      disabled={disabled}
+      onClick={() => {
+        fn();
+        onClose();
+      }}
+    >
+      {label} {hint && <span>{hint}</span>}
+    </button>
+  );
+  return (
+    <div className="menu context" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
+      {item('Ayarlar…', () => useStore.setState({ editingId: d.id, selectedId: d.id }), 'çift tık')}
+      {item('Kopyala', () => cloneDrawing(d.id, (t) => c.logicalToTime(c.timeToLogical(t) + 5)), undefined, isPos)}
+      {item(d.locked ? 'Kilidi aç' : 'Kilitle', () => updateDrawing(d.id, { locked: !d.locked }))}
+      {item(hiddenHere ? `${tf} zaman diliminde göster` : `${tf} zaman diliminde gizle`, () => updateDrawing(d.id, { hiddenTfs: hiddenHere ? (d.hiddenTfs ?? []).filter((x) => x !== tf) : [...(d.hiddenTfs ?? []), tf] }))}
+      <div className="menu-sep" />
+      {item('Öne getir', () => reorderDrawing(d.id, 'front'))}
+      {item('Arkaya gönder', () => reorderDrawing(d.id, 'back'))}
+      <div className="menu-sep" />
+      {item('Sil', () => deleteDrawing(d.id), 'Delete')}
     </div>
   );
 }

@@ -11,6 +11,8 @@ import {
   balanceOf,
   clearDrawings,
   closeSession,
+  drawingsOf,
+  setAllLocked,
   exitPriceNow,
   cancelTicket,
   marketOrder,
@@ -290,7 +292,19 @@ const TOOLS: { id: Tool; label: string; key: string; icon: () => React.JSX.Eleme
 export function LeftToolbar() {
   const tool = useStore((s) => s.tool);
   const magnet = useStore((s) => s.magnet);
+  const magnetMode = useStore((s) => s.magnetMode);
+  const stayInDraw = useStore((s) => s.stayInDraw);
   const hide = useStore((s) => s.hideDrawings);
+  const allLocked = useStore((s) => {
+    const list = drawingsOf(s.session);
+    return list.length > 0 && list.every((d) => d.locked);
+  });
+  // Mıknatıs: kapalı -> zayıf -> güçlü -> kapalı (TradingView "Zayıf / Güçlü mıknatıs")
+  const cycleMagnet = () => {
+    if (!magnet) useStore.setState({ magnet: true, magnetMode: 'weak' });
+    else if (magnetMode === 'weak') useStore.setState({ magnetMode: 'strong' });
+    else useStore.setState({ magnet: false });
+  };
   return (
     <nav className="lefttools">
       {TOOLS.map((t) => (
@@ -299,8 +313,19 @@ export function LeftToolbar() {
         </button>
       ))}
       <div className="tool-sep" />
-      <button className={`tool ${magnet ? 'on' : ''}`} title="Mıknatıs: noktaları mumun açılış/yüksek/düşük/kapanışına yapıştır" onClick={() => useStore.setState({ magnet: !magnet })}>
+      <button
+        className={`tool ${magnet ? 'on' : ''}`}
+        title={`Mıknatıs: ${!magnet ? 'kapalı' : magnetMode === 'weak' ? 'zayıf (yakındaki OHLC noktalarına)' : 'güçlü (her zaman en yakın OHLC noktasına)'} — tıklayınca değişir`}
+        onClick={cycleMagnet}
+      >
         <Icons.magnet />
+        {magnet && <span className="tool-badge">{magnetMode === 'weak' ? 'Z' : 'G'}</span>}
+      </button>
+      <button className={`tool ${stayInDraw ? 'on' : ''}`} title="Çizim modunda kal: çizim bitince araç seçili kalır" onClick={() => useStore.setState({ stayInDraw: !stayInDraw })}>
+        <Icons.stay />
+      </button>
+      <button className={`tool ${allLocked ? 'on' : ''}`} title={allLocked ? 'Tüm çizimlerin kilidini aç' : 'Tüm çizimleri kilitle'} onClick={() => setAllLocked(!allLocked)}>
+        {allLocked ? <Icons.lock /> : <Icons.unlock />}
       </button>
       <button className={`tool ${hide ? 'on' : ''}`} title="Çizimleri gizle / göster" onClick={() => useStore.setState({ hideDrawings: !hide })}>
         {hide ? <Icons.eyeOff /> : <Icons.eye />}

@@ -49,3 +49,29 @@ describe('dikdörtgen şablonu', () => {
     expect(loadRectTemplate()).toEqual({});
   });
 });
+
+describe('çizim şablonları (tüm araçlar)', () => {
+  it('trend çizgisi şablonu stil alanlarını alır, koordinat ve metni almaz', async () => {
+    const { templateOf } = await import('./drawingTemplates');
+    const t = templateOf({ id: 't', type: 'trend', color: '#fff', width: 2, a: { t: 1, p: 1 }, b: { t: 2, p: 2 }, rightEnd: 'arrow', statsMode: 'always', statAngle: true, text: 'x', hiddenTfs: ['1m'], locked: true });
+    expect(t).toMatchObject({ color: '#fff', width: 2, rightEnd: 'arrow', statsMode: 'always', statAngle: true });
+    expect('a' in t || 'text' in t || 'hiddenTfs' in t || 'locked' in t).toBe(false);
+  });
+
+  it('fib şablonu seviye listesini derin kopyalar (şablon değişince çizim etkilenmez)', async () => {
+    const { templateOf } = await import('./drawingTemplates');
+    const fib = { id: 'f', type: 'fib' as const, color: '#fff', width: 1, a: { t: 1, p: 1 }, b: { t: 2, p: 2 }, levels: [{ v: 0.5, on: true, color: '#123456' }], reverse: true, labelH: 'right' as const };
+    const t = templateOf(fib) as { levels: { v: number }[]; reverse: boolean; labelH: string };
+    expect(t.reverse).toBe(true);
+    expect(t.labelH).toBe('right');
+    t.levels[0].v = 9;
+    expect(fib.levels[0].v).toBe(0.5);
+  });
+
+  it('pozisyon şablonu renkleri ve istatistik ayarlarını taşır, SL/TP/giriş taşımaz', async () => {
+    const { templateOf } = await import('./drawingTemplates');
+    const t = templateOf({ id: 'p', type: 'long', color: '#fff', width: 1, entry: { t: 1, p: 1 }, sl: 0.9, tp: 1.2, tEnd: 5, riskPct: 1, profitColor: '#00ff00', compact: true, alwaysStats: true });
+    expect(t).toMatchObject({ profitColor: '#00ff00', compact: true, alwaysStats: true });
+    expect('sl' in t || 'tp' in t || 'entry' in t).toBe(false);
+  });
+});
