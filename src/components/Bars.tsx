@@ -348,7 +348,6 @@ function ToolGroups() {
 }
 
 export function LeftToolbar() {
-  const tool = useStore((s) => s.tool);
   const magnet = useStore((s) => s.magnet);
   const magnetMode = useStore((s) => s.magnetMode);
   const stayInDraw = useStore((s) => s.stayInDraw);
