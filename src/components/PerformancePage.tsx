@@ -3,7 +3,7 @@ import { getSymbol } from '../../shared/symbols.js';
 import { hasReview, mistakeBreakdown, NO_MISTAKE, reviewSummary } from '../core/review';
 import { breakdown, computeStats, sessionOf, SESSIONS, weekdayOf, WEEKDAYS, closedTrades, type BreakdownRow, type EquityPoint } from '../core/stats';
 import { chronologyIssue, entryTime, EXECUTION_MODEL, type Trade } from '../core/trading';
-import { ACCOUNT_PRESETS, type Account } from '../core/account';
+import { ACCOUNT_GROUPS, presetOf, type Account } from '../core/account';
 import { describeRules } from './SessionScreen';
 import { flagLabel, fmtMoney, fmtNy, fmtPrice, fmtR, reasonLabel } from '../format';
 import { shotUrl } from '../shots';
@@ -133,12 +133,12 @@ function ModelNotes({ session }: { session: NonNullable<ReturnType<typeof useSto
 function AccountCard({ account: a, initial }: { account: Account; initial: number }) {
   const st = a.state;
   const r = a.rules;
-  const preset = ACCOUNT_PRESETS.find((p) => JSON.stringify(p.rules) === JSON.stringify(r));
+  const preset = presetOf(r);
   const status = st.status === 'failed' ? 'Patladı' : st.status === 'passed' ? 'Geçildi' : 'Devam ediyor';
   return (
     <section className="card">
       <h2>
-        Hesap: {preset?.label ?? (r.type === 'prop' ? 'Fon (özel kurallar)' : 'Kişisel (özel kurallar)')}{' '}
+        Hesap: {preset ? `${ACCOUNT_GROUPS.find((g) => g.id === preset.group)!.label} · ${preset.label}` : r.type === 'prop' ? 'Fon (özel kurallar)' : 'Kişisel (özel kurallar)'}{' '}
         <span className={`pill ${st.status === 'passed' ? 'win' : st.status === 'failed' ? 'loss' : 'be'}`}>{status}</span>
       </h2>
       <p className="hint">{describeRules(r, initial)}</p>

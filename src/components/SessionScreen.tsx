@@ -1,33 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { createSession, deleteSession, openSession, useStore } from '../store';
 import { DATA_SOURCES } from '../core/data';
-import { ACCOUNT_PRESETS, type AccountRules } from '../core/account';
+import { ACCOUNT_PRESETS, validateRules, type AccountRules } from '../core/account';
+import { AccountSetup } from './AccountSetup';
 import { fmtMoney, fmtNy } from '../format';
 import { fromNyInputs } from './Dialogs';
 import { Icons } from './icons';
-
-/** Boş bırakılabilen yüzde alanı (boş = kural yok). */
-function PctField({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number | null) => void }) {
-  const [text, setText] = useState(value == null ? '' : String(value));
-  useEffect(() => setText(value == null ? '' : String(value)), [value]);
-  return (
-    <label>
-      <span>{label}</span>
-      <input
-        value={text}
-        placeholder="yok"
-        inputMode="decimal"
-        onChange={(e) => setText(e.target.value)}
-        onBlur={() => {
-          const t = text.trim().replace(',', '.');
-          const v = t === '' ? null : Number(t);
-          if (v === null || (Number.isFinite(v) && v > 0 && v < 100)) onChange(v);
-          else setText(value == null ? '' : String(value));
-        }}
-      />
-    </label>
-  );
-}
 
 /** Kuralları sade bir cümleyle özetler. */
 export function describeRules(r: AccountRules, balance: number): string {
@@ -60,9 +38,11 @@ export function SessionScreen() {
     setPreset('custom');
   };
 
+  const invalid = validateRules(rules, form.balance).errors.length > 0;
+
   const create = async () => {
     const startTime = fromNyInputs(form.date, form.time);
-    if (startTime == null) return;
+    if (startTime == null || invalid) return;
     setBusy(true);
     try {
       await createSession({ name: form.name || `${form.symbol} ${form.date}`, symbol: form.symbol, startTime, balance: form.balance, source: 'dukascopy', rules, commissionPerLot: form.commission });
@@ -104,53 +84,21 @@ export function SessionScreen() {
             </label>
           </div>
           <h3>Hesap</h3>
-          <div className="account-form">
-            <label>
-              <span>Hesap türü</span>
-              <select value={preset} onChange={(e) => pickPreset(e.target.value)}>
-                {ACCOUNT_PRESETS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-                <option value="custom">Özel</option>
-              </select>
-            </label>
-            <label>
-              <span>Başlangıç bakiyesi ($)</span>
-              <input type="number" value={form.balance} min={100} step={1000} onChange={(e) => setForm({ ...form, balance: Number(e.target.value) })} />
-            </label>
-            <PctField label={rules.type === 'prop' ? 'Fon geçme hedefi %' : 'Kâr hedefi %'} value={rules.profitTargetPct} onChange={(v) => setRule({ profitTargetPct: v })} />
-            <PctField label="Günlük kayıp limiti %" value={rules.dailyLossPct} onChange={(v) => setRule({ dailyLossPct: v })} />
-            <PctField label="Hesap patlama (maks. kayıp) %" value={rules.maxLossPct} onChange={(v) => setRule({ maxLossPct: v })} />
-            <label>
-              <span>Düşüş türü</span>
-              <select value={rules.drawdownType} onChange={(e) => setRule({ drawdownType: e.target.value as AccountRules['drawdownType'] })}>
-                <option value="static">Statik (başlangıçtan)</option>
-                <option value="trailing">Trailing (zirveden)</option>
-              </select>
-            </label>
-            <label>
-              <span>Günlük sıfırlama</span>
-              <select value={rules.resetMode ?? 'ny17'} onChange={(e) => setRule({ resetMode: e.target.value as AccountRules['resetMode'] })}>
-                <option value="ny17">NY 17:00 (forex günü)</option>
-                <option value="cet0">Orta Avrupa gece yarısı (CE(S)T 00:00; Lizbon saati değil)</option>
-              </select>
-            </label>
-            <label>
-              <span>Komisyon ($ / lot, gidiş-dönüş)</span>
-              <input type="number" min={0} step={0.5} value={form.commission} onChange={(e) => setForm({ ...form, commission: Math.max(0, Number(e.target.value) || 0) })} />
-            </label>
-            <label>
-              <span>Min. işlem günü</span>
-              <input type="number" min={0} value={rules.minTradingDays} onChange={(e) => setRule({ minTradingDays: Math.max(0, Number(e.target.value) || 0) })} />
-            </label>
-            <button className="btn primary" disabled={busy || !available.length} onClick={create}>
+          <AccountSetup
+            rules={rules}
+            presetId={preset}
+            balance={form.balance}
+            commission={form.commission}
+            onPreset={pickPreset}
+            onRules={setRule}
+            onBalance={(balance) => setForm({ ...form, balance })}
+            onCommission={(commission) => setForm({ ...form, commission })}
+          />
+          <div className="acct-start">
+            <button className="btn primary" disabled={busy || !available.length || invalid} onClick={create}>
               {busy ? (loading ? `Yükleniyor %${Math.round(loading.progress * 100)}` : 'Hazırlanıyor…') : 'Oturumu başlat'}
             </button>
           </div>
-          <p className="hint">{describeRules(rules, form.balance)}</p>
-          <p className="hint">Hazır fon ayarları genel örnektir, belirli bir firmanın kuralı değildir. Simüle edilmeyenler: slippage, swap / gece taşıma maliyeti, margin kontrolü ve stop-out.</p>
           {!available.length && <p className="hint neg">Veri bulunamadı. Terminalde "npm run data" çalıştırın.</p>}
         </section>
 

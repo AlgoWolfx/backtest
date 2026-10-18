@@ -2039,3 +2039,173 @@ tbody tr:hover {
   border-color: var(--green);
   color: var(--green);
 }
+
+/* ---------------------------------------------------------------- hesap kurulumu */
+.acct {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.acct-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  width: fit-content;
+  background: var(--bg0);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.acct-tabs button {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.acct-tabs button.on {
+  color: #fff;
+  background: var(--blue);
+}
+.acct-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+.acct-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--text);
+  background: var(--bg0);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.acct-card:hover {
+  border-color: var(--muted);
+}
+.acct-card.on {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue) inset;
+}
+.acct-card span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.acct-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.acct-chips i {
+  padding: 1px 7px;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--bg3);
+  border-radius: 999px;
+}
+.acct-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}
+.acct-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.acct h4 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.acct-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.acct-field input,
+.acct-field select {
+  width: 100%;
+  height: 32px;
+}
+.acct-unit {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.acct-unit i {
+  position: absolute;
+  right: 10px;
+  font-style: normal;
+  color: var(--muted);
+  pointer-events: none;
+}
+.acct-unit i:first-child {
+  right: auto;
+  left: 10px;
+}
+.acct-unit input {
+  padding-right: 24px;
+}
+.acct-unit i:first-child + input {
+  padding-left: 22px;
+  padding-right: 8px;
+}
+.acct-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.acct-sizes button {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg0);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.acct-sizes button.on {
+  color: #fff;
+  background: var(--blue);
+  border-color: var(--blue);
+}
+.acct-summary {
+  padding: 12px 14px;
+  background: var(--bg0);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.acct-summary dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 18px;
+  margin: 8px 0;
+  font-size: 13px;
+}
+.acct-summary dt {
+  color: var(--muted);
+}
+.acct-summary dd {
+  margin: 0;
+  font-weight: 600;
+}
+.acct-summary dd small {
+  font-weight: 400;
+  color: var(--muted);
+}
+.acct-start {
+  margin-top: 12px;
+}
