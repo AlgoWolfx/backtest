@@ -1394,12 +1394,33 @@ tbody tr:hover {
   min-height: 0;
   background: var(--bg0);
 }
-.chart-area.layout-1 { grid-template: 1fr / 1fr; }
-.chart-area.layout-2v { grid-template: 1fr / 1fr 1fr; }
-.chart-area.layout-2h { grid-template: 1fr 1fr / 1fr; }
-.chart-area.layout-3 { grid-template: 1fr 1fr / 2fr 1fr; }
+/* Oranlar ChartArea'dan satır içi gelir (sürüklenebilir bölücüler); bunlar yedek değerlerdir. */
+.chart-area { position: relative; }
+.chart-area.layout-1 { grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
 .chart-area.layout-3 > :first-child { grid-row: 1 / span 2; }
-.chart-area.layout-4 { grid-template: 1fr 1fr / 1fr 1fr; }
+.splitter {
+  position: absolute;
+  z-index: 20;
+  background: transparent;
+  touch-action: none;
+}
+.splitter-x {
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  margin-left: -4.5px;
+  cursor: col-resize;
+}
+.splitter-y {
+  right: 0;
+  height: 9px;
+  margin-top: -4.5px;
+  cursor: row-resize;
+}
+.splitter:hover,
+.splitter.drag {
+  background: color-mix(in srgb, var(--blue) 45%, transparent);
+}
 .chart-wrap.multi::after {
   content: '';
   position: absolute;

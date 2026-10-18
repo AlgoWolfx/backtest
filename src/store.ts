@@ -9,7 +9,7 @@ import { nextBoundary, type SessionSettings } from './core/sessions';
 import { chronologyIssue, closeTrade, decideLots, EXECUTION_MODEL, pendingType, rewindBlockedBy, type Side, type Trade } from './core/trading';
 import { afterBalanceChange, newAccount, noteTradingDay, rollDay, type AccountRules } from './core/account';
 import { activeTrades, balanceOf, simulate as simulateRange, type SimResult } from './core/simulate';
-import { DEFAULT_FIB, LAYOUTS, type Drawing, type LayoutId, type NewDrawing, type PaneCfg, type Position, type Session, type Tool } from './core/types';
+import { DEFAULT_FIB, LAYOUTS, defaultSplit, type Drawing, type LayoutId, type NewDrawing, type PaneCfg, type Position, type Session, type Tool } from './core/types';
 import { fmtNyShort, fmtPrice, reasonLabel } from './format';
 
 export interface SessionSummary {
@@ -344,8 +344,13 @@ export async function setLayout(layout: LayoutId) {
     panes.push({ symbol: s.symbol, tf: PANE_TF_LADDER.find((t) => !used.has(t)) ?? s.tf });
   }
   const next = active < n ? active : 0;
-  patchSession(() => ({ layout, panes, active: next, symbol: panes[next].symbol, tf: panes[next].tf }));
+  patchSession(() => ({ layout, split: undefined, panes, active: next, symbol: panes[next].symbol, tf: panes[next].tf }));
   if (next !== active) set({ selectedId: null, editingId: null, ticket: null });
+}
+
+/** Ekran bölücüsünü sürükleyerek grafik boyutlarını ayarlar (x: sütunlar, y: satırlar; 0-1). */
+export function setSplit(patch: Partial<{ x: number; y: number }>) {
+  patchSession((s) => ({ split: { ...defaultSplit(s.layout ?? '1'), ...s.split, ...patch } }));
 }
 
 /** Tıklanan grafiği aktif yapar: üst çubuk, çizim, emir ve işlem paneli o grafiğin sembolüne göre çalışır. */
