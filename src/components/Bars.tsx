@@ -3,7 +3,7 @@ import { getSymbol } from '../../shared/symbols.js';
 import { TIMEFRAMES } from '../core/timeframes';
 import { liquidationPnl } from '../core/trading';
 import { snapshot } from '../core/account';
-import { LAYOUTS, type LayoutId, type Tool } from '../core/types';
+import { type Tool } from '../core/types';
 import { fmtMoney } from '../format';
 import type { ChartType } from '../chartTheme';
 import {
@@ -18,7 +18,6 @@ import {
   startTicket,
   type OrderKind,
   setChartTheme,
-  setLayout,
   setLots,
   setRiskPct,
   setSlBuffer,
@@ -28,6 +27,7 @@ import {
   setSessionSettings,
 } from '../store';
 import { Icons } from './icons';
+import { LayoutMenu } from './LayoutMenu';
 import { toggleFullscreen, useFullscreen } from '../fullscreen';
 import { ReplayClock, ReplayControls } from './ReplayControls';
 
@@ -49,19 +49,6 @@ function ChartTypePicker() {
       ).map(([id, label]) => (
         <option key={id} value={id}>
           {label}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function LayoutPicker() {
-  const layout = useStore((s) => s.session?.layout ?? '1');
-  return (
-    <select className="select layout-select" value={layout} title="Ekran düzeni (çoklu grafik). Bir grafiğe tıklayınca aktif olur; üst çubuk aktif grafiği değiştirir." onChange={(e) => setLayout(e.target.value as LayoutId)}>
-      {(Object.keys(LAYOUTS) as LayoutId[]).map((id) => (
-        <option key={id} value={id}>
-          {LAYOUTS[id].label}
         </option>
       ))}
     </select>
@@ -120,7 +107,7 @@ export function TopBar() {
         ))}
       </div>
       <ChartTypePicker />
-      <LayoutPicker />
+      <LayoutMenu />
       <button className="btn ghost" onClick={() => useStore.setState({ jumpOpen: true })} title="Replay tarihini değiştir">
         <Icons.calendar /> <span className="lbl-optional">Tarihe git</span>
       </button>
