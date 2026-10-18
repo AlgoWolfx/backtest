@@ -207,7 +207,7 @@ kopyası değildir (yeni çizim araçları eklenmedi; yalnızca mevcut araçlar 
 
 - **Sağ tık → "Grafiği yenile":** elle yapılan fiyat/zaman ölçeklemesini sıfırlar (otomatik ölçek, varsayılan mum aralığı, son muma gider).
 - **Grafik ayarları** (sağ tık, üst çubuktaki dişli veya grafiğin sağ altındaki ⚙) TradingView gibi sekmelidir: *Semboller* (grafik türü: mum / boş mum / bar / çizgi / alan, mum renkleri, hazır temalar), *Durum çubuğu* (sembol, kaynak, OHLC, değişim, filigran), *Ölçekler ve çizgiler* (normal / % / 100'e indeksli / logaritmik, ters çevir, son fiyat çizgisi ve etiketi, mum kapanışına kalan süre, üst-alt-sağ boşluk, yazı boyutu), *Tuval* (arka plan, ızgara, artı imleç rengi / stili / kalınlığı / mıknatıs). Değişiklikler anında görünür, tarayıcıda saklanır ve tüm oturumlarda geçerlidir.
-- **Sağ altta Auto / log / %** düğmeleri: Auto fiyat eksenini görünen mumlara sığdırır (eksenden elle ölçekleyince kapanır). Fiyat ekseni seçenekleri sağ tık menüsünde de vardır.
+- **Sağ altta Auto** düğmesi fiyat eksenini görünen mumlara sığdırır (eksenden elle ölçekleyince kapanır). Logaritmik / yüzde / normal ölçek seçenekleri sağ tık menüsünde ve Grafik ayarları > Ölçekler ve çizgiler bölümündedir.
 
 ## İşlemler
 
