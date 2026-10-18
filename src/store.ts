@@ -4,10 +4,11 @@ import { aggregate, aggIndexOfM1, loadSymbol, revealedCount, type DataSource, ty
 import { bucketKey, type TF } from './core/timeframes';
 import { bucketEndAfter, nextNyTime } from './core/replay';
 import { loadTheme, saveTheme, type ChartTheme } from './chartTheme';
-import { applyCandle, calcPnl, type Candle, closeTrade, exitSide, lotsForRisk, pendingType, type Side, type Trade } from './core/trading';
-import { afterBalanceChange, evaluate, newAccount, noteTradingDay, rollDay, type Account, type AccountRules } from './core/account';
+import { closeTrade, decideLots, pendingType, rewindBlockedBy, type Side, type Trade } from './core/trading';
+import { afterBalanceChange, newAccount, noteTradingDay, rollDay, type AccountRules } from './core/account';
+import { activeTrades, balanceOf, simulate as simulateRange, type SimResult } from './core/simulate';
 import { DEFAULT_FIB, LAYOUTS, type Drawing, type LayoutId, type NewDrawing, type PaneCfg, type Position, type Session, type Tool } from './core/types';
-import { fmtPrice, reasonLabel } from './format';
+import { fmtNyShort, fmtPrice, reasonLabel } from './format';
 
 export interface SessionSummary {
   id: string;
@@ -155,11 +156,7 @@ export function lastBarTime(symbol?: string): number | null {
   return r > 0 ? d.t[r - 1] : null;
 }
 
-export function balanceOf(s: Session): number {
-  return s.initialBalance + s.trades.reduce((a, t) => a + (t.status === 'closed' ? t.pnl ?? 0 : 0), 0);
-}
-
-const activeTrades = (s: Session) => s.trades.filter((t) => t.status === 'open' || t.status === 'pending');
+export { balanceOf };
 
 // ---------------------------------------------------------------- başlangıç / oturumlar
 
@@ -342,116 +339,7 @@ export function activatePane(i: number) {
 
 // ---------------------------------------------------------------- replay
 
-interface SimResult {
-  trades: Trade[];
-  closed: Trade[];
-  filled: Trade[];
-  /** İlk işlem olayının (dolum / kapanış) gerçekleştiği mumun kapanış zamanı */
-  firstEvent: number | null;
-  account?: Account;
-  /** Hesap kuralı ihlal edildiyse nedeni */
-  breach: string | null;
-}
-
-function candleAt(d: M1Data, i: number): Candle {
-  const sc = d.scale;
-  return { t: d.t[i], o: d.o[i] / sc, h: d.h[i] / sc, l: d.l[i] / sc, c: d.c[i] / sc, ask: d.ask ? { o: d.ask.o[i] / sc, h: d.ask.h[i] / sc, l: d.ask.l[i] / sc, c: d.ask.c[i] / sc } : undefined };
-}
-
-const isActiveTrade = (t: Trade) => t.status === 'open' || t.status === 'pending';
-
-/**
- * replayTime'dan newTime'a kadar açıklanacak 1m mumları aktif işlemlere uygular (durumu değiştirmez).
- * Birden çok sembolde işlem varsa dakikalar zaman sırasıyla birleştirilir; hesap kuralları (günlük /
- * maks. kayıp) her dakikanın sonunda tüm açık pozisyonların en kötü equity'si ile denetlenir.
- */
-function simulate(s: Session, newTime: number): SimResult {
-  let trades = s.trades;
-  const closed: Trade[] = [];
-  const filled: Trade[] = [];
-  let firstEvent: number | null = null;
-  let account = s.account;
-  let breach: string | null = null;
-  let balance = balanceOf(s);
-  const initial = s.initialBalance;
-
-  const cursors = [...new Set(activeTrades(s).map((t) => t.symbol))].flatMap((sym) => {
-    const d = get().data[sym];
-    if (!d) return [];
-    const i = revealedCount(d, s.replayTime);
-    return [{ sym, d, spec: getSymbol(sym), i, to: revealedCount(d, newTime), last: i > 0 ? candleAt(d, i - 1) : null }];
-  });
-  const lastOf = (sym: string) => cursors.find((c) => c.sym === sym)?.last ?? null;
-
-  for (;;) {
-    // Aktif işlemi olan semboller arasında sıradaki en erken dakika
-    let cur: (typeof cursors)[number] | null = null;
-    for (const c of cursors) {
-      if (c.i >= c.to || !trades.some((t) => t.symbol === c.sym && isActiveTrade(t))) continue;
-      if (!cur || c.d.t[c.i] < cur.d.t[cur.i]) cur = c;
-    }
-    if (!cur) break;
-    const k = candleAt(cur.d, cur.i++);
-    cur.last = k;
-    const closeTime = k.t + 60;
-    if (account) account = { ...account, state: rollDay(account.state, k.t, balance) };
-
-    let changed = false;
-    let closedNow = false;
-    const sym = cur.sym;
-    const spec = cur.spec;
-    trades = trades.map((tr) => {
-      if (tr.symbol !== sym || !isActiveTrade(tr)) return tr;
-      const u = applyCandle(spec, tr, k);
-      if (u === tr) return tr;
-      changed = true;
-      if (tr.status === 'pending' && u.status !== 'pending') {
-        filled.push(u);
-        if (account) account = noteTradingDay(account, k.t);
-      }
-      if (u.status === 'closed') {
-        closed.push(u);
-        balance += u.pnl ?? 0;
-        closedNow = true;
-      }
-      return u;
-    });
-    if (changed && (firstEvent == null || closeTime < firstEvent)) firstEvent = closeTime;
-
-    if (account && account.state.status !== 'failed') {
-      // Bu dakikadaki en kötü equity: bu sembolde mumun en kötü ucu, diğerlerinde son kapanış.
-      let equityLow = balance;
-      for (const tr of trades) {
-        if (tr.status !== 'open') continue;
-        const kk = tr.symbol === sym ? k : lastOf(tr.symbol);
-        if (!kk) continue;
-        const x = exitSide(tr.side, kk);
-        const worst = tr.symbol === sym ? (tr.side === 'long' ? x.l : x.h) : x.c;
-        equityLow += calcPnl(getSymbol(tr.symbol), tr.side, tr.entry, worst, tr.lots);
-      }
-      const ev = evaluate(account, initial, k.t, balance, equityLow);
-      account = ev.account;
-      if (ev.breach) {
-        // Hesap patladı: tüm pozisyonlar kapanır, bekleyen emirler iptal edilir.
-        breach = ev.breach;
-        trades = trades.map((tr) => {
-          if (tr.status === 'pending') return { ...tr, status: 'cancelled', closedAt: closeTime };
-          if (tr.status !== 'open') return tr;
-          const kk = tr.symbol === sym ? k : lastOf(tr.symbol);
-          const px = kk ? exitSide(tr.side, kk).c : tr.entry;
-          const u = closeTrade(getSymbol(tr.symbol), tr, px, closeTime, 'breach');
-          closed.push(u);
-          balance += u.pnl ?? 0;
-          return u;
-        });
-        firstEvent = firstEvent == null ? closeTime : Math.min(firstEvent, closeTime);
-        break;
-      }
-      if (closedNow) account = afterBalanceChange(account, initial, closeTime, balance, trades.some((t) => t.status === 'open'));
-    }
-  }
-  return { trades, closed, filled, firstEvent, account, breach };
-}
+const simulate = (s: Session, newTime: number): SimResult => simulateRange(s, newTime, (sym) => get().data[sym]);
 
 /**
  * Zamanı ileri alır; aradaki her 1m mumu açık işlemlere uygular.
@@ -546,7 +434,17 @@ export function stepBack() {
   const key = bucketKey(s.stepTf, d.t[r - 1]);
   let j = r - 1;
   while (j > 1 && bucketKey(s.stepTf, d.t[j - 1]) === key) j--;
-  patchSession(() => ({ replayTime: d.t[j - 1] + 60 }));
+  const target = d.t[j - 1] + 60;
+  if (rewindBlocked(s, target)) return;
+  patchSession(() => ({ replayTime: target }));
+}
+
+/** Kayıtlı bir işlem olayından önceye replay'i geri almak kronolojiyi bozar (gelecekteki kâr/hesap durumu kalırdı). */
+function rewindBlocked(s: Session, target: number): boolean {
+  const by = rewindBlockedBy(s.trades, target);
+  if (by == null) return false;
+  toast(`Bu zamandan önce işlem kaydı var (son olay ${fmtNyShort(by)} NY); replay geri alınamaz. Geçmişe bakmak için grafiği kaydırın; aynı hareketi yeniden denemek için yeni oturum açın.`, 'error');
+  return true;
 }
 
 export function jumpTo(utc: number) {
@@ -555,6 +453,7 @@ export function jumpTo(utc: number) {
   if (!s || !d) return;
   const t = Math.max(d.t[0] + 60, Math.min(Math.floor(utc / 60) * 60, d.t[d.n - 1] + 60));
   if (t < s.replayTime && activeTrades(s).length) return toast('Açık pozisyon veya bekleyen emir varken geçmişe dönülemez.', 'error');
+  if (t < s.replayTime && rewindBlocked(s, t)) return;
   stopPlay();
   if (t > s.replayTime) advanceTo(t, { stopOnEvent: true });
   else patchSession(() => ({ replayTime: t }));
@@ -775,7 +674,12 @@ export function placeOrderFromDrawing(drawingId: string, market: boolean, lotsOv
     toast(side === 'long' ? 'Long için SL girişin altında, TP üstünde olmalı.' : 'Short için SL girişin üstünde, TP altında olmalı.', 'error');
     return false;
   }
-  const lots = lotsOverride ?? lotsForRisk(spec, balanceOf(s), d.riskPct, entry, d.sl);
+  const dec = decideLots(spec, { mode: lotsOverride != null ? 'lots' : 'risk', lots: lotsOverride ?? 0, riskPct: d.riskPct, balance: balanceOf(s), entry, sl: d.sl });
+  if (dec.error != null) {
+    toast(dec.error, 'error');
+    return false;
+  }
+  const lots = dec.lots;
   const id = nextId('t');
   const s2 = get().session!;
   const trade: Trade = {
@@ -799,7 +703,7 @@ export function placeOrderFromDrawing(drawingId: string, market: boolean, lotsOv
       ...s2,
       trades: [...s2.trades, trade],
       drawings: mapDrawing(s2.drawings, s.symbol, drawingId, (x) => ({ ...(x as Position), tradeId: id, entry: entryPt })),
-      account: market && s2.account ? noteTradingDay(s2.account, barT) : s2.account,
+      account: market && s2.account ? noteTradingDay(s2.account, s.replayTime) : s2.account,
       updatedAt: Date.now(),
     },
   });
@@ -885,12 +789,16 @@ export function marketOrder(side: Side) {
   const dist = Math.max(atr * 1.5, price * 0.0002);
   const dir = side === 'long' ? 1 : -1;
   const spec = getSymbol(s.symbol);
-  const id = nextId('t');
-  const dId = nextId('d');
-  const s2 = get().session!;
   const round = (p: number) => Math.round(p * d.scale) / d.scale;
   const sl = round(price - dir * dist);
   const tp = round(price + dir * dist * 2);
+  // Hızlı emir de normal ticket ile aynı boyutlandırma kuralını kullanır (Risk % veya sabit lot).
+  const dec = decideLots(spec, { mode: get().sizing, lots: s.lots, riskPct: s.riskPct, balance: balanceOf(s), entry: price, sl });
+  if (dec.error != null) return toast(dec.error, 'error');
+  const lots = dec.lots;
+  const id = nextId('t');
+  const dId = nextId('d');
+  const s2 = get().session!;
   const pos: Position = {
     id: dId,
     type: side,
@@ -903,19 +811,19 @@ export function marketOrder(side: Side) {
     riskPct: s.riskPct,
     tradeId: id,
   };
-  const trade: Trade = { id, symbol: s.symbol, side, status: 'open', orderType: 'market', createdAt: s.replayTime, openedAt: barT, entry: price, sl, tp, initialSl: sl, lots: s.lots, drawingId: dId };
+  const trade: Trade = { id, symbol: s.symbol, side, status: 'open', orderType: 'market', createdAt: s.replayTime, openedAt: barT, entry: price, sl, tp, initialSl: sl, lots, drawingId: dId };
   set({
     session: {
       ...s2,
       trades: [...s2.trades, trade],
       drawings: { ...s2.drawings, [s.symbol]: [...drawingsOf(s2), pos] },
-      account: s2.account ? noteTradingDay(s2.account, barT) : undefined,
+      account: s2.account ? noteTradingDay(s2.account, s.replayTime) : undefined,
       updatedAt: Date.now(),
     },
     selectedId: dId,
   });
   emitTrade('open', id);
-  toast(`${side === 'long' ? 'Alış' : 'Satış'} açıldı: ${s.lots} lot @ ${fmtPrice(price, spec)}. SL/TP'yi grafikte sürükleyebilirsiniz.`);
+  toast(`${side === 'long' ? 'Alış' : 'Satış'} açıldı: ${lots} lot @ ${fmtPrice(price, spec)}. SL/TP'yi grafikte sürükleyebilirsiniz.`);
 }
 
 // ---- işlem olayları (ekran görüntüsü vb. için)

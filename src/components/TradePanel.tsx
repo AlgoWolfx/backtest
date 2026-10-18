@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { getSymbol } from '../../shared/symbols.js';
-import { calcPnl, calcR, type Trade } from '../core/trading';
+import { calcPnl, calcR, entryTime, type Trade } from '../core/trading';
 import { fmtMoney, fmtNyShort, fmtPrice, fmtR, reasonLabel } from '../format';
 import { closeTradeManual, exitPriceNow, setSymbol, useStore } from '../store';
 
@@ -101,7 +101,7 @@ function OpenTable({ trades }: { trades: Trade[] }) {
               <td>{t.symbol}</td>
               <td className={t.side === 'long' ? 'pos' : 'neg'}>{t.side === 'long' ? 'Long' : 'Short'}</td>
               <td>{t.status === 'open' ? 'Açık' : `Bekleyen ${t.orderType}`}</td>
-              <td>{fmtNyShort(t.openedAt ?? t.createdAt)}</td>
+              <td>{fmtNyShort(entryTime(t))}</td>
               <td>{t.lots}</td>
               <td>{fmtPrice(t.entry, spec)}</td>
               <td>{t.sl != null ? fmtPrice(t.sl, spec) : '—'}</td>
@@ -156,7 +156,7 @@ function HistoryTable({ trades }: { trades: Trade[] }) {
             <tr key={t.id} onClick={() => goTo(t)}>
               <td>{t.symbol}</td>
               <td className={t.side === 'long' ? 'pos' : 'neg'}>{t.side === 'long' ? 'Long' : 'Short'}</td>
-              <td>{t.openedAt ? fmtNyShort(t.openedAt) : '—'}</td>
+              <td>{t.openedAt ? fmtNyShort(entryTime(t)) : '—'}</td>
               <td>{t.closedAt ? fmtNyShort(t.closedAt) : '—'}</td>
               <td>{t.lots}</td>
               <td>{fmtPrice(t.entry, spec)}</td>
@@ -182,7 +182,7 @@ function exportCsv(name: string, trades: Trade[]) {
   const rows = [...trades].reverse().map((t) => [
     t.symbol,
     t.side,
-    t.openedAt ? fmtNyShort(t.openedAt) : '',
+    t.openedAt ? fmtNyShort(entryTime(t)) : '',
     t.closedAt ? fmtNyShort(t.closedAt) : '',
     t.lots,
     t.entry,

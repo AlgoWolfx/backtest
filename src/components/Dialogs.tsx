@@ -207,8 +207,9 @@ function PositionFields({ d, digits }: { d: Position; digits: number }) {
   const locked = trade && (trade.status === 'closed' || trade.status === 'cancelled');
   const risk = Math.abs(d.entry.p - d.sl);
   const rr = risk ? Math.abs(d.tp - d.entry.p) / risk : 0;
-  const lots = trade ? trade.lots : lotsForRisk(spec, balanceOf(session), d.riskPct, d.entry.p, d.sl);
-  const r = (v: number) => Math.round(v * 10 ** digits) / 10 ** digits;
+  const sized = trade ? trade.lots : lotsForRisk(spec, balanceOf(session), d.riskPct, d.entry.p, d.sl);
+  const lots = sized ?? 0; // null: risk bütçesine sığan lot yok
+  const r =(v: number) => Math.round(v * 10 ** digits) / 10 ** digits;
   const long = d.type === 'long';
   const valid = long ? d.sl < d.entry.p && d.tp > d.entry.p : d.sl > d.entry.p && d.tp < d.entry.p;
   return (
@@ -238,7 +239,7 @@ function PositionFields({ d, digits }: { d: Position; digits: number }) {
           R:R <b>{rr.toFixed(2)}</b>
         </div>
         <div>
-          Lot <b>{lots.toFixed(2)}</b>
+          Lot <b>{sized == null ? 'yok' : lots.toFixed(2)}</b>
         </div>
         <div>
           Risk <b>{fmtMoney(risk * lots * usdPerPriceUnit(spec, d.entry.p))}</b>
@@ -247,6 +248,7 @@ function PositionFields({ d, digits }: { d: Position; digits: number }) {
           Hedef <b>{fmtMoney(Math.abs(d.tp - d.entry.p) * lots * usdPerPriceUnit(spec, d.tp))}</b>
         </div>
       </div>
+      {!trade && sized == null && valid && <p className="hint neg">Risk bütçesine sığan lot yok; stopu daraltın veya risk %'sini artırın.</p>}
       {!valid && <p className="hint neg">{long ? 'Long: SL girişin altında, TP üstünde olmalı.' : 'Short: SL girişin üstünde, TP altında olmalı.'}</p>}
       {!trade && (
         <div className="form-row">
