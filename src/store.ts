@@ -8,6 +8,7 @@ import { loadSessionSettings, saveSessionSettings } from './sessionSettings';
 import { nextBoundary, type SessionSettings } from './core/sessions';
 import { chronologyIssue, closeTrade, decideLots, EXECUTION_MODEL, pendingType, rewindBlockedBy, widenStop, type Side, type Trade, type TradeReview } from './core/trading';
 import { afterBalanceChange, newAccount, noteTradingDay, rollDay, type AccountRules } from './core/account';
+import { TOOL_DEFAULTS, loadTemplate } from './drawingTemplates';
 import { activeTrades, balanceOf, simulate as simulateRange, type SimResult } from './core/simulate';
 import { DEFAULT_FIB, DEFAULT_SYNC, LAYOUTS, type Drawing, type LayoutId, type NewDrawing, type PaneCfg, type Position, type Session, type SyncCfg, type Tool } from './core/types';
 import { fmtNyShort, fmtPrice, reasonLabel } from './format';
@@ -766,6 +767,37 @@ function accountLocked(s: Session): boolean {
   if (s.account?.state.status !== 'failed') return false;
   toast(`Hesap patladı (${s.account.state.reason}); yeni işlem açılamaz. Yeni oturum başlatın.`, 'error');
   return true;
+}
+
+/** Sağ tık: verilen fiyatta bu yöndeki bekleyen emir limit mi stop mu olur (anlık fiyat yoksa null). */
+export function pendingKindAt(side: Side, price: number): 'limit' | 'stop' | null {
+  const s = get().session;
+  if (!s) return null;
+  const cur = entryPriceNow(s.symbol, side);
+  return cur == null ? null : pendingType(side, price, cur);
+}
+
+/**
+ * Sağ tık ile bekleyen emir: o fiyatta long / short pozisyon çizimi (SL = dist kadar uzakta + stop tamponu, TP = 2R)
+ * oluşturur ve hemen bekleyen emir olarak yerleştirir. Sonradan çizimin tutamaçlarıyla (giriş / SL / TP),
+ * çift tık ayarlarıyla veya "Emri iptal et" ile düzenlenir. Başarısızsa çizim silinir ve null döner.
+ */
+export function placePendingAt(side: Side, price: number, t: number, tEnd: number, dist: number): string | null {
+  const s = get().session;
+  if (!s || accountLocked(s)) return null;
+  const spec = getSymbol(s.symbol);
+  const dir = side === 'long' ? 1 : -1;
+  const round = (p: number) => Math.round(p * 10 ** spec.digits) / 10 ** spec.digits;
+  const entry = round(price);
+  const sl = bufferedSl(s, side, round(entry - dir * dist));
+  const tp = round(entry + dir * Math.abs(entry - sl) * 2);
+  const id = addDrawing({ type: side, ...TOOL_DEFAULTS[side], entry: { t, p: entry }, sl, tp, tEnd, riskPct: s.riskPct, ...loadTemplate(side) } as NewDrawing);
+  if (!placeOrderFromDrawing(id, false)) {
+    deleteDrawing(id, false);
+    return null;
+  }
+  set({ selectedId: id });
+  return id;
 }
 
 export function placeOrderFromDrawing(drawingId: string, market: boolean, lotsOverride?: number): boolean {

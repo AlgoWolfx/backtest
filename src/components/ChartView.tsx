@@ -7,7 +7,7 @@ import { revealedCount, sourceLabel, sourceName, type M1Data } from '../core/dat
 import { tfInfo } from '../core/timeframes';
 import { downloadCsv } from '../csv';
 import { fmtNy, fmtNyShort, fmtPrice, fmtShifted } from '../format';
-import { activatePane, cloneDrawing, deleteDrawing, drawingsOf, hasClipboard, paneCfg, pasteClipboard, reorderDrawing, setChartTheme, setSplits, toggleMaxPane, updateDrawing, useStore } from '../store';
+import { activatePane, cloneDrawing, pendingKindAt, placePendingAt, deleteDrawing, drawingsOf, hasClipboard, paneCfg, pasteClipboard, reorderDrawing, setChartTheme, setSplits, toggleMaxPane, updateDrawing, useStore } from '../store';
 import type { ChartTheme } from '../chartTheme';
 import { LAYOUTS } from '../core/types';
 import { dragSplit, layoutGeometry, type PaneRect, type SplitterGeom } from '../core/layouts';
@@ -73,7 +73,7 @@ export function ChartView({ pane, rect }: { pane: number; rect: PaneRect | null 
   const isActive = useStore((s) => (s.session?.active ?? 0) === pane);
   const isMax = useStore((s) => s.maxPane === pane);
   const [c, setC] = useState<ChartController | null>(null);
-  const [menu, setMenu] = useState<{ x: number; y: number; L: number | null; drawingId?: string } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; L: number | null; price: number | null; drawingId?: string } | null>(null);
   const [inspectL, setInspectL] = useState<number | null>(null);
   const [scrolledAway, setScrolledAway] = useState(false);
 
@@ -121,7 +121,9 @@ export function ChartView({ pane, rect }: { pane: number; rect: PaneRect | null 
       // Bir çizimin üstünde sağ tık: çizim menüsü (TradingView gibi)
       const hit = c.layer.hitTestAt(lx, ly);
       if (hit) useStore.setState({ selectedId: hit.id });
-      setMenu({ x: lx, y: ly, L: c.xToLogical(lx), drawingId: hit?.id });
+      if (!hit) activatePane(pane); // emirler aktif grafiğin sembolüne verilir
+      const raw = c.yToPrice(ly);
+      setMenu({ x: lx, y: ly, L: c.xToLogical(lx), price: raw == null ? null : c.roundPrice(raw), drawingId: hit?.id });
     };
     c.el.addEventListener('contextmenu', onContext);
     // Tıklanan grafik, çizim araçları olayı işlemeden önce aktif olur (yakalama aşaması).
@@ -188,6 +190,27 @@ export function ChartView({ pane, rect }: { pane: number; rect: PaneRect | null 
       )}
       {menu && c && !menu.drawingId && (
         <div className="menu context" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
+          {menu.price != null &&
+            (['long', 'short'] as const).map((side) => {
+              const kind = pendingKindAt(side, menu.price!);
+              if (!kind) return null;
+              const spec = getSymbol(cfgSymbol ?? useStore.getState().session!.symbol);
+              return (
+                <button
+                  key={side}
+                  className="menu-item"
+                  onClick={() => {
+                    const L = menu.L ?? c.lastK - c.winStart;
+                    const dist = (c.atrAt(L) ?? 0) * 1.5 || menu.price! * 0.002;
+                    placePendingAt(side, menu.price!, c.logicalToTime(L), c.logicalToTime(L + 25), dist);
+                    setMenu(null);
+                  }}
+                >
+                  <span className={side === 'long' ? 'pos' : 'neg'}>{side === 'long' ? 'Alış' : 'Satış'}</span> {kind === 'limit' ? 'limit' : 'stop'} emri <span>{fmtPrice(menu.price!, spec)}</span>
+                </button>
+              );
+            })}
+          {menu.price != null && <div className="menu-sep" />}
           <button className="menu-item" onClick={() => (c.resetView(), setMenu(null))}>
             Grafiği yenile <span>ölçek + konum sıfırla</span>
           </button>
