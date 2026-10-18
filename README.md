@@ -81,6 +81,7 @@ oluşturulur. Örneğin 1H mumun bitmesine 20 dakika varsa mum 40 dakikalık ver
 | Sonraki NY saatine ileri sar | alt çubuk → "NY saatine" (00:00, 02:00, 07:00, 08:30, 09:30, 10:00, 13:30, 17:00, 20:00 veya özel saat; hafta sonu atlanır) |
 | Grafikten başlangıç seç | alt çubuk → makas ikonu, sonra bir muma tıkla |
 | Oynat / duraklat | Boşluk |
+| Adım büyüklüğü | alt çubuk → "Adım": varsayılan **Grafikle eş** (5m grafikteyken adım 5m); elle bir süre seçersen eşleme kapanır, "Grafikle eş" ile geri açılır |
 | Zaman dilimi | yazıp Enter: `1` `5` `15` `60` `240` `4h` `D` `W` `M` |
 | Trend / Yatay / Dikdörtgen / Fib | Alt+T / Alt+H / Alt+R / Alt+F |
 | Long / Short pozisyon | Alt+L / Alt+S, grafiğe tek tık |
@@ -164,7 +165,7 @@ kopyası değildir (yeni çizim araçları eklenmedi; yalnızca mevcut araçlar 
 
 - **Sağ tık → "Grafiği yenile":** elle yapılan fiyat/zaman ölçeklemesini sıfırlar (otomatik ölçek, varsayılan mum aralığı, son muma gider).
 - **Grafik ayarları** (sağ tık, üst çubuktaki dişli veya grafiğin sağ altındaki ⚙) TradingView gibi sekmelidir: *Semboller* (grafik türü: mum / boş mum / bar / çizgi / alan, mum renkleri, hazır temalar), *Durum çubuğu* (sembol, kaynak, OHLC, değişim, filigran), *Ölçekler ve çizgiler* (normal / % / 100'e indeksli / logaritmik, ters çevir, son fiyat çizgisi ve etiketi, mum kapanışına kalan süre, üst-alt-sağ boşluk, yazı boyutu), *Tuval* (arka plan, ızgara, artı imleç rengi / stili / kalınlığı / mıknatıs). Değişiklikler anında görünür, tarayıcıda saklanır ve tüm oturumlarda geçerlidir.
-- **Sağ altta Auto / log / %** düğmeleri: Auto fiyat eksenini görünen mumlara sığdırır (eksenden elle ölçekleyince kapanır). Fiyat ekseni seçenekleri sağ tık menüsünde de vardır.
+- **Sağ altta Auto** düğmesi fiyat eksenini görünen mumlara sığdırır (eksenden elle ölçekleyince kapanır). Logaritmik / yüzde / normal ölçek seçenekleri sağ tık menüsünde ve Grafik ayarları > Ölçekler ve çizgiler bölümündedir.
 
 ## İşlemler
 
@@ -179,6 +180,11 @@ Fare hareket ederken giriş, stop, hedef, R:R ve risk tutarı canlı görünür.
 tıklarsanız (ör. Buy için SL girişin üstünde) reddedilir. Esc iptal eder. Boyut "Risk %" (SL'ye göre lot
 hesaplanır) veya sabit "Lot" ile verilir. Shift+Buy/Sell eski hızlı emirdir (SL = 1,5×ATR, TP = 2R).
 Limit: Buy için giriş anlık fiyatın altında, Sell için üstünde; Stop: tersi.
+
+**Stop tamponu (alt çubuk "SL +"):** SL'ye tıkladığın noktanın girişten uzağa doğru ek pip/puan (sembolün birimi) kadar ötesine
+konur (long'da aşağı, short'ta yukarı); 0 = kapalı. Önizleme etiketi genişlemiş stopu gösterir, Risk % modunda lot genişlemiş
+stopa göre hesaplanır (risk yüzdesi bozulmaz). Shift+Buy/Sell hızlı emri de aynı tamponu uygular; hızlı emrin TP'si (2R)
+tampon dahil gerçek stop mesafesine göre konur.
 
 **Simülasyon kuralları:**
 

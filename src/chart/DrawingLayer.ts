@@ -7,7 +7,7 @@
 import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import type { IPrimitivePaneView, ISeriesPrimitive, ISeriesPrimitiveAxisView, PrimitiveHoveredItem, SeriesAttachedParameter, Time } from 'lightweight-charts';
 import { getSymbol } from '../../shared/symbols.js';
-import { lotsForRisk, liquidationPnl, openR, stopRiskPerLot, usdPerPriceUnit, type Trade } from '../core/trading';
+import { lotsForRisk, liquidationPnl, openR, stopRiskPerLot, usdPerPriceUnit, widenStop, type Trade } from '../core/trading';
 import type { Drawing, Fib, LineStyleName, LineText, NewDrawing, Position, Pt, Rect, Session, TextHAlign, Tool, TrendLine } from '../core/types';
 import { loadRectTemplate, loadTemplate } from '../drawingTemplates';
 import { dashOf, hexToRgba, rectFillCss } from './drawUtil';
@@ -308,7 +308,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     const step = ticketStep(t);
     const m = this.ticketP;
     const entry = ticketEntry(t) ?? (step === 'entry' ? m : null);
-    const sl = step === 'sl' ? m : t.sl;
+    // Stop tamponu önizlemede de görünür (tıklanan noktadan tampon kadar uzak).
+    const sl = step === 'sl' ? (m != null ? widenStop(spec, t.side, m, st.session!.slBuffer ?? 0) : m) : t.sl;
     const tp = step === 'tp' ? m : null;
     const x0 = this.X(barT);
     const x1 = this.X(this.c.logicalToTime(this.c.timeToLogical(barT) + 25));

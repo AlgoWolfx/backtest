@@ -34,6 +34,14 @@ export function nextNyTime(d: M1Data, after: number, h: number, m: number): numb
   return null;
 }
 
+/**
+ * Adım (ileri/geri/oynat) zaman dilimi: eşleme açıkken (varsayılan) grafiğin zaman dilimi,
+ * kapalıyken elle seçilen adım.
+ */
+export function effectiveStepTf(s: { tf: TF; stepTf: TF; stepSync?: boolean }): TF {
+  return s.stepSync === false ? s.stepTf : s.tf;
+}
+
 /** Sonraki açıklanmamış 1m mumu içeren tf mumunun sonuna kadar olan zaman (mumu tamamlamak / bir adım). */
 export function bucketEndAfter(d: M1Data, after: number, tf: TF): number | null {
   const i = upperBound(d.t, after - 60);

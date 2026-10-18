@@ -162,12 +162,6 @@ export function ChartView({ pane, rect }: { pane: number; rect: PaneRect | null 
           <button className={autoOn ? 'on' : ''} title="Otomatik ölçek: fiyat eksenini görünen mumlara sığdır" onClick={() => (c.setAutoScale(true), setAutoOn(true))}>
             Auto
           </button>
-          <button className={th.priceMode === 'log' ? 'on' : ''} title="Logaritmik ölçek" onClick={() => setMode(th.priceMode === 'log' ? 'normal' : 'log')}>
-            log
-          </button>
-          <button className={th.priceMode === 'percent' ? 'on' : ''} title="Yüzde ölçeği" onClick={() => setMode(th.priceMode === 'percent' ? 'normal' : 'percent')}>
-            %
-          </button>
           {multi && (
             <button className={isMax ? 'on' : ''} title={isMax ? 'Grafiği küçült: çoklu düzene dön (Alt+Enter / Esc)' : 'Grafiği büyüt: tüm alanı kapla (Alt+Enter)'} onClick={() => toggleMaxPane(pane)}>
               {isMax ? '❐' : '⛶'}

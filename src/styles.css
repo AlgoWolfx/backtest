@@ -25,6 +25,7 @@ body,
 }
 
 body {
+  overflow: hidden;
   background: var(--bg0);
   color: var(--text);
   font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -74,15 +75,16 @@ select:focus {
 .app {
   display: grid;
   grid-template-columns: 46px 1fr;
-  grid-template-rows: 46px 1fr 46px;
+  grid-template-rows: 46px minmax(0, 1fr) minmax(46px, auto);
   grid-template-areas:
     'top top'
     'left chart'
     'bottom bottom';
   height: 100vh;
+  overflow: hidden;
 }
 .app.with-panel {
-  grid-template-rows: 46px 1fr 260px 46px;
+  grid-template-rows: 46px minmax(0, 1fr) 260px minmax(46px, auto);
   grid-template-areas:
     'top top'
     'left chart'
@@ -140,11 +142,13 @@ select:focus {
 
 .bottombar {
   grid-area: bottom;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  padding: 0 10px;
+  gap: 6px 16px;
+  padding: 5px 10px;
+  min-width: 0;
   background: var(--bg1);
   border-top: 1px solid var(--border);
 }
@@ -532,6 +536,7 @@ select:focus {
 
 .replay {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
 }
@@ -1192,7 +1197,7 @@ tbody tr:hover {
 }
 .account-form {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 1fr 1.2fr 1.1fr 0.8fr auto;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 12px;
   align-items: end;
 }
@@ -1267,19 +1272,50 @@ tbody tr:hover {
   background: rgba(8, 153, 129, 0.15);
   border: 1px solid rgba(8, 153, 129, 0.5);
 }
-@media (max-width: 1100px) {
-  .account-form {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
 /* Üst çubuk dar ekranda taşmasın: hesap göstergeleri daralır, diğerleri sabit kalır */
 .topbar > * {
   flex-shrink: 0;
 }
 .topbar > .account {
-  flex-shrink: 1;
+  flex-shrink: 0;
+}
+.topbar > .spacer {
+  flex: 1 1 0;
   min-width: 0;
-  overflow: hidden;
+}
+@media (max-width: 1750px) {
+  .topbar .lbl-optional {
+    display: none;
+  }
+}
+@media (max-width: 1700px) {
+  .topbar .session-name,
+  .topbar .chart-type-select {
+    display: none;
+  }
+}
+@media (max-width: 1350px) {
+  .topbar .layout-select {
+    display: none;
+  }
+}
+/* Çok dar ekranda seyrek kullanılan zaman dilimleri gizlenir (aktif olan görünür kalır; yazarak seçmek de çalışır) */
+@media (max-width: 1150px) {
+  .topbar .tf-group .tf-minor:not(.on) {
+    display: none;
+  }
+}
+@media (max-width: 1100px) {
+  .topbar {
+    gap: 4px;
+    padding: 0 6px;
+  }
+  .topbar .tf {
+    padding: 4px 6px;
+  }
+  .topbar .source-select {
+    max-width: 104px;
+  }
 }
 @media (max-width: 1500px) {
   .meter-bar {
@@ -1290,10 +1326,12 @@ tbody tr:hover {
   }
 }
 .bottom-right {
-  justify-self: end;
+  margin-left: auto;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
-  gap: 16px;
+  gap: 6px 16px;
   min-width: 0;
 }
 .meters {
