@@ -8,7 +8,7 @@ import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import type { IPrimitivePaneView, ISeriesPrimitive, ISeriesPrimitiveAxisView, PrimitiveHoveredItem, SeriesAttachedParameter, Time } from 'lightweight-charts';
 import { getSymbol } from '../../shared/symbols.js';
 import { lotsForRisk, liquidationPnl, openR, stopRiskPerLot, usdPerPriceUnit, widenStop, type Trade } from '../core/trading';
-import type { Drawing, Fib, LineStyleName, LineText, NewDrawing, Position, Pt, Rect, Session, TextHAlign, Tool, TrendLine } from '../core/types';
+import type { Drawing, Fib, HLine, LineStyleName, LineText, NewDrawing, Position, Pt, Rect, Session, TextHAlign, Tool, TrendLine } from '../core/types';
 import { loadRectTemplate, loadTemplate } from '../drawingTemplates';
 import { dashOf, hexToRgba, rectFillCss } from './drawUtil';
 import { TOOL_DEFAULTS } from '../drawingTemplates';
@@ -196,12 +196,13 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
         ctx.save();
         switch (d.type) {
           case 'hline': {
-            this.drawHLine(ctx, d.p, hexToRgba(d.color, d.lineAlpha ?? 1), d.width, mediaSize.width, d.style);
+            const x0 = this.rayStartX(d);
+            this.drawHLine(ctx, d.p, hexToRgba(d.color, d.lineAlpha ?? 1), d.width, mediaSize.width, d.style, x0);
             if (d.text) {
               const y = Math.round(this.Y(d.p)) + 0.5;
-              this.drawLineText(ctx, d, 0, y, mediaSize.width, y, 'right');
+              this.drawLineText(ctx, d, Math.max(0, x0), y, mediaSize.width, y, 'right');
             }
-            if (active) this.handle(ctx, mediaSize.width / 2, this.Y(d.p), d.color);
+            if (active) this.handle(ctx, d.t != null ? x0 : mediaSize.width / 2, this.Y(d.p), d.color);
             break;
           }
           case 'trend': {
@@ -444,13 +445,19 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     return true;
   }
 
-  private drawHLine(ctx: CanvasRenderingContext2D, p: number, color: string, width: number, w: number, style?: LineStyleName) {
+  /** Yatay ışının ekrandaki başlangıç x'i (eski tam genişlikli çizgi veya sola uzatılmış: 0). */
+  private rayStartX(d: HLine): number {
+    if (d.t == null || d.extendLeft) return 0;
+    return this.X(d.t);
+  }
+
+  private drawHLine(ctx: CanvasRenderingContext2D, p: number, color: string, width: number, w: number, style?: LineStyleName, x0 = 0) {
     const y = Math.round(this.Y(p)) + 0.5;
     ctx.strokeStyle = color;
     ctx.lineWidth = width;
     ctx.setLineDash(dashOf(style, width));
     ctx.beginPath();
-    ctx.moveTo(0, y);
+    ctx.moveTo(Math.max(0, x0), y);
     ctx.lineTo(w, y);
     ctx.stroke();
     ctx.setLineDash([]);
@@ -714,7 +721,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       const sel = d.id === st.selectedId;
       switch (d.type) {
         case 'hline':
-          if (Math.abs(y - this.Y(d.p)) <= HIT_PX) return { id: d.id, part: 'body' };
+          // Işın yalnızca başlangıcından sağa doğru tıklanabilir
+          if (Math.abs(y - this.Y(d.p)) <= HIT_PX && x >= this.rayStartX(d) - HIT_PX) return { id: d.id, part: 'body' };
           break;
         case 'trend': {
           const x1 = this.X(d.a.t), y1 = this.Y(d.a.p), x2 = this.X(d.b.t), y2 = this.Y(d.b.p);
@@ -898,7 +906,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     const P: Pt = { t: this.c.logicalToTime(pt.L), p: pt.p };
     let id: string;
     if (tool === 'hline') {
-      id = addDrawing({ type: 'hline', p: pt.p, ...def, ...loadTemplate('hline') } as NewDrawing);
+      id = addDrawing({ type: 'hline', p: pt.p, t: P.t, ...def, ...loadTemplate('hline') } as NewDrawing);
       useStore.setState({ selectedId: id, ...(useStore.getState().stayInDraw ? {} : { tool: 'cursor' as const }) });
     } else if (tool === 'long' || tool === 'short') {
       const dir = tool === 'long' ? 1 : -1;
@@ -1030,7 +1038,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     let patch: Partial<Drawing> = {};
     switch (orig.type) {
       case 'hline':
-        patch = { p: r(orig.p + dp) };
+        // Işın: başlangıç noktası da zamanda kayar
+        patch = { p: r(orig.p + dp), ...(orig.t != null ? { t: shiftT(orig.t) } : {}) };
         break;
       case 'trend':
       case 'rect':

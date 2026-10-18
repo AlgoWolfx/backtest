@@ -2471,3 +2471,66 @@ tbody tr:hover {
   font-size: 11px;
   color: var(--muted);
 }
+
+/* ---------------------------------------------------------------- grafik üstü favori araç çubuğu */
+.favbar {
+  position: absolute;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 8px 5px 4px;
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  user-select: none;
+}
+.favbar-grip {
+  display: grid;
+  grid-template-columns: repeat(2, 3px);
+  gap: 3px;
+  padding: 6px 6px 6px 5px;
+  margin-right: 3px;
+  cursor: grab;
+  touch-action: none;
+}
+.favbar-grip:active {
+  cursor: grabbing;
+}
+.favbar-grip i {
+  width: 3px;
+  height: 3px;
+  background: var(--muted);
+  border-radius: 50%;
+}
+.favbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 32px;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 6px;
+}
+.favbar-btn:hover {
+  background: var(--bg3);
+}
+.favbar-btn.on {
+  color: #5b8cff;
+  background: rgba(41, 98, 255, 0.18);
+}
+.tool-fly-star {
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  border: 0;
+}
+.tool-fly-star:hover,
+.tool-fly-star.on {
+  color: var(--orange);
+}

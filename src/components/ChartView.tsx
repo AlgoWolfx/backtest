@@ -13,6 +13,7 @@ import { LAYOUTS } from '../core/types';
 import { dragSplit, layoutGeometry, type PaneRect, type SplitterGeom } from '../core/layouts';
 import { broadcastCrosshair, broadcastRange } from '../chart/paneSync';
 import { DrawingToolbar } from './DrawingToolbar';
+import { FavToolbar } from './FavToolbar';
 import { AccountMeters } from './Bars';
 import { Modal } from './Dialogs';
 
@@ -30,6 +31,7 @@ export function ChartArea() {
         <ChartView key={i} pane={i} rect={maxPane == null ? r : i === maxPane ? FULL : null} />
       ))}
       {maxPane == null && geo.splitters.map((g) => <Splitter key={`${g.path}:${g.index}`} g={g} />)}
+      <FavToolbar />
     </div>
   );
 }

@@ -28,7 +28,7 @@ export const STYLE_KEYS: Record<TemplateType, readonly string[]> = {
     'color', 'width', 'style', 'lineAlpha', 'leftEnd', 'rightEnd', 'extendLeft', 'extendRight', 'midpoint', 'showPriceLabels',
     'statsMode', 'statPrice', 'statPct', 'statBars', 'statTime', 'statDist', 'statAngle', ...TEXT_STYLE,
   ],
-  hline: ['color', 'width', 'style', 'lineAlpha', 'showPriceLabel', ...TEXT_STYLE],
+  hline: ['color', 'width', 'style', 'lineAlpha', 'showPriceLabel', 'extendLeft', ...TEXT_STYLE],
   fib: [
     'color', 'width', 'bgOn', 'bgAlpha', 'bgColor', 'showTrend', 'trendColor', 'trendWidth', 'trendStyle', 'levelWidth', 'levelStyle',
     'extendLeft', 'extendRight', 'reverse', 'showPrices', 'showLevels', 'labelH', 'labelV', 'oneColor', 'levels',

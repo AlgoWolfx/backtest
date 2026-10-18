@@ -52,6 +52,10 @@ export interface LineText {
 export interface HLine extends Base, LineText {
   type: 'hline';
   p: number;
+  /** Yatay ışının başlangıç zamanı (UTC); sağa doğru uzar. Yok = eski tam genişlikli yatay çizgi. */
+  t?: number;
+  /** Işın başlangıcından sola da uzat (tam genişlikli yatay çizgi) */
+  extendLeft?: boolean;
   /** Sağ eksendeki fiyat etiketi (yok = göster) */
   showPriceLabel?: boolean;
 }

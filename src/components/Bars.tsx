@@ -28,6 +28,7 @@ import {
 } from '../store';
 import { Icons } from './icons';
 import { LayoutMenu } from './LayoutMenu';
+import { FAV_CANDIDATES, setFavBarVisible, toggleFavTool, useFavBar } from '../favTools';
 import { toggleFullscreen, useFullscreen } from '../fullscreen';
 import { ReplayClock, ReplayControls } from './ReplayControls';
 
@@ -244,7 +245,7 @@ function Meter({ label, title, value, max, text, tone }: { label: string; title:
 const TOOLS: { id: Tool; label: string; key: string; icon: () => React.JSX.Element }[] = [
   { id: 'cursor', label: 'İmleç', key: 'Esc', icon: Icons.cursor },
   { id: 'trend', label: 'Trend çizgisi', key: 'Alt+T', icon: Icons.trend },
-  { id: 'hline', label: 'Yatay çizgi', key: 'Alt+H', icon: Icons.hline },
+  { id: 'hline', label: 'Yatay ışın', key: 'Alt+H', icon: Icons.hline },
   { id: 'rect', label: 'Dikdörtgen (FVG / OB)', key: 'Alt+R', icon: Icons.rect },
   { id: 'fib', label: 'Fibonacci düzeltme', key: 'Alt+F', icon: Icons.fib },
   { id: 'long', label: 'Long pozisyon', key: 'Alt+L', icon: Icons.long },
@@ -279,6 +280,7 @@ function ToolGroups() {
   const [last, setLast] = useState<Record<string, Tool>>(loadLast);
   const [openId, setOpenId] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const { favs } = useFavBar();
 
   // Araç kısayolla (Alt+T vb.) değişse de grubun simgesi o araca döner.
   useEffect(() => {
@@ -331,11 +333,23 @@ function ToolGroups() {
                 {g.tools.map((id) => {
                   const t = toolDef(id);
                   return (
-                    <button key={id} className={`tool-fly-item ${tool === id ? 'on' : ''}`} onClick={() => choose(id)}>
+                    <div key={id} className={`tool-fly-item ${tool === id ? 'on' : ''}`} onClick={() => choose(id)}>
                       <t.icon />
                       <span>{t.label}</span>
                       <kbd>{t.key}</kbd>
-                    </button>
+                      {FAV_CANDIDATES.includes(id) && (
+                        <button
+                          className={`tool-fly-star ${favs.includes(id) ? 'on' : ''}`}
+                          title={favs.includes(id) ? 'Favorilerden çıkar' : 'Favorilere ekle (grafik üstündeki çubukta görünür)'}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavTool(id);
+                          }}
+                        >
+                          {favs.includes(id) ? '★' : '☆'}
+                        </button>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -344,6 +358,16 @@ function ToolGroups() {
         );
       })}
     </div>
+  );
+}
+
+/** Grafik üstündeki favori araç çubuğunu aç / kapat. */
+function FavBarToggle() {
+  const { visible, favs } = useFavBar();
+  return (
+    <button className={`tool ${visible && favs.length ? 'on' : ''}`} title={visible ? 'Favori araç çubuğunu gizle' : favs.length ? 'Favori araç çubuğunu göster' : 'Favori yok: araç listesinden ☆ ile ekle'} onClick={() => setFavBarVisible(!visible)}>
+      <span style={{ fontSize: 17, lineHeight: 1 }}>{visible && favs.length ? '★' : '☆'}</span>
+    </button>
   );
 }
 
@@ -365,6 +389,7 @@ export function LeftToolbar() {
   return (
     <nav className="lefttools">
       <ToolGroups />
+      <FavBarToggle />
       <div className="tool-sep" />
       <button
         className={`tool ${magnet ? 'on' : ''}`}

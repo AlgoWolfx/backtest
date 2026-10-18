@@ -21,8 +21,8 @@ export const Icons = {
   ),
   hline: () => (
     <Svg>
-      <path d="M2 12h20" />
-      <circle cx="12" cy="12" r="1.8" fill="currentColor" />
+      <path d="M6 12h16" />
+      <circle cx="5" cy="12" r="2.2" fill="currentColor" />
     </Svg>
   ),
   rect: () => (

@@ -20,7 +20,7 @@ type Editable = Rect | TrendLine | HLine | Fib | Position;
 type Tab = 'style' | 'text' | 'inputs' | 'coords' | 'vis';
 type Any = Record<string, unknown>;
 
-const TITLES: Record<Editable['type'], string> = { rect: 'Dikdörtgen', trend: 'Trend çizgisi', hline: 'Yatay çizgi', fib: 'Fib düzeltme', long: 'Long pozisyon', short: 'Short pozisyon' };
+const TITLES: Record<Editable['type'], string> = { rect: 'Dikdörtgen', trend: 'Trend çizgisi', hline: 'Yatay ışın', fib: 'Fib düzeltme', long: 'Long pozisyon', short: 'Short pozisyon' };
 
 /** TradingView benzeri palet: gri tonlar + 8 renk x 5 ton. */
 const PALETTE: string[][] = [
@@ -264,6 +264,7 @@ function HLineStyle({ d, set }: { d: HLine; set: (p: Any) => void }) {
         <WidthSelect value={d.width} onChange={(width) => set({ width })} />
         <StyleButton value={d.style ?? 'solid'} onChange={(style) => set({ style })} />
       </Row>
+      {d.t != null && <Row label="Sola da uzat" check={<Check checked={!!d.extendLeft} onChange={(v) => set({ extendLeft: v })} />} />}
       <Row label="Fiyat etiketi" check={<Check checked={d.showPriceLabel !== false} onChange={(v) => set({ showPriceLabel: v })} />} />
     </>
   );
@@ -543,6 +544,7 @@ export function DrawingDialog({ d }: { d: Editable }) {
         {tab === 'coords' && (
           <>
             {d.type === 'hline' && <Row label="Fiyat">{priceInput('p', d.p, (v) => ({ p: v }))}</Row>}
+            {d.type === 'hline' && d.t != null && <Row label="Başlangıç zamanı (NY)">{timeInput('t', d.t, (t) => ({ t }))}</Row>}
             {(d.type === 'rect' || d.type === 'trend' || d.type === 'fib') &&
               (['a', 'b'] as const).map((k, i) => (
                 <div key={k} className="tvd-coord">
