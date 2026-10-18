@@ -10,7 +10,8 @@ import { getSymbol } from '../../shared/symbols.js';
 import { lotsForRisk, liquidationPnl, openR, stopRiskPerLot, usdPerPriceUnit, type Trade } from '../core/trading';
 import type { Drawing, Fib, LineStyleName, LineText, NewDrawing, Position, Pt, Rect, Session, TextHAlign, Tool, TrendLine } from '../core/types';
 import { loadRectTemplate, loadTemplate } from '../drawingTemplates';
-import { dashOf, hexToRgba } from './drawUtil';
+import { dashOf, hexToRgba, rectFillCss } from './drawUtil';
+import { TOOL_DEFAULTS } from '../drawingTemplates';
 import { arrowHead, screenAngleDeg, fmtDuration } from '../core/geometry';
 import { fibLabel, fibValue, trendStatsLines } from '../core/drawStats';
 import { fmtDistance, fmtMoney, fmtPrice, fmtR, reasonLabel } from '../format';
@@ -30,14 +31,7 @@ const HIT_PX = 6;
 
 type DrawTool = Exclude<Tool, 'cursor' | 'measure'>;
 
-export const TOOL_DEFAULTS: Record<DrawTool, { color: string; width: number }> = {
-  hline: { color: '#2962ff', width: 1 },
-  trend: { color: '#2962ff', width: 2 },
-  rect: { color: '#2962ff', width: 1 },
-  fib: { color: '#9598a1', width: 1 },
-  long: { color: '#787b86', width: 1 },
-  short: { color: '#787b86', width: 1 },
-};
+export { TOOL_DEFAULTS };
 
 export { dashOf, hexToRgba } from './drawUtil';
 
@@ -257,9 +251,9 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
             const bxr = this.X(d.b.t);
             const left = d.extendLeft ? -2 : Math.min(x1, bxr);
             const right = d.extendRight ? mediaSize.width + 2 : Math.max(x1, bxr);
-            const fillOn = d.fillOn ?? (d.fillAlpha ?? 0.15) > 0;
-            if (fillOn) {
-              ctx.fillStyle = d.fillColor ? hexToRgba(d.fillColor, d.fillAlpha ?? 0.15) : d.fill;
+            const fillCss = rectFillCss(d);
+            if (fillCss) {
+              ctx.fillStyle = fillCss;
               ctx.fillRect(left, Math.min(y1, y2), right - left, Math.abs(y2 - y1));
             }
             const borderCss = hexToRgba(d.borderColor ?? d.color, d.borderAlpha ?? 1);
@@ -555,7 +549,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       for (let i = 1; i < on.length; i++) {
         const y0 = this.Y(priceOf(on[i - 1].v));
         const y1 = this.Y(priceOf(on[i].v));
-        ctx.fillStyle = hexToRgba(colorOf(on[i]), d.bgAlpha ?? 0.15);
+        ctx.fillStyle = hexToRgba(d.bgColor ?? colorOf(on[i]), d.bgAlpha ?? 0.15);
         ctx.fillRect(xl, Math.min(y0, y1), xr - xl, Math.abs(y1 - y0));
       }
     }
@@ -610,10 +604,11 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
 
     const pc = d.profitColor ?? '#089981';
     const lc = d.lossColor ?? '#f23645';
-    const za = d.zoneAlpha ?? 0.2;
-    ctx.fillStyle = hexToRgba(pc, za);
+    const pa = d.profitAlpha ?? d.zoneAlpha ?? 0.2;
+    const la = d.lossAlpha ?? d.zoneAlpha ?? 0.2;
+    ctx.fillStyle = hexToRgba(pc, pa);
     ctx.fillRect(x0, Math.min(yE, yTP), x1 - x0, Math.abs(yTP - yE));
-    ctx.fillStyle = hexToRgba(lc, za);
+    ctx.fillStyle = hexToRgba(lc, la);
     ctx.fillRect(x0, Math.min(yE, ySL), x1 - x0, Math.abs(ySL - yE));
 
     // İşlemin seyri: girişten çıkışa / anlık fiyata kadar koyu alan.

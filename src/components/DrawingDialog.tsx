@@ -8,8 +8,8 @@ import { nyLocalToUtc, toNyLocal } from '../../shared/nytime.js';
 import { hexToRgba } from '../chart/drawUtil';
 import { TIMEFRAMES, type TF } from '../core/timeframes';
 import { lotsForRisk, stopRiskPerLot, usdPerPriceUnit } from '../core/trading';
-import type { Drawing, Fib, FibLevel, HLine, LineEnd, LineStyleName, Position, Rect, RectExtend, StatsMode, TextHAlign, TextVAlign, TrendLine } from '../core/types';
-import { clearTemplate, loadTemplate, saveTemplate, templateOf } from '../drawingTemplates';
+import { DEFAULT_FIB, type Drawing, type Fib, FibLevel, HLine, LineEnd, LineStyleName, Position, Rect, RectExtend, StatsMode, TextHAlign, TextVAlign, TrendLine } from '../core/types';
+import { clearTemplate, factoryReset, loadTemplate, saveTemplate, templateOf } from '../drawingTemplates';
 import { fmtDistance, fmtMoney } from '../format';
 import { balanceOf, placeOrderFromDrawing, recordUndo, setFibDefaults, toast, updateDrawing, useStore } from '../store';
 import { NumberInput } from './Bars';
@@ -38,8 +38,8 @@ export function TvColor({ color, alpha = 1, onChange, withAlpha = true }: { colo
   useEffect(() => {
     if (!open) return;
     const h = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    window.addEventListener('mousedown', h);
-    return () => window.removeEventListener('mousedown', h);
+    window.addEventListener('mousedown', h, true); // yakalama aşaması: pencere mousedown olayını durdurduğu için
+    return () => window.removeEventListener('mousedown', h, true);
   }, [open]);
   const hex = /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#2962ff';
   return (
@@ -239,7 +239,7 @@ function RectStyle({ d, set }: { d: Rect; set: (p: Any) => void }) {
       <Row label="Uzat">
         <ExtendSelect d={d} set={set} />
       </Row>
-      <Row label="Kenar">
+      <Row label="Kenar" check={<Check checked={d.borderOn !== false && (d.borderAlpha ?? 1) > 0} onChange={(v) => set({ borderOn: v, borderAlpha: v && !(d.borderAlpha ?? 1) ? 1 : d.borderAlpha })} />}>
         <TvColor color={d.borderColor ?? d.color} alpha={d.borderAlpha ?? 1} onChange={(c, a) => set({ borderColor: c, borderAlpha: a, borderOn: a > 0 })} />
         <WidthSelect value={d.width} onChange={(width) => set({ width })} />
         <StyleButton value={d.style ?? 'solid'} onChange={(style) => set({ style })} />
@@ -345,8 +345,13 @@ function FibStyle({ d, set }: { d: Fib; set: (p: Any) => void }) {
           <option value="bottom">Alt</option>
         </select>
       </Row>
-      <Row label="Arkaplan" check={<Check checked={!!d.bgOn} onChange={(v) => set({ bgOn: v })} />}>
-        <TvColor color={d.color} alpha={d.bgAlpha ?? 0.15} onChange={(_c, a) => set({ bgAlpha: a, bgOn: a > 0 })} />
+      <Row label="Arkaplan" check={<Check checked={!!d.bgOn && (d.bgAlpha ?? 0.15) > 0} onChange={(v) => set({ bgOn: v, bgAlpha: v && !(d.bgAlpha ?? 0.15) ? 0.15 : d.bgAlpha })} />}>
+        <TvColor color={d.bgColor ?? d.color} alpha={d.bgAlpha ?? 0.15} onChange={(c, a) => set({ bgColor: c, bgAlpha: a, bgOn: a > 0 })} />
+        {d.bgColor && (
+          <button className="tvd-btn" title="Her aralık kendi seviye renginde olsun" onClick={() => set({ bgColor: undefined })}>
+            Seviye renkleri
+          </button>
+        )}
       </Row>
     </>
   );
@@ -356,10 +361,10 @@ function PositionStyle({ d, set }: { d: Position; set: (p: Any) => void }) {
   return (
     <>
       <Row label="Kâr bölgesi">
-        <TvColor color={d.profitColor ?? '#089981'} alpha={d.zoneAlpha ?? 0.2} onChange={(c, a) => set({ profitColor: c, zoneAlpha: a })} />
+        <TvColor color={d.profitColor ?? '#089981'} alpha={d.profitAlpha ?? d.zoneAlpha ?? 0.2} onChange={(c, a) => set({ profitColor: c, profitAlpha: a })} />
       </Row>
       <Row label="Zarar bölgesi">
-        <TvColor color={d.lossColor ?? '#f23645'} alpha={d.zoneAlpha ?? 0.2} onChange={(c, a) => set({ lossColor: c, zoneAlpha: a })} />
+        <TvColor color={d.lossColor ?? '#f23645'} alpha={d.lossAlpha ?? d.zoneAlpha ?? 0.2} onChange={(c, a) => set({ lossColor: c, lossAlpha: a })} />
       </Row>
       <Row label="Giriş çizgisi">
         <TvColor color={d.lineColor ?? '#787b86'} onChange={(c) => set({ lineColor: c })} withAlpha={false} />
@@ -585,8 +590,8 @@ function TemplateMenu({ d, set }: { d: Drawing; set: (p: Any) => void }) {
   useEffect(() => {
     if (!open) return;
     const h = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    window.addEventListener('mousedown', h);
-    return () => window.removeEventListener('mousedown', h);
+    window.addEventListener('mousedown', h, true); // yakalama aşaması: pencere mousedown olayını durdurduğu için
+    return () => window.removeEventListener('mousedown', h, true);
   }, [open]);
   const item = (label: string, fn: () => void) => (
     <button
@@ -613,9 +618,7 @@ function TemplateMenu({ d, set }: { d: Drawing; set: (p: Any) => void }) {
           {item('Varsayılanı uygula', () => set({ ...loadTemplate(type) }))}
           {item('Fabrika ayarlarına dön', () => {
             clearTemplate(type);
-            const reset: Any = {};
-            for (const k of Object.keys(templateOf(d))) reset[k] = undefined;
-            set(reset);
+            set(factoryReset(type, useStore.getState().session?.fibDefaults ?? DEFAULT_FIB));
           })}
         </div>
       )}

@@ -122,6 +122,8 @@ export interface Fib extends Base {
   /** Seviyeler arasındaki arkaplan dolgusu (TradingView "Arkaplan"): açık mı ve opaklığı (yok = kapalı / 0.15) */
   bgOn?: boolean;
   bgAlpha?: number;
+  /** Arkaplan tek renk (yok = her aralık üst seviyenin rengiyle) */
+  bgColor?: string;
   // --- TradingView "Fib Retracement" ayarları (hepsi isteğe bağlı) ---
   /** Trend çizgisi (a-b kesikli çizgisi): göster (yok = evet), renk, kalınlık, stil */
   showTrend?: boolean;
@@ -155,6 +157,9 @@ export interface Position extends Base {
   profitColor?: string;
   lossColor?: string;
   zoneAlpha?: number;
+  /** Kâr / zarar bölgesi opaklıkları ayrı ayrı (yok = zoneAlpha) */
+  profitAlpha?: number;
+  lossAlpha?: number;
   /** Giriş çizgisi ve yazı rengi (yok = gri / beyaz) */
   lineColor?: string;
   textColor?: string;

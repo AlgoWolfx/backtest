@@ -27,7 +27,7 @@ export function DrawingToolbar() {
   const color = d.type === 'rect' ? d.fillColor ?? d.color : isPos ? '#2962ff' : d.color;
   const alpha = d.type === 'rect' ? d.fillAlpha ?? 0.15 : d.type === 'trend' || d.type === 'hline' ? d.lineAlpha ?? 1 : 1;
   const onColor = (c: string, a: number) => {
-    if (d.type === 'rect') set({ color: c, borderColor: undefined, fillColor: undefined, fillAlpha: a, fillOn: a > 0, fill: hexToRgba(c, a) });
+    if (d.type === 'rect') set({ color: d.borderColor ? d.color : c, fillColor: c, fillAlpha: a, fillOn: a > 0, fill: hexToRgba(c, a) });
     else if (d.type === 'trend' || d.type === 'hline') set({ color: c, lineAlpha: a });
     else set({ color: c });
   };
