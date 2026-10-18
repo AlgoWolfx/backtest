@@ -146,11 +146,11 @@ export function SessionScreen() {
                 <option value="trailing">Trailing (zirveden)</option>
               </select>
             </label>
-            <label>
+            <label title="NY 17:00 (forex günü) veya Orta Avrupa gece yarısı (CE(S)T 00:00; Lizbon saati değil)">
               <span>Günlük sıfırlama</span>
               <select value={rules.resetMode ?? 'ny17'} onChange={(e) => setRule({ resetMode: e.target.value as AccountRules['resetMode'] })}>
                 <option value="ny17">NY 17:00 (forex günü)</option>
-                <option value="cet0">Orta Avrupa gece yarısı (CE(S)T 00:00; Lizbon saati değil)</option>
+                <option value="cet0">Avrupa 00:00 (CE(S)T)</option>
               </select>
             </label>
             <label>

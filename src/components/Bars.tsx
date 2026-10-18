@@ -39,7 +39,7 @@ function ChartTypePicker() {
   const type = useStore((s) => s.chartTheme.chartType);
   const th = useStore((s) => s.chartTheme);
   return (
-    <select className="select" value={type} title="Grafik türü" onChange={(e) => setChartTheme({ ...th, chartType: e.target.value as ChartType })}>
+    <select className="select chart-type-select" value={type} title="Grafik türü" onChange={(e) => setChartTheme({ ...th, chartType: e.target.value as ChartType })}>
       {(
         [
           ['candles', 'Mumlar'],
@@ -60,7 +60,7 @@ function ChartTypePicker() {
 function LayoutPicker() {
   const layout = useStore((s) => s.session?.layout ?? '1');
   return (
-    <select className="select" value={layout} title="Ekran düzeni (çoklu grafik). Bir grafiğe tıklayınca aktif olur; üst çubuk aktif grafiği değiştirir." onChange={(e) => setLayout(e.target.value as LayoutId)}>
+    <select className="select layout-select" value={layout} title="Ekran düzeni (çoklu grafik). Bir grafiğe tıklayınca aktif olur; üst çubuk aktif grafiği değiştirir." onChange={(e) => setLayout(e.target.value as LayoutId)}>
       {(Object.keys(LAYOUTS) as LayoutId[]).map((id) => (
         <option key={id} value={id}>
           {LAYOUTS[id].label}
@@ -83,7 +83,7 @@ function SessionToggle() {
       }}
       title="Seans / killzone katmanı: aç-kapa. Sağ tık: seans ayarları"
     >
-      <Icons.sessions /> Seanslar
+      <Icons.sessions /> <span className="lbl-optional">Seanslar</span>
     </button>
   );
 }
@@ -117,7 +117,7 @@ export function TopBar() {
       <SourcePicker symbol={symbol} />
       <div className="tf-group">
         {TIMEFRAMES.map((t) => (
-          <button key={t.id} className={`tf ${tf === t.id ? 'on' : ''}`} onClick={() => setTf(t.id)}>
+          <button key={t.id} className={`tf ${tf === t.id ? 'on' : ''}${['2m', '3m', '30m'].includes(t.id) ? ' tf-minor' : ''}`} onClick={() => setTf(t.id)}>
             {t.label}
           </button>
         ))}
@@ -125,7 +125,7 @@ export function TopBar() {
       <ChartTypePicker />
       <LayoutPicker />
       <button className="btn ghost" onClick={() => useStore.setState({ jumpOpen: true })} title="Replay tarihini değiştir">
-        <Icons.calendar /> Tarihe git
+        <Icons.calendar /> <span className="lbl-optional">Tarihe git</span>
       </button>
       <div className="spacer" />
       <AccountInfo />
@@ -135,7 +135,7 @@ export function TopBar() {
         <Icons.settings />
       </button>
       <button className="btn ghost" onClick={() => useStore.setState({ perfOpen: true })} title="Performans istatistikleri ve işlem günlüğü (ekran görüntüleriyle)">
-        <Icons.chart /> Performans
+        <Icons.chart /> <span className="lbl-optional">Performans</span>
       </button>
       <button className={`btn ghost ${panelOpen ? 'on' : ''}`} onClick={() => useStore.setState({ panelOpen: !panelOpen })} title="İşlem paneli">
         <Icons.list /> İşlemler{openCount ? <span className="badge">{openCount}</span> : null}
@@ -395,13 +395,13 @@ export function BottomBar() {
         </div>
         {sizing === 'risk' ? (
           <label className="field" title="Her işlemde SL vurulursa kaybedilecek bakiye yüzdesi (lot buna göre hesaplanır)">
-            <span>Risk %</span>
             <NumberInput value={riskPct} min={0.01} step={0.25} onChange={setRiskPct} />
+            <span>%</span>
           </label>
         ) : (
           <label className="field" title="Sabit lot miktarı">
-            <span>Lot</span>
             <NumberInput value={lots} min={0.01} step={0.01} onChange={setLots} />
+            <span>lot</span>
           </label>
         )}
         <label className="field" title={`Stop tamponu: SL'ye tıkladığın noktanın ${symbolPip} kadar ötesine konur (long'da aşağı, short'ta yukarı). Risk % modunda lot genişlemiş stopa göre hesaplanır. 0 = kapalı`}>
@@ -411,8 +411,10 @@ export function BottomBar() {
         </label>
       </div>
 
-      <ReplayControls />
-      <ReplayClock />
+      <div className="bottom-right">
+        <ReplayControls />
+        <ReplayClock />
+      </div>
     </footer>
   );
 }
