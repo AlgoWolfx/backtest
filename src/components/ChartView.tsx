@@ -7,7 +7,7 @@ import { revealedCount, sourceLabel, sourceName, type M1Data } from '../core/dat
 import { tfInfo } from '../core/timeframes';
 import { downloadCsv } from '../csv';
 import { fmtNy, fmtNyShort, fmtPrice, fmtShifted } from '../format';
-import { activatePane, cloneDrawing, deleteDrawing, drawingsOf, hasClipboard, paneCfg, pasteClipboard, reorderDrawing, setChartTheme, setSplit, updateDrawing, useStore } from '../store';
+import { activatePane, cloneDrawing, deleteDrawing, drawingsOf, hasClipboard, paneCfg, pasteClipboard, reorderDrawing, setChartTheme, setSplit, toggleMaxPane, updateDrawing, useStore } from '../store';
 import type { ChartTheme } from '../chartTheme';
 import { LAYOUTS, clampSplit, defaultSplit } from '../core/types';
 import { DrawingToolbar } from './DrawingToolbar';
@@ -26,10 +26,11 @@ export function ChartArea() {
     : layout === '2h' ? { gridTemplate: `${row} / minmax(0, 1fr)` }
     : layout === '3' || layout === '4' ? { gridTemplate: `${row} / ${col}` }
     : undefined;
+  const maxPane = useStore((s) => (s.maxPane != null && s.maxPane < LAYOUTS[layout].count ? s.maxPane : null));
   const hasV = layout !== '1' && layout !== '2h';
   const hasH = layout !== '1' && layout !== '2v';
   return (
-    <div className={`chart-area layout-${layout}`} style={style}>
+    <div className={`chart-area layout-${layout} ${maxPane != null ? 'has-max' : ''}`} style={maxPane != null ? { gridTemplate: 'minmax(0, 1fr) / minmax(0, 1fr)' } : style}>
       {Array.from({ length: LAYOUTS[layout].count }, (_, i) => (
         <ChartView key={i} pane={i} />
       ))}
@@ -72,6 +73,7 @@ export function ChartView({ pane }: { pane: number }) {
   const loading = useStore((s) => s.loading);
   const multi = useStore((s) => LAYOUTS[s.session?.layout ?? '1'].count > 1);
   const isActive = useStore((s) => (s.session?.active ?? 0) === pane);
+  const isMax = useStore((s) => s.maxPane === pane);
   const [c, setC] = useState<ChartController | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; L: number | null; drawingId?: string } | null>(null);
   const [inspectL, setInspectL] = useState<number | null>(null);
@@ -148,7 +150,7 @@ export function ChartView({ pane }: { pane: number }) {
   }, [c]);
   const setMode = (priceMode: ChartTheme['priceMode']) => setChartTheme({ ...th, priceMode });
   return (
-    <div ref={wrapRef} className={`chart-wrap ${multi ? 'multi' : ''} ${multi && isActive ? 'active-pane' : ''}`} style={{ background: bg }} onMouseDown={() => menu && setMenu(null)}>
+    <div ref={wrapRef} className={`chart-wrap ${multi ? 'multi' : ''} ${multi && isActive ? 'active-pane' : ''} ${isMax ? 'is-max' : ''}`} style={{ background: bg }} onMouseDown={() => menu && setMenu(null)}>
       <div ref={ref} className="chart" />
       {th.watermark && cfgSymbol && cfgTf && (
         <div className="watermark" style={{ color: th.text }}>
@@ -168,6 +170,11 @@ export function ChartView({ pane }: { pane: number }) {
           <button className={th.priceMode === 'percent' ? 'on' : ''} title="Yüzde ölçeği" onClick={() => setMode(th.priceMode === 'percent' ? 'normal' : 'percent')}>
             %
           </button>
+          {multi && (
+            <button className={isMax ? 'on' : ''} title={isMax ? 'Grafiği küçült: çoklu düzene dön (Alt+Enter / Esc)' : 'Grafiği büyüt: tüm alanı kapla (Alt+Enter)'} onClick={() => toggleMaxPane(pane)}>
+              {isMax ? '❐' : '⛶'}
+            </button>
+          )}
           <button title="Grafik ayarları" onClick={() => useStore.setState({ chartSettingsOpen: true })}>
             ⚙
           </button>

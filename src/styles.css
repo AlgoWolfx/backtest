@@ -1398,6 +1398,15 @@ tbody tr:hover {
 .chart-area { position: relative; }
 .chart-area.layout-1 { grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
 .chart-area.layout-3 > :first-child { grid-row: 1 / span 2; }
+/* Büyütülmüş grafik: diğerleri ve bölücüler gizlenir (grafik nesneleri bozulmasın diye kaldırılmaz) */
+.chart-area.has-max > .chart-wrap:not(.is-max),
+.chart-area.has-max > .splitter {
+  display: none;
+}
+.chart-area.has-max > .chart-wrap.is-max {
+  grid-row: 1;
+  grid-column: 1;
+}
 .splitter {
   position: absolute;
   z-index: 20;

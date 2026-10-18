@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { chartRef } from './chartRef';
 import { TIMEFRAMES, type TF } from './core/timeframes';
-import type { Tool } from './core/types';
+import { LAYOUTS, type Tool } from './core/types';
 import { BottomBar, LeftToolbar, TopBar } from './components/Bars';
 import { ChartArea } from './components/ChartView';
 import { ChartSettings, DrawingEditor, JumpDialog, Toast } from './components/Dialogs';
@@ -9,7 +9,7 @@ import { SessionScreen } from './components/SessionScreen';
 import { TradePanel } from './components/TradePanel';
 import { PerformancePage } from './components/PerformancePage';
 import { toggleFullscreen } from './fullscreen';
-import { cancelTicket, copySelected, deleteDrawing, forwardToBarClose, forwardToNextSessionBoundary, init, pasteClipboard, redo, setTf, stepBack, stepForward, toast, togglePlay, undo, useStore } from './store';
+import { cancelTicket, copySelected, deleteDrawing, forwardToBarClose, forwardToNextSessionBoundary, init, pasteClipboard, redo, setTf, stepBack, stepForward, toast, toggleMaxPane, togglePlay, undo, useStore } from './store';
 
 const TOOL_KEYS: Record<string, Tool> = { KeyT: 'trend', KeyH: 'hline', KeyR: 'rect', KeyF: 'fib', KeyL: 'long', KeyS: 'short', KeyM: 'measure' };
 
@@ -75,6 +75,11 @@ export function App() {
         useStore.setState({ tool: TOOL_KEYS[e.code], selectedId: null });
         return;
       }
+      if (e.altKey && e.key === 'Enter') {
+        e.preventDefault();
+        if (LAYOUTS[st.session.layout ?? '1'].count > 1) toggleMaxPane(st.session.active ?? 0);
+        return;
+      }
       if (e.altKey) return;
 
       // Zaman dilimi yazma: rakam veya h/d/w/m harfleri, Enter ile uygula
@@ -127,6 +132,7 @@ export function App() {
         case 'Escape': {
           const layer = chartRef.current?.layer;
           if (st.ticket) cancelTicket();
+          else if (st.maxPane != null) useStore.setState({ maxPane: null });
           else if (st.pickingStart) useStore.setState({ pickingStart: false });
           else if (!layer?.cancelCreate() && !layer?.clearMeasure()) useStore.setState({ tool: 'cursor', selectedId: null });
           break;

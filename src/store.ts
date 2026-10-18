@@ -54,6 +54,8 @@ interface State {
   stayInDraw: boolean;
   hideDrawings: boolean;
   panelOpen: boolean;
+  /** Çoklu ekranda büyütülmüş grafik (null = hepsi görünür). Kaydedilmez. */
+  maxPane: number | null;
   jumpOpen: boolean;
   /** Grafikte tıklanan mumdan replay başlatma modu */
   pickingStart: boolean;
@@ -91,6 +93,7 @@ export const useStore = create<State>(() => ({
   stayInDraw: false,
   hideDrawings: false,
   panelOpen: false,
+  maxPane: null,
   jumpOpen: false,
   pickingStart: false,
   perfOpen: false,
@@ -280,7 +283,7 @@ export async function closeSession() {
   stopPlay();
   const s = get().session;
   if (s) await saveNow(s);
-  set({ session: null, selectedId: null, editingId: null });
+  set({ session: null, selectedId: null, editingId: null, maxPane: null });
   await refreshSessions();
 }
 
@@ -344,8 +347,17 @@ export async function setLayout(layout: LayoutId) {
     panes.push({ symbol: s.symbol, tf: PANE_TF_LADDER.find((t) => !used.has(t)) ?? s.tf });
   }
   const next = active < n ? active : 0;
+  set({ maxPane: null });
   patchSession(() => ({ layout, split: undefined, panes, active: next, symbol: panes[next].symbol, tf: panes[next].tf }));
   if (next !== active) set({ selectedId: null, editingId: null, ticket: null });
+}
+
+/** Grafiği tüm alana büyütür / eski düzene döner (TradingView "grafiği büyüt"). Büyütülen grafik aktif olur. */
+export function toggleMaxPane(pane: number) {
+  const cur = get().maxPane;
+  if (cur === pane) return set({ maxPane: null });
+  activatePane(pane);
+  set({ maxPane: pane });
 }
 
 /** Ekran bölücüsünü sürükleyerek grafik boyutlarını ayarlar (x: sütunlar, y: satırlar; 0-1). */
