@@ -142,27 +142,6 @@ export function ChartView({ pane, rect }: { pane: number; rect: PaneRect | null 
       )}
       {menu && c && !menu.drawingId && (
         <div className="menu context" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
-          {menu.price != null &&
-            (['long', 'short'] as const).map((side) => {
-              const kind = pendingKindAt(side, menu.price!);
-              if (!kind) return null;
-              const spec = getSymbol(cfgSymbol ?? useStore.getState().session!.symbol);
-              return (
-                <button
-                  key={side}
-                  className="menu-item"
-                  onClick={() => {
-                    const L = menu.L ?? c.lastK - c.winStart;
-                    const dist = (c.atrAt(L) ?? 0) * 1.5 || menu.price! * 0.002;
-                    placePendingAt(side, menu.price!, c.logicalToTime(L), c.logicalToTime(L + 25), dist);
-                    setMenu(null);
-                  }}
-                >
-                  <span className={side === 'long' ? 'pos' : 'neg'}>{side === 'long' ? 'Alış' : 'Satış'}</span> {kind === 'limit' ? 'limit' : 'stop'} emri <span>{fmtPrice(menu.price!, spec)}</span>
-                </button>
-              );
-            })}
-          {menu.price != null && <div className="menu-sep" />}
           <button className="menu-item" onClick={() => (c.resetView(), setMenu(null))}>
             Grafiği yenile <span>ölçek + konum sıfırla</span>
           </button>
@@ -204,6 +183,27 @@ export function ChartView({ pane, rect }: { pane: number; rect: PaneRect | null 
               Yapıştır <span>Ctrl+V</span>
             </button>
           )}
+          {menu.price != null && <div className="menu-sep" />}
+          {menu.price != null &&
+            (['long', 'short'] as const).map((side) => {
+              const kind = pendingKindAt(side, menu.price!);
+              if (!kind) return null;
+              const spec = getSymbol(cfgSymbol ?? useStore.getState().session!.symbol);
+              return (
+                <button
+                  key={side}
+                  className="menu-item"
+                  onClick={() => {
+                    const L = menu.L ?? c.lastK - c.winStart;
+                    const dist = (c.atrAt(L) ?? 0) * 1.5 || menu.price! * 0.002;
+                    placePendingAt(side, menu.price!, c.logicalToTime(L), c.logicalToTime(L + 25), dist);
+                    setMenu(null);
+                  }}
+                >
+                  <span className={side === 'long' ? 'pos' : 'neg'}>{side === 'long' ? 'Alış' : 'Satış'}</span> {kind === 'limit' ? 'limit' : 'stop'} emri <span>{fmtPrice(menu.price!, spec)}</span>
+                </button>
+              );
+            })}
         </div>
       )}
       {inspectL != null && <BarInspector L={inspectL} onClose={() => setInspectL(null)} />}
