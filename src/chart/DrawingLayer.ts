@@ -7,19 +7,21 @@
 import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import type { IPrimitivePaneView, ISeriesPrimitive, ISeriesPrimitiveAxisView, PrimitiveHoveredItem, SeriesAttachedParameter, Time } from 'lightweight-charts';
 import { getSymbol } from '../../shared/symbols.js';
-import { lotsForRisk, liquidationPnl, openR, stopRiskPerLot, usdPerPriceUnit, type Trade } from '../core/trading';
-import type { Drawing, Fib, LineStyleName, LineText, NewDrawing, Position, Pt, Rect, Session, TextHAlign, Tool, TrendLine } from '../core/types';
-import { loadRectTemplate, loadTemplate } from '../drawingTemplates';
-import { dashOf, hexToRgba } from './drawUtil';
+import { lotsForRisk, liquidationPnl, openR, stopRiskPerLot, usdPerPriceUnit, widenStop, type Trade } from '../core/trading';
+import type { Drawing, Fib, HLine, LineStyleName, LineText, NewDrawing, Position, Pt, Rect, Session, TextHAlign, TextNote, Tool, TrendLine, VLine } from '../core/types';
+import { loadRectTemplate, loadTemplate } from '../prefs/drawingTemplates';
+import { dashOf, hexToRgba, rectEdgePatch, rectFillCss } from './drawUtil';
+import { TOOL_DEFAULTS } from '../prefs/drawingTemplates';
 import { arrowHead, screenAngleDeg, fmtDuration } from '../core/geometry';
 import { fibLabel, fibValue, trendStatsLines } from '../core/drawStats';
-import { fmtDistance, fmtMoney, fmtPrice, fmtR, reasonLabel } from '../format';
+import { fmtDistance, fmtMoney, fmtPrice, fmtR, reasonLabel } from '../lib/format';
 import { tfInfo } from '../core/timeframes';
 import { bucketEndAfter } from '../core/replay';
-import { addDrawing, balanceOf, deleteDrawing, drawingsOf, exitPriceNow, jumpTo, lastBarTime, recordUndo, ticketClick, ticketEntry, ticketStep, updateDrawing, useStore } from '../store';
+import { addDrawing, balanceOf, bufferedSl, placeOrderFromDrawing, deleteDrawing, drawingsOf, exitPriceNow, jumpTo, lastBarTime, recordUndo, ticketClick, ticketEntry, ticketStep, updateDrawing, useStore } from '../store';
 import type { ChartController } from './ChartController';
 
-type Part = 'body' | 'a' | 'b' | 'c1' | 'c2' | 'entry' | 'sl' | 'tp' | 'end';
+/** Dikdörtgen kenar tutamaçları: top / bottom fiyat (üst = yüksek fiyat), left / right zaman (sol = erken) kenarını çeker. */
+type Part = 'body' | 'a' | 'b' | 'c1' | 'c2' | 'top' | 'bottom' | 'left' | 'right' | 'entry' | 'sl' | 'tp' | 'end';
 interface Hit {
   id: string;
   part: Part;
@@ -30,14 +32,7 @@ const HIT_PX = 6;
 
 type DrawTool = Exclude<Tool, 'cursor' | 'measure'>;
 
-export const TOOL_DEFAULTS: Record<DrawTool, { color: string; width: number }> = {
-  hline: { color: '#2962ff', width: 1 },
-  trend: { color: '#2962ff', width: 2 },
-  rect: { color: '#2962ff', width: 1 },
-  fib: { color: '#9598a1', width: 1 },
-  long: { color: '#787b86', width: 1 },
-  short: { color: '#787b86', width: 1 },
-};
+export { TOOL_DEFAULTS };
 
 export { dashOf, hexToRgba } from './drawUtil';
 
@@ -118,8 +113,18 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     if (useStore.getState().ticket && this.isActive) return { cursorStyle: 'crosshair', externalId: '', zOrder: 'top' };
     const h = this.hitTestAt(x, y);
     if (!h) return useStore.getState().tool !== 'cursor' ? { cursorStyle: 'crosshair', externalId: '', zOrder: 'top' } : null;
-    const cursor = h.part === 'body' ? (this.canMove(h) ? 'move' : 'pointer') : h.part === 'sl' || h.part === 'tp' ? 'ns-resize' : h.part === 'end' ? 'ew-resize' : 'pointer';
+    const cursor = h.part === 'body' ? (this.canMove(h) ? 'move' : 'pointer') : h.part === 'sl' || h.part === 'tp' || h.part === 'top' || h.part === 'bottom' ? 'ns-resize' : h.part === 'end' || h.part === 'left' || h.part === 'right' ? 'ew-resize' : this.cornerCursor(h) ?? 'pointer';
     return { cursorStyle: cursor, externalId: h.id, zOrder: 'top' };
+  }
+
+  /** Dikdörtgen köşesi: köşenin yönüne göre çapraz yeniden boyutlandırma imleci (\ veya /). */
+  private cornerCursor(h: Hit): string | null {
+    const d = drawingsOf(useStore.getState().session).find((x) => x.id === h.id);
+    if (!d || d.type !== 'rect' || (h.part !== 'a' && h.part !== 'b' && h.part !== 'c1' && h.part !== 'c2')) return null;
+    const x1 = this.X(d.a.t), x2 = this.X(d.b.t), y1 = this.Y(d.a.p), y2 = this.Y(d.b.p);
+    const [hx, hy] = h.part === 'a' ? [x1, y1] : h.part === 'b' ? [x2, y2] : h.part === 'c1' ? [x1, y2] : [x2, y1];
+    // Sol-üst / sağ-alt köşeler \ yönünde, sol-alt / sağ-üst köşeler / yönünde
+    return (hx < (x1 + x2) / 2) === (hy < (y1 + y2) / 2) ? 'nwse-resize' : 'nesw-resize';
   }
 
   priceAxisViews() {
@@ -142,6 +147,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       views.push({ coordinate: () => y, text: () => fmtPrice(p, spec), textColor: () => '#fff', backColor: () => bg });
     };
     for (const d of this.drawings(st.session)) {
+      if (d.hidden) continue;
       const sel = d.id === st.selectedId || d.id === this.hoverId;
       if (d.type === 'hline') {
         if (d.showPriceLabel !== false) label(d.p, d.color);
@@ -197,17 +203,18 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.textBaseline = 'middle';
       for (const d of drawings) {
-        if (d.hiddenTfs?.includes(this.c.tf)) continue; // Görünürlük: bu zaman diliminde gizli
+        if (d.hidden || d.hiddenTfs?.includes(this.c.tf)) continue; // gizlenmiş (liste) veya bu zaman diliminde gizli
         const active = d.id === st.selectedId || d.id === this.hoverId;
         ctx.save();
         switch (d.type) {
           case 'hline': {
-            this.drawHLine(ctx, d.p, hexToRgba(d.color, d.lineAlpha ?? 1), d.width, mediaSize.width, d.style);
+            const x0 = this.rayStartX(d);
+            this.drawHLine(ctx, d.p, hexToRgba(d.color, d.lineAlpha ?? 1), d.width, mediaSize.width, d.style, x0);
             if (d.text) {
               const y = Math.round(this.Y(d.p)) + 0.5;
-              this.drawLineText(ctx, d, 0, y, mediaSize.width, y, 'right');
+              this.drawLineText(ctx, d, Math.max(0, x0), y, mediaSize.width, y, 'right');
             }
-            if (active) this.handle(ctx, mediaSize.width / 2, this.Y(d.p), d.color);
+            if (active) this.handle(ctx, d.t != null ? x0 : mediaSize.width / 2, this.Y(d.p), d.color);
             break;
           }
           case 'trend': {
@@ -257,9 +264,9 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
             const bxr = this.X(d.b.t);
             const left = d.extendLeft ? -2 : Math.min(x1, bxr);
             const right = d.extendRight ? mediaSize.width + 2 : Math.max(x1, bxr);
-            const fillOn = d.fillOn ?? (d.fillAlpha ?? 0.15) > 0;
-            if (fillOn) {
-              ctx.fillStyle = d.fillColor ? hexToRgba(d.fillColor, d.fillAlpha ?? 0.15) : d.fill;
+            const fillCss = rectFillCss(d);
+            if (fillCss) {
+              ctx.fillStyle = fillCss;
               ctx.fillRect(left, Math.min(y1, y2), right - left, Math.abs(y2 - y1));
             }
             const borderCss = hexToRgba(d.borderColor ?? d.color, d.borderAlpha ?? 1);
@@ -286,9 +293,28 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
             if (active) {
               const bx = this.X(d.b.t);
               for (const [hx, hy] of [[x1, y1], [bx, y2], [x1, y2], [bx, y1]]) this.handle(ctx, hx, hy, d.color);
+              const xm = (x1 + bx) / 2, ym = (y1 + y2) / 2;
+              for (const [hx, hy] of [[xm, y1], [xm, y2], [x1, ym], [bx, ym]]) this.handleSquare(ctx, hx, hy, d.color);
             }
             break;
           }
+          case 'vline': {
+            const x = Math.round(this.X(d.t)) + 0.5;
+            ctx.strokeStyle = hexToRgba(d.color, d.lineAlpha ?? 1);
+            ctx.lineWidth = d.width;
+            ctx.setLineDash(dashOf(d.style, d.width));
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, mediaSize.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            if (d.text) this.drawVLineText(ctx, d, x, mediaSize.height);
+            if (active) this.handle(ctx, x, mediaSize.height / 2, d.color);
+            break;
+          }
+          case 'text':
+            this.drawTextNote(ctx, d, active);
+            break;
           case 'fib':
             this.drawFib(ctx, d, active, mediaSize.width);
             break;
@@ -314,7 +340,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     const step = ticketStep(t);
     const m = this.ticketP;
     const entry = ticketEntry(t) ?? (step === 'entry' ? m : null);
-    const sl = step === 'sl' ? m : t.sl;
+    // Stop tamponu önizlemede de görünür (tıklanan noktadan tampon kadar uzak).
+    const sl = step === 'sl' ? (m != null ? widenStop(spec, t.side, m, st.session!.slBuffer ?? 0) : m) : t.sl;
     const tp = step === 'tp' ? m : null;
     const x0 = this.X(barT);
     const x1 = this.X(this.c.logicalToTime(this.c.timeToLogical(barT) + 25));
@@ -366,6 +393,64 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     this.label(ctx, `${hint} · Esc: iptal`, w / 2, 24, '#2a2e39');
     void h;
     ctx.restore();
+  }
+
+  private measureCtx: CanvasRenderingContext2D | null = null;
+
+  private fontOf(size: number, bold?: boolean, italic?: boolean) {
+    return `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  }
+
+  /** Metin notunun ekrandaki kutusu: noktanın sağında, dikeyde ortalı (isabet testi ve çizim ortak kullanır). */
+  private textBox(d: TextNote) {
+    const size = d.textSize ?? 14;
+    this.measureCtx ??= document.createElement('canvas').getContext('2d')!;
+    const m = this.measureCtx;
+    m.font = this.fontOf(size, d.bold, d.italic);
+    const lines = (d.text || ' ').split('\n');
+    const lh = size * 1.25;
+    const w = Math.max(...lines.map((l) => m.measureText(l).width)) + 12;
+    const h = lines.length * lh + 8;
+    return { left: this.X(d.a.t), top: this.Y(d.a.p) - h / 2, w, h, lines, size, lh };
+  }
+
+  private drawTextNote(ctx: CanvasRenderingContext2D, d: TextNote, active: boolean) {
+    const b = this.textBox(d);
+    if (d.bgOn) {
+      ctx.fillStyle = hexToRgba(d.bgColor ?? '#2a2e39', d.bgAlpha ?? 0.85);
+      ctx.beginPath();
+      ctx.roundRect(b.left, b.top, b.w, b.h, 4);
+      ctx.fill();
+    }
+    ctx.font = this.fontOf(b.size, d.bold, d.italic);
+    ctx.fillStyle = d.textColor ?? d.color;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    b.lines.forEach((ln, i) => ctx.fillText(ln, b.left + 6, b.top + 4 + b.lh * (i + 0.5)));
+    if (active) {
+      ctx.strokeStyle = d.color;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.strokeRect(b.left + 0.5, b.top + 0.5, b.w, b.h);
+      ctx.setLineDash([]);
+      this.handle(ctx, b.left, this.Y(d.a.p), d.color);
+    }
+  }
+
+  /** Dikey çizginin yanındaki metin: yatay hizalama çizginin sağı / solu, dikey hizalama üst / orta / alt. */
+  private drawVLineText(ctx: CanvasRenderingContext2D, d: VLine, x: number, h: number) {
+    const size = d.textSize ?? 12;
+    ctx.font = this.fontOf(size, d.bold, d.italic);
+    ctx.fillStyle = d.textColor ?? d.color;
+    ctx.textBaseline = 'middle';
+    const left = d.hAlign === 'left';
+    ctx.textAlign = left ? 'right' : 'left';
+    const lines = d.text!.split('\n');
+    const lh = size * 1.25;
+    const total = lines.length * lh;
+    const v = d.vAlign ?? 'top';
+    const y0 = v === 'top' ? 8 : v === 'bottom' ? h - total - 8 : h / 2 - total / 2;
+    lines.forEach((ln, i) => ctx.fillText(ln, x + (left ? -6 : 6), y0 + lh * (i + 0.5)));
   }
 
   /** Dikdörtgenin içindeki metin (TradingView "Metin" sekmesi): renk, boyut, kalın/italik, dikey ve yatay hizalama. */
@@ -449,13 +534,19 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     return true;
   }
 
-  private drawHLine(ctx: CanvasRenderingContext2D, p: number, color: string, width: number, w: number, style?: LineStyleName) {
+  /** Yatay ışının ekrandaki başlangıç x'i (eski tam genişlikli çizgi veya sola uzatılmış: 0). */
+  private rayStartX(d: HLine): number {
+    if (d.t == null || d.extendLeft) return 0;
+    return this.X(d.t);
+  }
+
+  private drawHLine(ctx: CanvasRenderingContext2D, p: number, color: string, width: number, w: number, style?: LineStyleName, x0 = 0) {
     const y = Math.round(this.Y(p)) + 0.5;
     ctx.strokeStyle = color;
     ctx.lineWidth = width;
     ctx.setLineDash(dashOf(style, width));
     ctx.beginPath();
-    ctx.moveTo(0, y);
+    ctx.moveTo(Math.max(0, x0), y);
     ctx.lineTo(w, y);
     ctx.stroke();
     ctx.setLineDash([]);
@@ -525,6 +616,16 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     ctx.stroke();
   }
 
+  /** Kenar ortası tutamacı (kare): dikdörtgenin bir kenarını tek başına çeker. */
+  private handleSquare(ctx: CanvasRenderingContext2D, x: number, y: number, color: string) {
+    const s = HANDLE_R - 0.5;
+    ctx.fillStyle = '#0b0c0f';
+    ctx.fillRect(x - s, y - s, s * 2, s * 2);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = color;
+    ctx.strokeRect(x - s, y - s, s * 2, s * 2);
+  }
+
   private label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, bg: string, fg = '#fff', align: 'left' | 'center' | 'right' = 'center') {
     const w = ctx.measureText(text).width + 10;
     const h = 18;
@@ -555,7 +656,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       for (let i = 1; i < on.length; i++) {
         const y0 = this.Y(priceOf(on[i - 1].v));
         const y1 = this.Y(priceOf(on[i].v));
-        ctx.fillStyle = hexToRgba(colorOf(on[i]), d.bgAlpha ?? 0.15);
+        ctx.fillStyle = hexToRgba(d.bgColor ?? colorOf(on[i]), d.bgAlpha ?? 0.15);
         ctx.fillRect(xl, Math.min(y0, y1), xr - xl, Math.abs(y1 - y0));
       }
     }
@@ -610,10 +711,11 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
 
     const pc = d.profitColor ?? '#089981';
     const lc = d.lossColor ?? '#f23645';
-    const za = d.zoneAlpha ?? 0.2;
-    ctx.fillStyle = hexToRgba(pc, za);
+    const pa = d.profitAlpha ?? d.zoneAlpha ?? 0.2;
+    const la = d.lossAlpha ?? d.zoneAlpha ?? 0.2;
+    ctx.fillStyle = hexToRgba(pc, pa);
     ctx.fillRect(x0, Math.min(yE, yTP), x1 - x0, Math.abs(yTP - yE));
-    ctx.fillStyle = hexToRgba(lc, za);
+    ctx.fillStyle = hexToRgba(lc, la);
     ctx.fillRect(x0, Math.min(yE, ySL), x1 - x0, Math.abs(ySL - yE));
 
     // İşlemin seyri: girişten çıkışa / anlık fiyata kadar koyu alan.
@@ -695,7 +797,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
 
   allowedParts(d: Drawing): Set<Part> {
     if (d.locked) return new Set<Part>(); // kilitli çizim seçilir ama taşınamaz / düzenlenemez
-    if (!isPos(d)) return new Set<Part>(['body', 'a', 'b', 'c1', 'c2']);
+    if (!isPos(d)) return new Set<Part>(d.type === 'rect' ? ['body', 'a', 'b', 'c1', 'c2', 'top', 'bottom', 'left', 'right'] : ['body', 'a', 'b', 'c1', 'c2']);
     const tr = this.tradeOf(d);
     if (!tr || tr.status === 'pending') return new Set<Part>(['body', 'entry', 'sl', 'tp', 'end']);
     if (tr.status === 'open') return new Set<Part>(['sl', 'tp', 'end']);
@@ -710,7 +812,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
   hitTestAt(x: number, y: number): Hit | null {
     const st = useStore.getState();
     if (st.hideDrawings || !st.session || !this.c.agg || this.c.lastK < 0) return null;
-    const list = this.drawings(st.session).filter((d) => !d.hiddenTfs?.includes(this.c.tf));
+    const list = this.drawings(st.session).filter((d) => !d.hidden && !d.hiddenTfs?.includes(this.c.tf));
     const near = (ax: number, ay: number) => Math.hypot(x - ax, y - ay) <= HANDLE_R + 3;
     // Önce seçili çizimin tutamaçları, sonra üstten alta diğerleri.
     const ordered = [...list].reverse().sort((a, b) => (b.id === st.selectedId ? 1 : 0) - (a.id === st.selectedId ? 1 : 0));
@@ -718,7 +820,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       const sel = d.id === st.selectedId;
       switch (d.type) {
         case 'hline':
-          if (Math.abs(y - this.Y(d.p)) <= HIT_PX) return { id: d.id, part: 'body' };
+          // Işın yalnızca başlangıcından sağa doğru tıklanabilir
+          if (Math.abs(y - this.Y(d.p)) <= HIT_PX && x >= this.rayStartX(d) - HIT_PX) return { id: d.id, part: 'body' };
           break;
         case 'trend': {
           const x1 = this.X(d.a.t), y1 = this.Y(d.a.p), x2 = this.X(d.b.t), y2 = this.Y(d.b.p);
@@ -735,6 +838,14 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
             if (near(bx, y2)) return { id: d.id, part: 'b' };
             if (near(x1, y2)) return { id: d.id, part: 'c1' };
             if (near(bx, y1)) return { id: d.id, part: 'c2' };
+            // Kenar ortası tutamaçları: üst = yüksek fiyat, sol = erken zaman
+            const xm = (x1 + bx) / 2, ym = (y1 + y2) / 2;
+            const yHi = d.a.p >= d.b.p ? y1 : y2, yLo = d.a.p >= d.b.p ? y2 : y1;
+            const xLo = d.a.t <= d.b.t ? x1 : bx, xHi = d.a.t <= d.b.t ? bx : x1;
+            if (near(xm, yHi)) return { id: d.id, part: 'top' };
+            if (near(xm, yLo)) return { id: d.id, part: 'bottom' };
+            if (near(xLo, ym)) return { id: d.id, part: 'left' };
+            if (near(xHi, ym)) return { id: d.id, part: 'right' };
           }
           const hl = d.extendLeft ? -HIT_PX : Math.min(x1, bx), hr = d.extendRight ? this.width : Math.max(x1, bx);
           if (x >= hl - HIT_PX && x <= hr + HIT_PX && y >= Math.min(y1, y2) - HIT_PX && y <= Math.max(y1, y2) + HIT_PX)
@@ -749,6 +860,14 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
           if (x >= xl - HIT_PX && x <= xr + HIT_PX) {
             for (const lv of d.levels) if (lv.on && Math.abs(y - this.Y(fibPrice(d, fibValue(lv.v, d.reverse)))) <= HIT_PX) return { id: d.id, part: 'body' };
           }
+          break;
+        }
+        case 'vline':
+          if (Math.abs(x - this.X(d.t)) <= HIT_PX) return { id: d.id, part: 'body' };
+          break;
+        case 'text': {
+          const b = this.textBox(d);
+          if (x >= b.left - HIT_PX && x <= b.left + b.w + HIT_PX && y >= b.top - HIT_PX && y <= b.top + b.h + HIT_PX) return { id: d.id, part: 'body' };
           break;
         }
         default: {
@@ -898,26 +1017,40 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
   private create(tool: DrawTool, pt: { L: number; p: number }, x: number, y: number) {
     const st = useStore.getState();
     const s = st.session!;
-    const def = TOOL_DEFAULTS[tool];
+    const def = TOOL_DEFAULTS[tool === 'ray' ? 'trend' : tool]; // ışın = sağa uzayan trend çizgisi
     const P: Pt = { t: this.c.logicalToTime(pt.L), p: pt.p };
     let id: string;
     if (tool === 'hline') {
-      id = addDrawing({ type: 'hline', p: pt.p, ...def, ...loadTemplate('hline') } as NewDrawing);
+      id = addDrawing({ type: 'hline', p: pt.p, t: P.t, ...def, ...loadTemplate('hline') } as NewDrawing);
       useStore.setState({ selectedId: id, ...(useStore.getState().stayInDraw ? {} : { tool: 'cursor' as const }) });
+    } else if (tool === 'vline') {
+      id = addDrawing({ type: 'vline', t: P.t, ...def, ...loadTemplate('vline') } as NewDrawing);
+      useStore.setState({ selectedId: id, ...(useStore.getState().stayInDraw ? {} : { tool: 'cursor' as const }) });
+    } else if (tool === 'text') {
+      // Metin notu: tıklanan noktaya konur ve hemen yazı penceresi açılır (boş bırakılırsa silinir)
+      id = addDrawing({ type: 'text', a: P, text: '', ...def, ...loadTemplate('text') } as NewDrawing);
+      useStore.setState({ selectedId: id, editingId: id, tool: 'cursor' as const });
     } else if (tool === 'long' || tool === 'short') {
       const dir = tool === 'long' ? 1 : -1;
       const p40 = this.c.yToPrice(y + 40);
       const dist = (this.c.atrAt(pt.L) ?? 0) * 1.5 || (p40 != null ? Math.abs(pt.p - p40) : pt.p * 0.002);
+      // Alt çubuktaki "SL +" tamponu araçla bırakılan pozisyonda da uygulanır; TP, tampon dahil gerçek stop mesafesinin 2R'si
+      const sl = bufferedSl(s, tool, this.c.roundPrice(pt.p - dir * dist));
+      const tp = this.c.roundPrice(pt.p + dir * Math.abs(pt.p - sl) * 2);
       id = addDrawing({
         type: tool,
         ...def,
         entry: P,
-        sl: this.c.roundPrice(pt.p - dir * dist),
-        tp: this.c.roundPrice(pt.p + dir * dist * 2),
+        sl,
+        tp,
         tEnd: this.c.logicalToTime(pt.L + 25),
         riskPct: s.riskPct,
+        // Alt çubukta "Lot" seçiliyse çizim sabit lotla başlar (ayarlardan / araç çubuğundan değiştirilir)
+        ...(st.sizing === 'lots' ? { lots: s.lots } : {}),
         ...loadTemplate(tool),
       } as NewDrawing);
+      // FX Replay gibi: araç bırakıldığı fiyatta bekleyen limit / stop emri olur (kapatılabilir: alt çubuk "Çizince emir")
+      if (useStore.getState().autoOrder) placeOrderFromDrawing(id, false);
       useStore.setState({ selectedId: id, ...(useStore.getState().stayInDraw ? {} : { tool: 'cursor' as const }) });
     } else {
       const base = { ...def, a: P, b: { ...P } };
@@ -926,7 +1059,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
           ? addDrawing({ type: 'rect', ...base, fill: hexToRgba(def.color, 0.15), ...loadRectTemplate() })
           : tool === 'fib'
             ? addDrawing({ type: 'fib', ...base, levels: s.fibDefaults.map((l) => ({ ...l })), ...loadTemplate('fib') } as NewDrawing)
-            : addDrawing({ type: 'trend', ...base, ...loadTemplate('trend') } as NewDrawing);
+            : addDrawing({ type: 'trend', ...base, ...loadTemplate('trend'), ...(tool === 'ray' ? { extendRight: true } : {}) } as NewDrawing);
       this.creating = { id, downX: x, downY: y };
       useStore.setState({ selectedId: id });
     }
@@ -939,7 +1072,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     if (!c) return;
     const d = drawingsOf(useStore.getState().session).find((x) => x.id === c.id);
     // Tek tıklamayla bırakılmış (sıfır boyutlu) çizimleri sil.
-    if (d && 'a' in d && d.a.t === d.b.t && d.a.p === d.b.p) deleteDrawing(c.id, false);
+    if (d && 'a' in d && 'b' in d && d.a.t === d.b.t && d.a.p === d.b.p) deleteDrawing(c.id, false);
     if (!useStore.getState().stayInDraw) useStore.setState({ tool: 'cursor' });
     this.requestUpdate();
   }
@@ -1034,7 +1167,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     let patch: Partial<Drawing> = {};
     switch (orig.type) {
       case 'hline':
-        patch = { p: r(orig.p + dp) };
+        // Işın: başlangıç noktası da zamanda kayar
+        patch = { p: r(orig.p + dp), ...(orig.t != null ? { t: shiftT(orig.t) } : {}) };
         break;
       case 'trend':
       case 'rect':
@@ -1043,7 +1177,14 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
         else if (hit.part === 'b') patch = { b: at() };
         else if (hit.part === 'c1') patch = { a: { t: at().t, p: orig.a.p }, b: { t: orig.b.t, p: pt.p } };
         else if (hit.part === 'c2') patch = { a: { t: orig.a.t, p: pt.p }, b: { t: at().t, p: orig.b.p } };
+        else if (orig.type === 'rect' && (hit.part === 'top' || hit.part === 'bottom' || hit.part === 'left' || hit.part === 'right')) patch = rectEdgePatch(orig.a, orig.b, hit.part, at());
         else patch = { a: { t: shiftT(orig.a.t), p: r(orig.a.p + dp) }, b: { t: shiftT(orig.b.t), p: r(orig.b.p + dp) } };
+        break;
+      case 'vline':
+        patch = { t: shiftT(orig.t) };
+        break;
+      case 'text':
+        patch = { a: { t: shiftT(orig.a.t), p: r(orig.a.p + dp) } };
         break;
       default: {
         const long = orig.type === 'long';

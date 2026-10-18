@@ -28,6 +28,8 @@ interface Base {
   hiddenTfs?: TF[];
   /** Kilitli çizim seçilebilir ama taşınamaz / düzenlenemez (TradingView "Kilitle") */
   locked?: boolean;
+  /** Çizim listesinden gizlendi: çizilmez, tıklanamaz (silinmez) */
+  hidden?: boolean;
   /** Çizgi opaklığı 0-1 (yok = 1): TradingView renk seçicisindeki opaklık */
   lineAlpha?: number;
 }
@@ -52,8 +54,35 @@ export interface LineText {
 export interface HLine extends Base, LineText {
   type: 'hline';
   p: number;
+  /** Yatay ışının başlangıç zamanı (UTC); sağa doğru uzar. Yok = eski tam genişlikli yatay çizgi. */
+  t?: number;
+  /** Işın başlangıcından sola da uzat (tam genişlikli yatay çizgi) */
+  extendLeft?: boolean;
   /** Sağ eksendeki fiyat etiketi (yok = göster) */
   showPriceLabel?: boolean;
+}
+
+/** Dikey çizgi: tek bir zamanı işaretler (seans açılışı, haber saati, önemli mum vb.); metin çizginin yanında durur. */
+export interface VLine extends Base, LineText {
+  type: 'vline';
+  /** UTC saniye */
+  t: number;
+}
+
+/** Serbest metin notu: grafikte bir fiyat/zaman noktasına yazılır, isteğe bağlı arkaplanlı. */
+export interface TextNote extends Base {
+  type: 'text';
+  a: Pt;
+  text: string;
+  /** Metin rengi (yok = color) ve yazı tipi */
+  textColor?: string;
+  textSize?: number;
+  bold?: boolean;
+  italic?: boolean;
+  /** Arkaplan kutusu */
+  bgOn?: boolean;
+  bgColor?: string;
+  bgAlpha?: number;
 }
 
 export type LineEnd = 'normal' | 'arrow';
@@ -122,6 +151,8 @@ export interface Fib extends Base {
   /** Seviyeler arasındaki arkaplan dolgusu (TradingView "Arkaplan"): açık mı ve opaklığı (yok = kapalı / 0.15) */
   bgOn?: boolean;
   bgAlpha?: number;
+  /** Arkaplan tek renk (yok = her aralık üst seviyenin rengiyle) */
+  bgColor?: string;
   // --- TradingView "Fib Retracement" ayarları (hepsi isteğe bağlı) ---
   /** Trend çizgisi (a-b kesikli çizgisi): göster (yok = evet), renk, kalınlık, stil */
   showTrend?: boolean;
@@ -150,11 +181,16 @@ export interface Position extends Base {
   tp: number;
   tEnd: number;
   riskPct: number;
+  /** Sabit lot (yok = risk % ile hesaplanır) */
+  lots?: number;
   tradeId?: string;
   /** Kâr (hedef) ve zarar (stop) bölgelerinin renkleri ve arkaplan opaklığı (yok = yeşil / kırmızı, 0.2) */
   profitColor?: string;
   lossColor?: string;
   zoneAlpha?: number;
+  /** Kâr / zarar bölgesi opaklıkları ayrı ayrı (yok = zoneAlpha) */
+  profitAlpha?: number;
+  lossAlpha?: number;
   /** Giriş çizgisi ve yazı rengi (yok = gri / beyaz) */
   lineColor?: string;
   textColor?: string;
@@ -163,34 +199,40 @@ export interface Position extends Base {
   compact?: boolean;
 }
 
-export type Drawing = HLine | TrendLine | Rect | Fib | Position;
+export type Drawing = HLine | VLine | TrendLine | Rect | Fib | Position | TextNote;
 /** Kimliği henüz atanmamış çizim (birleşim tipine dağıtılmış Omit). */
 export type NewDrawing = Drawing extends infer D ? (D extends Drawing ? Omit<D, 'id'> : never) : never;
 export type DrawingType = Drawing['type'];
-export type Tool = 'cursor' | 'measure' | DrawingType;
+/** 'ray' ayrı bir çizim tipi değil: sağa uzayan trend çizgisi olarak oluşturulur. */
+export type Tool = 'cursor' | 'measure' | 'ray' | DrawingType;
 
 /** Çoklu ekranda bir grafiğin sembolü ve zaman dilimi. */
 export interface PaneCfg {
   symbol: string;
   tf: TF;
 }
-export type LayoutId = '1' | '2v' | '2h' | '3' | '4';
-/** Düzen başına varsayılan bölücü konumu (3 ekranda sol sütun 2/3 genişliğinde). */
-export const defaultSplit = (layout: LayoutId): { x: number; y: number } => ({ x: layout === '3' ? 2 / 3 : 0.5, y: 0.5 });
-export const SPLIT_MIN = 0.12;
-export const clampSplit = (v: number) => Math.min(1 - SPLIT_MIN, Math.max(SPLIT_MIN, v));
-export const LAYOUTS: Record<LayoutId, { count: number; label: string }> = {
-  '1': { count: 1, label: 'Tek ekran' },
-  '2v': { count: 2, label: '2 ekran (yan yana)' },
-  '2h': { count: 2, label: '2 ekran (alt alta)' },
-  '3': { count: 3, label: '3 ekran' },
-  '4': { count: 4, label: '4 ekran (2×2)' },
-};
+import type { LayoutId } from './layouts';
+export { LAYOUTS, type LayoutId } from './layouts';
+
+/** Çoklu ekran senkronu (TradingView "Yerleşimde senkronize et"). */
+export interface SyncCfg {
+  /** Sembol değişince tüm ekranlar değişir */
+  symbol: boolean;
+  /** Zaman dilimi (aralık) değişince tüm ekranlar değişir */
+  tf: boolean;
+  /** Artı işareti: imleç aynı zamanda diğer ekranlarda da görünür */
+  crosshair: boolean;
+  /** Zaman: bir grafiği kaydırınca diğerlerinin sağ kenarı aynı zamana gelir (kendi yakınlaştırmaları korunur) */
+  time: boolean;
+  /** Tarih aralığı: görünen aralık (kaydırma + yakınlaştırma) tüm ekranlarda aynı olur */
+  range: boolean;
+}
+export const DEFAULT_SYNC: SyncCfg = { symbol: false, tf: false, crosshair: true, time: false, range: false };
 
 export interface Session {
   id: string;
   name: string;
-  /** Veri kaynağı (eski oturumlarda yok = histdata) */
+  /** Veri kaynağı: her zaman Dukascopy (eski HistData / OANDA oturumları açılışta buna çevrilir) */
   source?: DataSource;
   /** Hesap kuralları ve durumu (eski oturumlarda yok = kuralsız kişisel hesap) */
   account?: Account;
@@ -205,12 +247,18 @@ export interface Session {
   tf: TF;
   /** Çoklu ekran: düzen, her grafiğin ayarı ve aktif grafik (eski oturumlarda yok = tek ekran) */
   layout?: LayoutId;
-  /** Ekran bölücü konumları (0-1): x = sütun ayrımı, y = satır ayrımı. Yoksa düzenin varsayılanı. */
-  split?: { x: number; y: number };
+  /** Bölücü oranları: düğüm yoluna göre (bkz. core/layouts.ts). Yoksa düzenin varsayılanı. */
+  splits?: Record<string, number[]>;
+  /** Ekranlar arası senkron ayarları (yoksa DEFAULT_SYNC) */
+  sync?: SyncCfg;
   panes?: PaneCfg[];
   active?: number;
   stepTf: TF;
+  /** Adım zaman dilimi grafiğin zaman dilimini izler (yok = evet). Elle adım seçilince false olur. */
+  stepSync?: boolean;
   speed: number;
+  /** Stop tamponu: emirlerde SL bu kadar pip/puan daha geniş konur (yok = 0) */
+  slBuffer?: number;
   riskPct: number;
   lots: number;
   /** Komisyon, USD / lot, GİDİŞ-DÖNÜŞ (isteğe bağlı; yok = 0). Her işlem açılırken değeri işlemin kendisine yazılır. */

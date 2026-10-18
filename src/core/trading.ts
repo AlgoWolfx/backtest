@@ -1,9 +1,9 @@
 // Emir / pozisyon simülasyonu. Her açıklanan 1m mum için çalışır.
 //
 // Varsayımlar (muhafazakâr):
-//   - Grafik bid fiyatıdır. Kaynakta ask varsa (OANDA) gerçek spread uygulanır:
+//   - Grafik bid fiyatıdır. Kaynakta ask varsa (Dukascopy) gerçek spread uygulanır:
 //     long ask'tan açılır / bid ile kapanır, short bid'den açılır / ask ile kapanır.
-//     Ask yoksa (HistData) spread 0 kabul edilir. Komisyon uygulanmaz.
+//     Ask yoksa spread 0 kabul edilir. Komisyon uygulanmaz.
 //   - Aynı 1m mumda hem SL hem TP görülürse önce SL vurulmuş sayılır (işlem `flags`'ine 'sl-tp-same-bar' yazılır).
 //   - Fiyat SL/TP'nin ötesinde açılırsa (gap) çıkış açılış fiyatından olur. Hiçbir çıkış, mumun
 //     işlem görmediği bir fiyattan yazılmaz.
@@ -43,6 +43,21 @@ export type TradeFlag = 'sl-tp-same-bar' | 'fill-bar-tp-unknown' | 'fill-bar-sl-
  */
 export const EXECUTION_MODEL = 3;
 
+/** İşlem kapanınca doldurulan değerlendirme: neden girdim, hatalarım, ders. */
+export interface TradeReview {
+  /** Neden işleme girdim (setup / gerekçe) */
+  reason: string;
+  /** Seçilen hata etiketleri (bkz. core/review.ts) */
+  mistakes: string[];
+  /** Hatalarım / ne yanlış gitti (serbest metin) */
+  mistakeText: string;
+  /** Ders: bir dahaki sefere ne yapacağım */
+  lesson: string;
+  /** İşlem kalitesi / plana uyum, 1-5 (yok = verilmedi) */
+  rating?: number;
+  reviewedAt: number;
+}
+
 export interface Trade {
   id: string;
   symbol: string;
@@ -65,8 +80,12 @@ export interface Trade {
   drawingId?: string;
   /** Giriş / çıkış anında alınan grafik görüntüleri (dosya adları) */
   shots?: { open?: string; close?: string };
+  /** Risk % ile boyutlandırılmışsa kullanılan yüzde: bekleyen emrin SL'si / girişi değişince lot buna göre yeniden hesaplanır */
+  riskPct?: number;
   /** Günlük notu */
   note?: string;
+  /** İşlem sonrası değerlendirme (kapanışta açılan pencereden) */
+  review?: TradeReview;
   /** Mum içi sıra belirsizliği nedeniyle yapılan varsayımlar (bkz. TradeFlag) */
   flags?: TradeFlag[];
   /** Açılışta işleme yazılan komisyon (USD / lot, gidiş-dönüş); sonradan ayar değişse de bu işlem değişmez */
@@ -122,6 +141,15 @@ export function lotRules(spec: SymbolSpec): { minLot: number; lotStep: number } 
 
 /** minLot / lotStep geçerli (sonlu ve > 0) mi? */
 const validLotRules = (r: { minLot: number; lotStep: number }) => Number.isFinite(r.minLot) && r.minLot > 0 && Number.isFinite(r.lotStep) && r.lotStep > 0;
+
+/**
+ * Stop tamponu: SL'yi, sembolün pip/puan biriminde `bufferPips` kadar girişten uzaklaştırır
+ * (long'da aşağı, short'ta yukarı). Geçersiz veya sıfır tampon stopu değiştirmez.
+ */
+export function widenStop(spec: SymbolSpec, side: Side, sl: number, bufferPips: number): number {
+  if (!Number.isFinite(bufferPips) || bufferPips <= 0) return sl;
+  return sl - dirOf(side) * bufferPips * spec.pip;
+}
 
 /** Stop'ta 1 lotun USD zararı. JPY dönüşümü, gerçekleşen SL P&L'sinin (calcPnl) kullandığı çıkış kuruyla (SL) yapılır. */
 export const stopRiskPerLot = (spec: SymbolSpec, entry: number, sl: number): number => Math.abs(entry - sl) * usdPerPriceUnit(spec, sl);

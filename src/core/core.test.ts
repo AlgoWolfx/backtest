@@ -83,7 +83,7 @@ function synthetic(start: number, n: number): M1Data {
     h[i] = 100000 + i + 5;
     l[i] = 100000 + i - 5;
   }
-  return { id: `TEST${start}`, source: 'histdata', n, scale: 1e5, t, o, h, l, c, src: new Uint8Array(n), meta: { id: 'TEST', count: n, scale: 1e5, from: start, to: start + n * 60, gaps: [], missingHoursByYear: {}, builtAt: '', source: '' } };
+  return { id: `TEST${start}`, source: 'dukascopy', n, scale: 1e5, t, o, h, l, c, src: new Uint8Array(n), meta: { id: 'TEST', count: n, scale: 1e5, from: start, to: start + n * 60, gaps: [], missingHoursByYear: {}, builtAt: '', source: '' } };
 }
 
 describe('replay ve geleceğe bakmama', () => {

@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react';
-import { chartRef } from './chartRef';
+import { chartRef } from './chart/chartRef';
 import { TIMEFRAMES, type TF } from './core/timeframes';
-import type { Tool } from './core/types';
-import { BottomBar, LeftToolbar, TopBar } from './components/Bars';
-import { ChartArea } from './components/ChartView';
-import { ChartSettings, DrawingEditor, JumpDialog, Toast } from './components/Dialogs';
-import { SessionScreen } from './components/SessionScreen';
-import { TradePanel } from './components/TradePanel';
-import { PerformancePage } from './components/PerformancePage';
-import { toggleFullscreen } from './fullscreen';
-import { cancelTicket, copySelected, deleteDrawing, forwardToBarClose, forwardToNextSessionBoundary, init, pasteClipboard, redo, setTf, stepBack, stepForward, toast, togglePlay, undo, useStore } from './store';
+import { LAYOUTS, type Tool } from './core/types';
+import { BottomBar } from './components/shell/BottomBar';
+import { LeftToolbar } from './components/shell/LeftToolbar';
+import { TopBar } from './components/shell/TopBar';
+import { ChartArea } from './components/chart/ChartArea';
+import { ChartSettings } from './components/settings/ChartSettings';
+import { DrawingEditor } from './components/drawing/DrawingEditor';
+import { JumpDialog } from './components/replay/JumpDialog';
+import { Toast } from './components/common/Toast';
+import { SessionScreen } from './components/session/SessionScreen';
+import { TradePanel } from './components/trades/TradePanel';
+import { PerformancePage } from './components/performance/PerformancePage';
+import { ObjectList } from './components/drawing/ObjectList';
+import { TradeReviewModal } from './components/trades/TradeReview';
+import { toggleFullscreen } from './lib/fullscreen';
+import { cancelTicket, copySelected, deleteDrawing, forwardToBarClose, forwardToNextSessionBoundary, init, pasteClipboard, redo, setTf, stepBack, stepForward, toast, toggleMaxPane, togglePlay, undo, useStore } from './store';
 
-const TOOL_KEYS: Record<string, Tool> = { KeyT: 'trend', KeyH: 'hline', KeyR: 'rect', KeyF: 'fib', KeyL: 'long', KeyS: 'short', KeyM: 'measure' };
+const TOOL_KEYS: Record<string, Tool> = { KeyT: 'trend', KeyY: 'ray', KeyH: 'hline', KeyV: 'vline', KeyX: 'text', KeyR: 'rect', KeyF: 'fib', KeyL: 'long', KeyS: 'short', KeyM: 'measure' };
 
 /** TradingView gibi yazılan zaman dilimi: "15" -> 15m, "60" -> 1H, "4h" -> 4H, "D" -> 1D ... */
 export function parseTfInput(s: string): TF | null {
@@ -54,7 +61,7 @@ export function App() {
 
     const onKey = (e: KeyboardEvent) => {
       const st = useStore.getState();
-      if (!st.session || st.editingId || st.jumpOpen || st.perfOpen || st.chartSettingsOpen) return;
+      if (!st.session || st.editingId || st.jumpOpen || st.perfOpen || st.chartSettingsOpen || st.reviewQueue.length) return;
       const el = e.target as HTMLElement;
       if (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') return;
       const ctrl = e.ctrlKey || e.metaKey;
@@ -73,6 +80,11 @@ export function App() {
       if (e.altKey && TOOL_KEYS[e.code]) {
         e.preventDefault();
         useStore.setState({ tool: TOOL_KEYS[e.code], selectedId: null });
+        return;
+      }
+      if (e.altKey && e.key === 'Enter') {
+        e.preventDefault();
+        if (LAYOUTS[st.session.layout ?? '1'].count > 1) toggleMaxPane(st.session.active ?? 0);
         return;
       }
       if (e.altKey) return;
@@ -127,6 +139,7 @@ export function App() {
         case 'Escape': {
           const layer = chartRef.current?.layer;
           if (st.ticket) cancelTicket();
+          else if (st.maxPane != null) useStore.setState({ maxPane: null });
           else if (st.pickingStart) useStore.setState({ pickingStart: false });
           else if (!layer?.cancelCreate() && !layer?.clearMeasure()) useStore.setState({ tool: 'cursor', selectedId: null });
           break;
@@ -149,9 +162,11 @@ export function App() {
       {panelOpen && <TradePanel />}
       <BottomBar />
       <DrawingEditor />
+      <ObjectList />
       <JumpDialog />
       <ChartSettings />
       <PerformancePage />
+      <TradeReviewModal />
       <Toast />
       {tfBuf && (
         <div className="tf-typing">
