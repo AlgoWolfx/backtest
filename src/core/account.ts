@@ -53,6 +53,8 @@ export interface AccountState {
   ddClose?: { abs: number; pct: number };
   /** Mum içi en kötü equity ile (önceki dakika sonlarına kadarki) zirve arasındaki en büyük düşüş */
   ddLow?: { abs: number; pct: number };
+  /** Equity metriklerinin (peakEquity, ddClose, ddLow, uyarılar) ölçülmeye başlandığı zaman; öncesi ölçülmemiştir (eski oturumlar) */
+  equityMetricsSince?: number;
   /** Belirsiz mumda olası limit ihlali uyarıları (hesap patlatmaz; sıra bilinemez) */
   warnings?: { t: number; text: string }[];
 }
@@ -84,7 +86,7 @@ export const ACCOUNT_PRESETS: { id: string; label: string; rules: AccountRules }
 export function newAccount(rules: AccountRules, initial: number, startTime: number): Account {
   return {
     rules,
-    state: { status: 'active', peakBalance: initial, dayKey: resetDay(startTime, rules.resetMode), dayStartBalance: initial, tradingDays: [], worstDailyLoss: 0, minEquity: initial },
+    state: { status: 'active', peakBalance: initial, dayKey: resetDay(startTime, rules.resetMode), dayStartBalance: initial, tradingDays: [], worstDailyLoss: 0, minEquity: initial, equityMetricsSince: startTime },
   };
 }
 
@@ -138,6 +140,7 @@ export function evaluate(a: Account, initial: number, t: number, balance: number
     worstDailyLoss: Math.max(st.worstDailyLoss, st.dayStartBalance - equityLow),
     minEquity: Math.min(st.minEquity, equityLow),
     peakEquity: peakAfter,
+    equityMetricsSince: st.equityMetricsSince ?? t,
     ddClose: trackDd(st.ddClose, peakAfter, equityClose),
     ddLow: trackDd(st.ddLow, peakBefore, equityLow),
   };

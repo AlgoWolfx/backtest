@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { getSymbol } from '../../shared/symbols.js';
-import { calcPnl, calcR, entryTime, type Trade } from '../core/trading';
+import { entryTime, liquidationPnl, openR, type Trade } from '../core/trading';
 import { fmtMoney, fmtNyShort, fmtPrice, fmtR, reasonLabel } from '../format';
 import { closeTradeManual, exitPriceNow, setSymbol, useStore } from '../store';
 
@@ -94,8 +94,8 @@ function OpenTable({ trades }: { trades: Trade[] }) {
         {trades.map((t) => {
           const spec = getSymbol(t.symbol);
           const px = exitPriceNow(t);
-          const pnl = t.status === 'open' && px != null ? calcPnl(spec, t.side, t.entry, px, t.lots) : null;
-          const r = t.status === 'open' && px != null ? calcR(t.side, t.entry, px, t.initialSl) : null;
+          const pnl = t.status === 'open' && px != null ? liquidationPnl(spec, t, px) : null;
+          const r = t.status === 'open' && px != null ? openR(spec, t, px) : null;
           return (
             <tr key={t.id} onClick={() => goTo(t)}>
               <td>{t.symbol}</td>

@@ -2,7 +2,7 @@
 
 import { getSymbol } from '../../shared/symbols.js';
 import { revealedCount, type M1Data } from './data';
-import { applyCandle, calcPnl, type Candle, closeTrade, exitSide, type Trade } from './trading';
+import { applyCandle, calcPnl, type Candle, closeTrade, exitSide, liquidationPnl, type Trade } from './trading';
 import { afterBalanceChange, evaluate, noteTradingDay, rollDay, type Account } from './account';
 import type { Session } from './types';
 
@@ -69,6 +69,8 @@ export function simulate(s: Session, newTime: number, dataOf: (symbol: string) =
     const batch = cursors.filter((c) => c.i < c.to && c.d.t[c.i] === minT && hasActive(c.sym));
     const inBatch = new Set(batch.map((c) => c.sym));
     const closeTime = minT + 60;
+    // Mum başlamadan önce açık olan işlemler: açılış quote'ları (bid ve ask SENKRON bilinir) gözlenen bir equity noktasıdır.
+    const openAtStart = new Set(trades.filter((t) => t.status === 'open').map((t) => t.id));
     if (account) account = { ...account, state: rollDay(account.state, minT, balance, account.rules.resetMode) };
 
     let changed = false;
@@ -101,26 +103,34 @@ export function simulate(s: Session, newTime: number, dataOf: (symbol: string) =
     if (changed && (firstEvent == null || closeTime < firstEvent)) firstEvent = closeTime;
 
     if (account && account.state.status !== 'failed') {
-      // Bu dakikadaki en kötü equity: bu dakikanın mumunu gören sembollerde mumun en kötü ucu, diğerlerinde son kapanış.
-      // Yönler aynı anda en kötüsünü görmüş sayılır (korelasyonlu, muhafazakâr ve sıradan bağımsız).
+      // Equity değerlemesi. Aynı sembolün pozisyonları ORTAK fiyat senaryolarında birlikte değerlenir
+      // (long bid'den, short ask'tan): zıt yönlü pozisyonların bağımsız en kötü uçlarını toplamak ekonomik
+      // olarak imkânsız bir zarar uydurur (ör. eşit long+short = 0). Senaryolar:
+      //   - GÖZLENEN: mum açılışı ve kapanışı (bid ve ask senkron quote çiftleri; açılışta zaten açık işlemler için);
+      //   - VARSAYIMSAL: 'düşük' çifti (bid low + ask low) ve 'yüksek' çifti. Değişken spreadde bid ve ask uçlarının
+      //     aynı anda oluştuğu garanti DEĞİLDİR; bu çiftler bir alt/üst sınır değil, seçilmiş senaryolardır.
+      // Farklı semboller için eşzamanlılık bilinmez: her sembolün en kötü senaryosu toplanır (seçilmiş muhafazakâr
+      // senaryo, tick bazlı kesin olay değil). Komisyon 'şimdi likide edilirse net' değerdir.
       let equityLow = balance;
       let equityClose = balance;
-      for (const tr of trades) {
-        if (tr.status !== 'open') continue;
-        const kk = lastOf(tr.symbol);
+      const openBySym = new Map<string, Trade[]>();
+      for (const tr of trades) if (tr.status === 'open') openBySym.set(tr.symbol, [...(openBySym.get(tr.symbol) ?? []), tr]);
+      for (const [osym, trs] of openBySym) {
+        const kk = lastOf(osym);
         if (!kk) continue;
-        const x = exitSide(tr.side, kk);
-        const worst = inBatch.has(tr.symbol) ? (tr.side === 'long' ? x.l : x.h) : x.c;
-        const sp = getSymbol(tr.symbol);
-        equityLow += calcPnl(sp, tr.side, tr.entry, worst, tr.lots);
-        equityClose += calcPnl(sp, tr.side, tr.entry, x.c, tr.lots);
+        const sp = getSymbol(osym);
+        const at = (pick: 'o' | 'l' | 'h' | 'c', only?: Set<string>) =>
+          trs.reduce((sum, tr) => (only && !only.has(tr.id) ? sum : sum + liquidationPnl(sp, tr, exitSide(tr.side, kk)[pick])), 0);
+        equityClose += at('c');
+        equityLow += inBatch.has(osym) ? Math.min(at('o', openAtStart), at('l'), at('h'), at('c')) : at('c');
       }
       // Aynı dakikada TP ile kapanan işlemlerin olası kapanış öncesi dibi (yalnızca uyarı için, hesabı patlatmaz).
+      // Kapanıştan önce pozisyon hâlâ açıktı: dip değeri brüt K/Z farkıyla eklenir (komisyon iki tarafta da var, sadeleşir).
       let equityLowPossible = equityLow;
       for (const { tr, k } of tpClosed) {
         const x = exitSide(tr.side, k);
         const worst = tr.side === 'long' ? x.l : x.h;
-        equityLowPossible += Math.min(0, calcPnl(getSymbol(tr.symbol), tr.side, tr.entry, worst, tr.lots) - (tr.pnl ?? 0));
+        equityLowPossible += Math.min(0, calcPnl(getSymbol(tr.symbol), tr.side, tr.entry, worst, tr.lots) - (tr.grossPnl ?? tr.pnl ?? 0));
       }
       const ev = evaluate(account, initial, minT, balance, equityLow, { equityClose, equityLowPossible });
       account = ev.account;

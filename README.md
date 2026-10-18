@@ -134,8 +134,9 @@ oluşturulur. Örneğin 1H mumun bitmesine 20 dakika varsa mum 40 dakikalık ver
 | Mum inceleme, CSV, son muma git | grafikte sağ tık |
 
 **Replay'i geri alma:** Kayıtlı bir işlem olayından (emir, açılış, kapanış) önceki bir zamana replay geri alınamaz;
-aksi halde gelecekteki kâr bakiyede kalır ve aynı hareket bilerek tekrar işlenebilirdi. Geçmişe bakmak için grafiği
-kaydırın; aynı hareketi yeniden denemek için yeni oturum açın. İşlem yokken geri almak serbesttir.
+ölçüm kronolojisini korumak için (aksi halde gelecekteki kâr bakiyede kalırdı). Geçmişe bakmak için grafiği
+kaydırın; aynı hareketi yeniden denemek için yeni oturum açın. İşlem yokken geri almak serbesttir. Eski bir sürümde
+geri sarılmış, kronolojisi tutarsız oturumlar açılışta ve Performans sayfasında uyarıyla işaretlenir; kayıtlar silinmez.
 
 Geri al yalnızca çizimleri etkiler; işlemler geri alınamaz. Aktif işleme bağlı pozisyon çizimi geri
 alma ile silinmez (SL/TP değişikliği geri alınabilir).
@@ -173,8 +174,27 @@ Limit: Buy için giriş anlık fiyatın altında, Sell için üstünde; Stop: te
 - **Mum içi sıra:** 1m OHLC, high/low sırasını söylemez; tick verisi olmadan kesin sıra iddia edilmez.
   Sıranın sonucu değiştirdiği durumlar işlemde işaretlenir (günlükte "⚠ mum içi sıra varsayımı"):
   aynı mumda SL ve TP ikisi de görülmüşse SL-önce; bekleyen emir mumun **açılışında** doluyorsa (gap) mumun
-  tamamı dolumdan sonradır ve TP de sayılır; emir mum **içinde** doluyorsa SL görüldüyse zarar, TP sayılmaz.
-- R, ilk SL mesafesine göre hesaplanır; |R| < 0,1 ise sonuç BE sayılır. Bir işlem kapandığında oynatma durur.
+  tamamı dolumdan sonradır ve TP de sayılır; emir mum **içinde** doluyorsa yalnızca **kanıtlanabilir** TP sayılır
+  (stop emrinde TP girişin ötesinde olduğundan önce giriş aşılır; limit emrinde mum TP'nin ötesinde kapanıyorsa
+  dolumdan sonra TP geçilmek zorundadır; bid/ask'ta ask >= bid olduğundan bu argümanlar spreadle de geçerlidir),
+  kanıtlanamayan TP sayılmaz ve işaretlenir; SL görüldüyse muhafazakâr olarak zarar yazılır. SL dolum anında zaten
+  tetiklenmişse çıkış, SL'ye en yakın **erişilebilir** fiyattan yazılır.
+- **Yürütme modeli sürümü:** Oturum açıldığı sürümü saklar ve her kapanan işlem kapandığı andaki sürümü taşır (şu an v3;
+  eski oturumlar v1). Kural değişince sürüm artar; eski işlemler yeniden hesaplanmaz, eski oturumda devam edince
+  "v1 işlemleri + v3 işlemleri" olarak ayrı gösterilir (Performans sayfası).
+- **Equity ve komisyon:** Açık pozisyonun equity'si "şimdi likide edilirse net" değerdir (komisyon rezerve edilir,
+  kapanışta tekrar düşülmez). Aynı sembolün pozisyonları ortak fiyat senaryosunda birlikte değerlenir (long bid'den, short
+  ask'tan); eşit long+short zarar üretmez. Equity dibi, **gözlenen** senkron quote çiftleri (mum açılışı ve kapanışı) ile
+  **varsayımsal** uç çiftlerinin (bid low + ask low, bid high + ask high) en kötüsüdür; değişken spreadde bid ve ask
+  uçlarının aynı anda oluştuğu garanti değildir, bu yüzden uç çiftleri alt/üst sınır sayılmaz. Farklı semboller için en
+  kötü senaryolar toplanır: seçilmiş muhafazakâr bir senaryodur, tick bazlı kesin bir olay değil. Bid/ask modelinde
+  geçerli bir quote'un her an ask >= bid olduğu varsayılır (veride ask < bid dakikası 0).
+- **Simüle edilmeyenler:** slippage, swap / gece taşıma maliyeti, margin kontrolü ve stop-out. Bunlar broker ve veri
+  kaynağı gerektirir; uydurma sayı eklenmez. Lot hesabında JPY dönüşümü SL kuruyla yapılır (gerçekleşen SL zararı
+  bütçeyi aşmaz).
+- **R = net K/Z / ilk parasal stop riski** (stopta 1 lotun USD zararı x lot). Lot hesabı, etiketler, CSV ve Performans aynı
+  tanımı kullanır; JPY gibi dönüşümlü çiftlerde fiyat mesafesi oranından (R:R) farklı olabilir. |R| < 0,1 ise sonuç BE sayılır.
+  Bir işlem kapandığında oynatma durur.
 
 İleri sarmalarda (NY saatine, mum kapanışına, tarihe git) açık işlem SL/TP'ye değerse veya bekleyen emir
 dolarsa sarma tam o dakikada durur. Oynatma da emir dolduğunda ve işlem kapandığında durur.

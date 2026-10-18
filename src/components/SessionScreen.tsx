@@ -150,7 +150,7 @@ export function SessionScreen() {
               <span>Günlük sıfırlama</span>
               <select value={rules.resetMode ?? 'ny17'} onChange={(e) => setRule({ resetMode: e.target.value as AccountRules['resetMode'] })}>
                 <option value="ny17">NY 17:00 (forex günü)</option>
-                <option value="cet0">Avrupa gece yarısı (CE(S)T 00:00)</option>
+                <option value="cet0">Orta Avrupa gece yarısı (CE(S)T 00:00; Lizbon saati değil)</option>
               </select>
             </label>
             <label>
@@ -166,6 +166,7 @@ export function SessionScreen() {
             </button>
           </div>
           <p className="hint">{describeRules(rules, form.balance)}</p>
+          <p className="hint">Hazır fon ayarları genel örnektir, belirli bir firmanın kuralı değildir. Simüle edilmeyenler: slippage, swap / gece taşıma maliyeti, margin kontrolü ve stop-out.</p>
           {!available.length && <p className="hint neg">Veri bulunamadı. Terminalde "npm run data" çalıştırın.</p>}
         </section>
 
