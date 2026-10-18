@@ -80,6 +80,8 @@ export interface Trade {
   drawingId?: string;
   /** Giriş / çıkış anında alınan grafik görüntüleri (dosya adları) */
   shots?: { open?: string; close?: string };
+  /** Risk % ile boyutlandırılmışsa kullanılan yüzde: bekleyen emrin SL'si / girişi değişince lot buna göre yeniden hesaplanır */
+  riskPct?: number;
   /** Günlük notu */
   note?: string;
   /** İşlem sonrası değerlendirme (kapanışta açılan pencereden) */

@@ -71,6 +71,8 @@ interface State {
   sessionSettings: SessionSettings;
   /** Buy/Sell butonlarının emir tipi */
   orderKind: OrderKind;
+  /** Long / Short aracını grafiğe bırakınca emri hemen ver (bekleyen limit / stop; FX Replay gibi) */
+  autoOrder: boolean;
   /** Emir boyutu: bakiyenin risk yüzdesi veya sabit lot */
   sizing: 'risk' | 'lots';
   /** Grafikte seçilmekte olan emir (giriş / SL / TP noktaları tıklanır) */
@@ -105,6 +107,7 @@ export const useStore = create<State>(() => ({
   chartTheme: loadTheme(),
   sessionSettings: loadSessionSettings(),
   orderKind: 'market',
+  autoOrder: loadAutoOrder(),
   sizing: 'risk',
   ticket: null,
 }));
@@ -723,7 +726,13 @@ export function updateDrawing(id: string, patch: Partial<Drawing>, record = true
         if (t.status === 'open') return { ...t, sl: u.sl, tp: u.tp };
         if (t.status === 'pending') {
           const price = entryPriceNow(t.symbol, t.side) ?? u.entry.p;
-          return { ...t, sl: u.sl, tp: u.tp, initialSl: u.sl, entry: u.entry.p, orderType: pendingType(t.side, u.entry.p, price) };
+          // Risk % ile açılmış bekleyen emirde SL / giriş değişince lot, risk yüzdesini koruyacak şekilde yeniden hesaplanır.
+          let lots = t.lots;
+          if (t.riskPct != null) {
+            const dec = decideLots(getSymbol(t.symbol), { mode: 'risk', lots: 0, riskPct: t.riskPct, balance: balanceOf(s), entry: u.entry.p, sl: u.sl, commissionPerLot: t.commissionPerLot });
+            if (dec.error == null) lots = dec.lots;
+          }
+          return { ...t, sl: u.sl, tp: u.tp, initialSl: u.sl, entry: u.entry.p, lots, orderType: pendingType(t.side, u.entry.p, price) };
         }
         return t;
       });
@@ -800,6 +809,23 @@ export function placePendingAt(side: Side, price: number, t: number, tEnd: numbe
   return id;
 }
 
+const AUTO_ORDER_KEY = 'backtest.autoOrder';
+function loadAutoOrder(): boolean {
+  try {
+    return localStorage.getItem(AUTO_ORDER_KEY) !== '0'; // varsayılan açık
+  } catch {
+    return true;
+  }
+}
+export function setAutoOrder(on: boolean) {
+  set({ autoOrder: on });
+  try {
+    localStorage.setItem(AUTO_ORDER_KEY, on ? '1' : '0');
+  } catch {
+    /* kaydedilemedi */
+  }
+}
+
 export function placeOrderFromDrawing(drawingId: string, market: boolean, lotsOverride?: number): boolean {
   const s = get().session;
   if (!s || accountLocked(s)) return false;
@@ -836,6 +862,7 @@ export function placeOrderFromDrawing(drawingId: string, market: boolean, lotsOv
     tp: d.tp,
     initialSl: d.sl,
     lots,
+    ...(lotsOverride == null ? { riskPct: d.riskPct } : {}),
     drawingId,
     ...(s.commissionPerLot ? { commissionPerLot: s.commissionPerLot } : {}),
   };

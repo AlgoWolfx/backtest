@@ -17,7 +17,7 @@ import { fibLabel, fibValue, trendStatsLines } from '../core/drawStats';
 import { fmtDistance, fmtMoney, fmtPrice, fmtR, reasonLabel } from '../format';
 import { tfInfo } from '../core/timeframes';
 import { bucketEndAfter } from '../core/replay';
-import { addDrawing, balanceOf, deleteDrawing, drawingsOf, exitPriceNow, jumpTo, lastBarTime, recordUndo, ticketClick, ticketEntry, ticketStep, updateDrawing, useStore } from '../store';
+import { addDrawing, balanceOf, placeOrderFromDrawing, deleteDrawing, drawingsOf, exitPriceNow, jumpTo, lastBarTime, recordUndo, ticketClick, ticketEntry, ticketStep, updateDrawing, useStore } from '../store';
 import type { ChartController } from './ChartController';
 
 type Part = 'body' | 'a' | 'b' | 'c1' | 'c2' | 'entry' | 'sl' | 'tp' | 'end';
@@ -922,6 +922,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
         riskPct: s.riskPct,
         ...loadTemplate(tool),
       } as NewDrawing);
+      // FX Replay gibi: araç bırakıldığı fiyatta bekleyen limit / stop emri olur (kapatılabilir: alt çubuk "Çizince emir")
+      if (useStore.getState().autoOrder) placeOrderFromDrawing(id, false);
       useStore.setState({ selectedId: id, ...(useStore.getState().stayInDraw ? {} : { tool: 'cursor' as const }) });
     } else {
       const base = { ...def, a: P, b: { ...P } };

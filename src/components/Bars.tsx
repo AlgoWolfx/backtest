@@ -18,6 +18,7 @@ import {
   startTicket,
   type OrderKind,
   setChartTheme,
+  setAutoOrder,
   setLots,
   setRiskPct,
   setSlBuffer,
@@ -431,6 +432,7 @@ export function BottomBar() {
   const lots = useStore((s) => s.session?.lots ?? 1);
   const riskPct = useStore((s) => s.session?.riskPct ?? 1);
   const kind = useStore((s) => s.orderKind);
+  const autoOrder = useStore((s) => s.autoOrder);
   const sizing = useStore((s) => s.sizing);
   const ticket = useStore((s) => s.ticket);
   const slBuffer = useStore((s) => s.session?.slBuffer ?? 0);
@@ -462,6 +464,11 @@ export function BottomBar() {
         <button className={`sell ${ticket?.side === 'short' ? 'armed' : ''}`} onClick={(e) => order('short', e.shiftKey)} title="Sell: grafikte SL ve TP noktalarını seç (Shift+tık: ATR'ye göre hızlı emir)">
           ↘ Sell
         </button>
+        <div className="seg" title="Long / Short aracını grafiğe bıraktığında emir hemen verilir: bıraktığın fiyat limit (veya stop) olarak bekler. Kapalıyken araç yalnızca çizim bırakır; emri araç çubuğundan sen verirsin.">
+          <button className={autoOrder ? 'on' : ''} onClick={() => setAutoOrder(!autoOrder)}>
+            Çizince emir
+          </button>
+        </div>
         <div className="seg" title="Emir boyutu: bakiyenin risk yüzdesi veya sabit lot">
           <button className={sizing === 'risk' ? 'on' : ''} onClick={() => useStore.setState({ sizing: 'risk' })}>
             Risk %
