@@ -521,7 +521,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     const risk = Math.abs(d.entry.p - d.sl);
     const rr = risk ? Math.abs(d.tp - d.entry.p) / risk : 0;
     const balance = balanceOf(st.session!);
-    const lots = tr ? tr.lots : lotsForRisk(spec, balance, d.riskPct, d.entry.p, d.sl);
+    const sized = tr ? tr.lots : lotsForRisk(spec, balance, d.riskPct, d.entry.p, d.sl);
+    const lots = sized ?? 0; // null: risk bütçesine sığan lot yok (emir engellenir)
     const riskUsd = risk * lots * usdPerPriceUnit(spec, d.entry.p);
     const cx = (x0 + x1) / 2;
     const showDetails = active || tr?.status === 'open' || tr?.status === 'pending';
@@ -535,7 +536,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
 
     let center: string;
     let bg = '#2a2e39';
-    if (!tr) center = `${long ? 'Long' : 'Short'} · R:R ${rr.toFixed(2)} · ${lots.toFixed(2)} lot · Risk ${fmtMoney(riskUsd)} (%${d.riskPct})`;
+    if (!tr) center = sized == null ? `${long ? 'Long' : 'Short'} · R:R ${rr.toFixed(2)} · uygun lot yok (risk %${d.riskPct} bütçesine sığmıyor)` : `${long ? 'Long' : 'Short'} · R:R ${rr.toFixed(2)} · ${lots.toFixed(2)} lot · Risk ${fmtMoney(riskUsd)} (%${d.riskPct})`;
     else if (tr.status === 'pending') center = `Bekleyen ${tr.orderType === 'limit' ? 'Limit' : 'Stop'} · ${fmtPrice(tr.entry, spec)} · ${tr.lots} lot · R:R ${rr.toFixed(2)}`;
     else if (tr.status === 'open') {
       const px = exitPriceNow(tr) ?? tr.entry;

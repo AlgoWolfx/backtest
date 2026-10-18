@@ -79,13 +79,62 @@ export function classify(r: number | null, pnl: number): TradeResult {
   return pnl > 0 ? 'win' : pnl < 0 ? 'loss' : 'be';
 }
 
-/** Risk yüzdesine göre lot (0.01'e aşağı yuvarlanır, en az 0.01). */
-export function lotsForRisk(spec: SymbolSpec, balance: number, riskPct: number, entry: number, sl: number): number {
+/** Enstrümanın en küçük lotu ve lot adımı. Sembolde tanımlı değilse 0.01 / 0.01. */
+export function lotRules(spec: SymbolSpec): { minLot: number; lotStep: number } {
+  return { minLot: spec.minLot ?? 0.01, lotStep: spec.lotStep ?? 0.01 };
+}
+
+/**
+ * Risk yüzdesine göre lot: lot adımına AŞAĞI yuvarlanır, risk bütçesini aşmaz.
+ * Bütçeye sığan en küçük lot bile yoksa (veya girdi geçersizse) null döner; emir engellenmelidir.
+ */
+export function lotsForRisk(spec: SymbolSpec, balance: number, riskPct: number, entry: number, sl: number): number | null {
+  if (![balance, riskPct, entry, sl].every(Number.isFinite) || balance <= 0 || riskPct <= 0 || entry <= 0) return null;
   const perLot = Math.abs(entry - sl) * usdPerPriceUnit(spec, entry);
-  if (perLot <= 0) return 0.01;
-  // 1e-6 toleransı: 1.1 - 1.099 gibi kayan nokta farkları 10 lotu 9.99'a düşürmesin.
-  const lots = Math.floor(((balance * riskPct) / 100 / perLot) * 100 + 1e-6) / 100;
-  return Math.max(0.01, lots);
+  if (!(perLot > 0) || !Number.isFinite(perLot)) return null;
+  const { minLot, lotStep } = lotRules(spec);
+  // 1e-6 adım toleransı: 1.1 - 1.099 gibi kayan nokta farkları 10 lotu 9.99'a düşürmesin
+  // (bütçe aşımı en çok 1e-6 lot adımı kadardır, yani kuruşun çok altında).
+  const steps = Math.floor((balance * riskPct) / 100 / perLot / lotStep + 1e-6);
+  const lots = Math.round(steps * lotStep * 1e6) / 1e6;
+  return lots >= minLot - 1e-9 ? lots : null;
+}
+
+/** Elle girilen lotu lot adımına aşağı yuvarlar; geçersiz veya minimumun altındaysa null. */
+export function normalizeLots(spec: SymbolSpec, lots: number): number | null {
+  if (!Number.isFinite(lots)) return null;
+  const { minLot, lotStep } = lotRules(spec);
+  const q = Math.round(Math.floor(lots / lotStep + 1e-6) * lotStep * 1e6) / 1e6;
+  return q >= minLot - 1e-9 ? q : null;
+}
+
+export type LotDecision = { lots: number; error?: undefined } | { lots?: undefined; error: string };
+
+/**
+ * TÜM emir yolları (ticket, pozisyon çizimi, Shift+Buy/Sell hızlı emir) için tek lot kararı.
+ * mode 'risk': bakiyenin riskPct'i ve stop mesafesine göre; 'lots': elle seçilen lot (adıma indirilir).
+ * Geçersiz / bütçeye sığmayan durumda lot yerine açıklama döner ve emir açılmamalıdır.
+ */
+export function decideLots(
+  spec: SymbolSpec,
+  p: { mode: 'risk' | 'lots'; lots: number; riskPct: number; balance: number; entry: number; sl: number },
+): LotDecision {
+  if (p.mode === 'lots') {
+    const l = normalizeLots(spec, p.lots);
+    if (l == null) return { error: `Geçersiz lot: en az ${lotRules(spec).minLot}, adım ${lotRules(spec).lotStep}.` };
+    return { lots: l };
+  }
+  const l = lotsForRisk(spec, p.balance, p.riskPct, p.entry, p.sl);
+  return l == null ? { error: noLotReason(spec, p.balance, p.riskPct, p.entry, p.sl) } : { lots: l };
+}
+
+/** lotsForRisk null döndüğünde kullanıcıya gösterilecek açıklama. */
+export function noLotReason(spec: SymbolSpec, balance: number, riskPct: number, entry: number, sl: number): string {
+  const perLot = Math.abs(entry - sl) * usdPerPriceUnit(spec, entry);
+  if (!(perLot > 0) || !Number.isFinite(perLot)) return 'Stop mesafesi geçersiz (giriş ile SL aynı veya sayı değil).';
+  if (!(balance > 0) || !(riskPct > 0)) return 'Bakiye ve risk % sıfırdan büyük olmalı.';
+  const { minLot } = lotRules(spec);
+  return `Risk bütçesine ($${((balance * riskPct) / 100).toFixed(2)}) sığan lot yok: en küçük işlem (${minLot} lot) bu stopla $${(perLot * minLot).toFixed(2)} riske eder. Stopu daralt veya risk %'sini artır.`;
 }
 
 export function closeTrade(spec: SymbolSpec, tr: Trade, exit: number, time: number, reason: ExitReason): Trade {

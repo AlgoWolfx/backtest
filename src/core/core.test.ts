@@ -6,7 +6,7 @@ import { bucketChartTime, bucketKey, bucketStartUtc, TIMEFRAMES } from './timefr
 import { bucketEndAfter, nextNyTime } from './replay';
 import { breakdown, computeStats, sessionOf, SESSIONS, weekdayOf } from './stats';
 import { afterBalanceChange, evaluate, levels, newAccount, noteTradingDay, rollDay, type AccountRules } from './account';
-import { applyCandle, calcPnl, calcR, lotsForRisk, type Trade } from './trading';
+import { applyCandle, calcPnl, calcR, decideLots, lotsForRisk, normalizeLots, type Trade } from './trading';
 
 const utc = (s: string) => Date.parse(s + 'Z') / 1000;
 /** NY yerel saatini ("2024-07-10 09:30") gerçek UTC'ye çevirir. */
@@ -393,5 +393,71 @@ describe('bekleyen emir dolumu (gap / açılış dolumu) — issue #1, #2', () =
     const r = applyCandle(eur, open, k(1.1, 1.102, 1.094, 1.1));
     expect(r.exitReason).toBe('sl');
     expect(r.flags).toBeUndefined();
+  });
+});
+
+describe('pozisyon boyutlandırma — issue #5, #6', () => {
+  const eur = getSymbol('EURUSD');
+
+  it('#6 bütçeye sığmayan minimum lot sessizce 0.01e yükseltilmez', () => {
+    // $100 hesap, %1 = $1 bütçe; 200 pip stopta 0.01 lot = $20 risk
+    expect(lotsForRisk(eur, 100, 1, 1.1, 1.08)).toBeNull();
+    // bütçeye sığan sınır: 0.01 lot = $20 risk -> %1'in $20 olduğu hesap
+    expect(lotsForRisk(eur, 2000, 1, 1.1, 1.08)).toBeCloseTo(0.01, 6);
+    expect(lotsForRisk(eur, 1999, 1, 1.1, 1.08)).toBeNull();
+  });
+
+  it('#6 lot adımına aşağı yuvarlama bütçeyi aşmaz; kayan nokta farkı 10 lotu 9.99a düşürmez', () => {
+    expect(lotsForRisk(eur, 100000, 1, 1.1, 1.099)).toBeCloseTo(10, 6);
+    // 7.29x lot: 13.7 pip, %1 -> 7.29 (7.2992...) aşağı yuvarlanır
+    expect(lotsForRisk(eur, 100000, 1, 1.03129, 1.02992)).toBe(7.29);
+    for (const [bal, pct, e, s] of [[100000, 1, 1.0931, 1.0902], [54321, 0.37, 1.2345, 1.2301], [250000, 2.5, 1.1, 1.0987]] as const) {
+      const l = lotsForRisk(eur, bal, pct, e, s)!;
+      expect(Math.abs(e - s) * 100000 * l).toBeLessThanOrEqual((bal * pct) / 100 + 1e-4);
+    }
+  });
+
+  it('#6 geçersiz girdilerde null döner (sıfır stop, NaN, Infinity, sıfır/negatif)', () => {
+    expect(lotsForRisk(eur, 100000, 1, 1.1, 1.1)).toBeNull();
+    expect(lotsForRisk(eur, NaN, 1, 1.1, 1.099)).toBeNull();
+    expect(lotsForRisk(eur, 100000, Infinity, 1.1, 1.099)).toBeNull();
+    expect(lotsForRisk(eur, 100000, 1, 1.1, NaN)).toBeNull();
+    expect(lotsForRisk(eur, 0, 1, 1.1, 1.099)).toBeNull();
+    expect(lotsForRisk(eur, -5, 1, 1.1, 1.099)).toBeNull();
+    expect(lotsForRisk(eur, 100000, 0, 1.1, 1.099)).toBeNull();
+    expect(lotsForRisk(eur, 100000, 1, 0, 1.099)).toBeNull();
+  });
+
+  it('#6 sembolde tanımlıysa minLot / lotStep kullanılır', () => {
+    const spec = { ...eur, minLot: 0.1, lotStep: 0.1 };
+    expect(lotsForRisk(spec, 100000, 1, 1.1, 1.099)).toBeCloseTo(10, 6);
+    expect(lotsForRisk(spec, 3000, 1, 1.1, 1.099)).toBeCloseTo(0.3, 6);
+    expect(lotsForRisk(spec, 900, 1, 1.1, 1.099)).toBeNull(); // 0.09 lot < minLot 0.1
+  });
+
+  it('#6 elle lot adıma indirilir, geçersizse reddedilir', () => {
+    expect(normalizeLots(eur, 1.239)).toBe(1.23);
+    expect(normalizeLots(eur, 0.004)).toBeNull();
+    expect(normalizeLots(eur, NaN)).toBeNull();
+    expect(normalizeLots(eur, -1)).toBeNull();
+  });
+
+  it('#5 tüm emir yolları aynı karar fonksiyonunu kullanır: risk modunda hızlı emir sabit lot kullanmaz', () => {
+    const base = { riskPct: 1, balance: 100000, entry: 1.1, sl: 1.099 };
+    // kayıtlı lots=1 olsa bile risk modunda 10 lot (bütçe $1000)
+    expect(decideLots(eur, { ...base, mode: 'risk', lots: 1 })).toEqual({ lots: 10 });
+    // lot modunda seçilen lot korunur
+    expect(decideLots(eur, { ...base, mode: 'lots', lots: 1 })).toEqual({ lots: 1 });
+    // risk modunda bütçeye sığmıyorsa açıklama döner
+    const bad = decideLots(eur, { ...base, mode: 'risk', lots: 1, balance: 100, sl: 1.08 });
+    expect(bad.lots).toBeUndefined();
+    expect(bad.error).toMatch(/sığan lot yok/);
+  });
+
+  it('#5 US100 / XAUUSD / USDJPY için aynı bütçe kuralı', () => {
+    expect(lotsForRisk(getSymbol('US100'), 100000, 1, 20000, 19950)).toBeCloseTo(20, 6);
+    expect(lotsForRisk(getSymbol('XAUUSD'), 100000, 1, 2000, 1995)).toBeCloseTo(2, 6); // 5$ × 100 oz = 500$/lot
+    // USDJPY: 50 pip = 0.50 JPY × 100000 / 150 = 333.33$/lot -> 3 lot
+    expect(lotsForRisk(getSymbol('USDJPY'), 100000, 1, 150, 149.5)).toBeCloseTo(3, 6);
   });
 });

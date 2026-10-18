@@ -8,7 +8,8 @@
 // quote:         kâr/zararın hangi para biriminde oluştuğu (JPY ise USD'ye çevrilir)
 // digits:        fiyat gösteriminde ondalık basamak sayısı
 
-/** @typedef {{id:string,oanda:string|null,dukascopy:string,name:string,source:string,type:'forex'|'metal'|'index',contractSize:number,pip:number,pipLabel:string,quote:'USD'|'JPY',digits:number}} SymbolSpec */
+/** @typedef {{id:string,oanda:string|null,dukascopy:string,name:string,source:string,type:'forex'|'metal'|'index',contractSize:number,pip:number,pipLabel:string,quote:'USD'|'JPY',digits:number,minLot?:number,lotStep?:number}} SymbolSpec */
+// minLot / lotStep (isteğe bağlı): en küçük işlem büyüklüğü ve adımı; yoksa 0.01 / 0.01 varsayılır.
 
 /** @type {SymbolSpec[]} */
 export const SYMBOLS = [

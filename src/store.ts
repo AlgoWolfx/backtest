@@ -4,7 +4,7 @@ import { aggregate, aggIndexOfM1, loadSymbol, revealedCount, type DataSource, ty
 import { bucketKey, type TF } from './core/timeframes';
 import { bucketEndAfter, nextNyTime } from './core/replay';
 import { loadTheme, saveTheme, type ChartTheme } from './chartTheme';
-import { applyCandle, calcPnl, type Candle, closeTrade, exitSide, lotsForRisk, pendingType, type Side, type Trade } from './core/trading';
+import { applyCandle, calcPnl, type Candle, closeTrade, decideLots, exitSide, pendingType, type Side, type Trade } from './core/trading';
 import { afterBalanceChange, evaluate, newAccount, noteTradingDay, rollDay, type Account, type AccountRules } from './core/account';
 import { DEFAULT_FIB, LAYOUTS, type Drawing, type LayoutId, type NewDrawing, type PaneCfg, type Position, type Session, type Tool } from './core/types';
 import { fmtPrice, reasonLabel } from './format';
@@ -775,7 +775,12 @@ export function placeOrderFromDrawing(drawingId: string, market: boolean, lotsOv
     toast(side === 'long' ? 'Long için SL girişin altında, TP üstünde olmalı.' : 'Short için SL girişin üstünde, TP altında olmalı.', 'error');
     return false;
   }
-  const lots = lotsOverride ?? lotsForRisk(spec, balanceOf(s), d.riskPct, entry, d.sl);
+  const dec = decideLots(spec, { mode: lotsOverride != null ? 'lots' : 'risk', lots: lotsOverride ?? 0, riskPct: d.riskPct, balance: balanceOf(s), entry, sl: d.sl });
+  if (dec.error != null) {
+    toast(dec.error, 'error');
+    return false;
+  }
+  const lots = dec.lots;
   const id = nextId('t');
   const s2 = get().session!;
   const trade: Trade = {
@@ -885,12 +890,16 @@ export function marketOrder(side: Side) {
   const dist = Math.max(atr * 1.5, price * 0.0002);
   const dir = side === 'long' ? 1 : -1;
   const spec = getSymbol(s.symbol);
-  const id = nextId('t');
-  const dId = nextId('d');
-  const s2 = get().session!;
   const round = (p: number) => Math.round(p * d.scale) / d.scale;
   const sl = round(price - dir * dist);
   const tp = round(price + dir * dist * 2);
+  // Hızlı emir de normal ticket ile aynı boyutlandırma kuralını kullanır (Risk % veya sabit lot).
+  const dec = decideLots(spec, { mode: get().sizing, lots: s.lots, riskPct: s.riskPct, balance: balanceOf(s), entry: price, sl });
+  if (dec.error != null) return toast(dec.error, 'error');
+  const lots = dec.lots;
+  const id = nextId('t');
+  const dId = nextId('d');
+  const s2 = get().session!;
   const pos: Position = {
     id: dId,
     type: side,
@@ -903,7 +912,7 @@ export function marketOrder(side: Side) {
     riskPct: s.riskPct,
     tradeId: id,
   };
-  const trade: Trade = { id, symbol: s.symbol, side, status: 'open', orderType: 'market', createdAt: s.replayTime, openedAt: barT, entry: price, sl, tp, initialSl: sl, lots: s.lots, drawingId: dId };
+  const trade: Trade = { id, symbol: s.symbol, side, status: 'open', orderType: 'market', createdAt: s.replayTime, openedAt: barT, entry: price, sl, tp, initialSl: sl, lots, drawingId: dId };
   set({
     session: {
       ...s2,
@@ -915,7 +924,7 @@ export function marketOrder(side: Side) {
     selectedId: dId,
   });
   emitTrade('open', id);
-  toast(`${side === 'long' ? 'Alış' : 'Satış'} açıldı: ${s.lots} lot @ ${fmtPrice(price, spec)}. SL/TP'yi grafikte sürükleyebilirsiniz.`);
+  toast(`${side === 'long' ? 'Alış' : 'Satış'} açıldı: ${lots} lot @ ${fmtPrice(price, spec)}. SL/TP'yi grafikte sürükleyebilirsiniz.`);
 }
 
 // ---- işlem olayları (ekran görüntüsü vb. için)
