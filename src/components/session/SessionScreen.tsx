@@ -4,7 +4,7 @@ import { DATA_SOURCES } from '../../core/data';
 import { ACCOUNT_PRESETS, validateRules, type AccountRules } from '../../core/account';
 import { AccountSetup } from './AccountSetup';
 import { fmtMoney, fmtNy } from '../../lib/format';
-import { fromNyInputs } from '../Dialogs';
+import { fromNyInputs } from '../replay/JumpDialog';
 import { Icons } from '../common/icons';
 
 /** Kuralları sade bir cümleyle özetler. */

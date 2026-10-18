@@ -1,55 +1,12 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { nyLocalToUtc, toNyLocal } from '../../shared/nytime.js';
-import { fmtNy, pad } from '../lib/format';
-import { currentData, drawingsOf, jumpTo, setChartTheme, useStore } from '../store';
-import { DEFAULT_THEME, THEME_PRESETS, withColors, type ChartTheme, type ChartType } from '../prefs/chartTheme';
-import { NumberInput } from './Bars';
-import { Icons } from './common/icons';
-import { SessionSettingsTab } from './settings/SessionSettingsTab';
-import { DrawingDialog } from './drawing/DrawingDialog';
-import { useWindow } from '../lib/useWindow';
-
-export function Modal({ title, onClose, children, width = 420, bare = false, wkey = 'modal' }: { title: string; onClose: () => void; children: ReactNode; width?: number; bare?: boolean; wkey?: string }) {
-  const win = useWindow(wkey);
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', k);
-    return () => window.removeEventListener('keydown', k);
-  }, [onClose]);
-  return (
-    <div className={`modal-bg ${bare ? 'bare' : ''} ${win.min ? 'min' : ''}`} onMouseDown={onClose}>
-      <div ref={win.winRef} className={`modal ${win.min ? 'min' : ''}`} style={{ width, ...win.style }} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-head" {...win.headProps}>
-          <b>{title}</b>
-          <span className="tvd-head-btns">
-            <button className="icon-btn" title={win.min ? 'Büyüt' : 'Küçült'} onClick={win.toggleMin}>
-              {win.min ? '▢' : '–'}
-            </button>
-            <button className="icon-btn" onClick={onClose}>
-              <Icons.close />
-            </button>
-          </span>
-        </div>
-        <div className="modal-body">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------- çizim ayarları
-
-export function DrawingEditor() {
-  const session = useStore((s) => s.session);
-  const editingId = useStore((s) => s.editingId);
-  const d = drawingsOf(session).find((x) => x.id === editingId);
-  if (!d || !session) return null;
-  // Tüm araçlar için TradingView tarzı sekmeli pencere (Stil / Metin / Girdiler / Kordinatlar / Görünürlük)
-  return <DrawingDialog key={d.id} d={d} />;
-}
-
-// ---------------------------------------------------------------- grafik ayarları
+import { useEffect, useState } from 'react';
+import { setChartTheme, useStore } from '../../store';
+import { DEFAULT_THEME, THEME_PRESETS, withColors, type ChartTheme, type ChartType } from '../../prefs/chartTheme';
+import { NumberInput } from '../common/NumberInput';
+import { SessionSettingsTab } from './SessionSettingsTab';
+import { Modal } from '../common/Modal';
 
 type SettingsTab = 'symbol' | 'status' | 'scales' | 'canvas' | 'sessions';
+
 const CHART_TYPES: { id: ChartType; label: string }[] = [
   { id: 'candles', label: 'Mumlar' },
   { id: 'hollow', label: 'Boş mumlar' },
@@ -213,80 +170,5 @@ export function ChartSettings() {
         </button>
       </div>
     </Modal>
-  );
-}
-
-// ---------------------------------------------------------------- tarihe git
-
-export function toNyInputs(utc: number) {
-  const d = new Date(toNyLocal(utc) * 1000);
-  return { date: `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`, time: `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}` };
-}
-
-export function fromNyInputs(date: string, time: string): number | null {
-  const m = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  const t = time.match(/^(\d{1,2}):(\d{2})$/);
-  if (!m || !t) return null;
-  return nyLocalToUtc(Date.UTC(+m[1], +m[2] - 1, +m[3], +t[1], +t[2]) / 1000);
-}
-
-export function JumpDialog() {
-  const open = useStore((s) => s.jumpOpen);
-  const replayTime = useStore((s) => s.session?.replayTime ?? 0);
-  const [v, setV] = useState(() => toNyInputs(replayTime));
-  useEffect(() => {
-    if (open) setV(toNyInputs(useStore.getState().session!.replayTime));
-  }, [open]);
-  if (!open) return null;
-  const d = currentData();
-  const close = () => useStore.setState({ jumpOpen: false });
-  const go = () => {
-    const utc = fromNyInputs(v.date, v.time);
-    if (utc == null) return;
-    jumpTo(utc);
-    close();
-  };
-  return (
-    <Modal title="Replay tarihini değiştir" wkey="jump" onClose={close}>
-      <p className="hint">Seçilen New York saatinden sonraki mumlar gizlenir. Açık pozisyon varken yalnızca ileri gidilebilir; aradaki mumlar SL/TP için işlenir.</p>
-      <div className="form-row">
-        <input type="date" value={v.date} onChange={(e) => setV({ ...v, date: e.target.value })} onKeyDown={(e) => e.stopPropagation()} />
-        <input type="time" value={v.time} onChange={(e) => setV({ ...v, time: e.target.value })} onKeyDown={(e) => e.key === 'Enter' ? go() : e.stopPropagation()} />
-        <span className="muted">NY</span>
-      </div>
-      {d && (
-        <p className="hint">
-          Veri aralığı: {fmtNy(d.meta.from)} → {fmtNy(d.meta.to)}
-        </p>
-      )}
-      <div className="modal-foot">
-        <div className="spacer" />
-        <button className="btn" onClick={close}>
-          Vazgeç
-        </button>
-        <button className="btn primary" onClick={go}>
-          Git
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
-// ---------------------------------------------------------------- bildirim
-
-export function Toast() {
-  const toast = useStore((s) => s.toast);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    if (!toast) return;
-    setVisible(true);
-    const t = setTimeout(() => setVisible(false), toast.kind === 'error' ? 5000 : 3500);
-    return () => clearTimeout(t);
-  }, [toast]);
-  if (!toast || !visible) return null;
-  return (
-    <div className={`toast ${toast.kind}`} onClick={() => setVisible(false)}>
-      {toast.text}
-    </div>
   );
 }

@@ -6,7 +6,7 @@ import { lotsForRisk, stopRiskPerLot } from '../../core/trading';
 import type { Position } from '../../core/types';
 import { fmtMoney } from '../../lib/format';
 import { balanceOf, updateDrawing, useStore } from '../../store';
-import { NumberInput } from '../Bars';
+import { NumberInput } from '../common/NumberInput';
 
 export function SizeControl({ d, record }: { d: Position; record: boolean }) {
   const session = useStore((s) => s.session);

@@ -13,7 +13,7 @@ import { clearTemplate, factoryReset, loadTemplate, saveTemplate, templateOf } f
 import { fmtDistance, fmtMoney } from '../../lib/format';
 import { balanceOf, placeOrderFromDrawing, recordUndo, setFibDefaults, toast, updateDrawing, useStore } from '../../store';
 import { useWindow } from '../../lib/useWindow';
-import { NumberInput } from '../Bars';
+import { NumberInput } from '../common/NumberInput';
 import { SizeControl } from './SizeControl';
 import { Icons } from '../common/icons';
 
