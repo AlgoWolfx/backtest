@@ -285,8 +285,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
               ctx.beginPath();
               ctx.moveTo(left, ym);
               ctx.lineTo(right, ym);
-              ctx.stroke();
-              this.label(ctx, fmtPrice((d.a.p + d.b.p) / 2, this.c.spec!), Math.min(right, mediaSize.width) - 38, ym, d.midColor ?? d.borderColor ?? d.color);
+              ctx.stroke(); // orta çizgide fiyat etiketi yok (kullanıcı isteği: ekran kirliliği)
             }
             ctx.setLineDash([]);
             if (d.text) this.drawRectText(ctx, d, left, right, Math.min(y1, y2), Math.max(y1, y2));
