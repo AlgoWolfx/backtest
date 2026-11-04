@@ -94,7 +94,7 @@ function listSessions() {
         const s = JSON.parse(fs.readFileSync(path.join(SESSIONS_DIR, f), 'utf8'));
         const closed = (s.trades || []).filter((t) => t.status === 'closed');
         const pnl = closed.reduce((a, t) => a + (t.pnl || 0), 0);
-        return { id: s.id, name: s.name, symbol: s.symbol, replayTime: s.replayTime, startTime: s.startTime, updatedAt: s.updatedAt, initialBalance: s.initialBalance, balance: s.initialBalance + pnl, trades: closed.length, accountStatus: s.account?.state?.status ?? null, accountType: s.account?.rules?.type ?? null };
+        return { id: s.id, name: s.name, symbol: s.symbol, replayTime: s.replayTime, startTime: s.startTime, updatedAt: s.updatedAt, initialBalance: s.initialBalance, balance: s.initialBalance + pnl, trades: closed.length, closedTrades: closed, accountStatus: s.account?.state?.status ?? null, accountType: s.account?.rules?.type ?? null };
       } catch {
         return null;
       }
