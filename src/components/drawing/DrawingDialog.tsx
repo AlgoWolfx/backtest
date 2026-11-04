@@ -12,7 +12,7 @@ import { TemplateMenu } from './TemplateMenu';
 export function DrawingDialog({ d }: { d: Editable }) {
   // Yeni metin notunda doğrudan yazı sekmesi açılır
   const [tab, setTab] = useState<Tab>(d.type === 'text' ? 'text' : 'style');
-  const win = useWindow('drawing');
+  const win = useWindow('drawing', true); // TradingView: ortada açılır, küçültme yok
   const snapshot = useRef<Editable>(structuredClone(d));
   const digits = useStore((s) => (s.session ? Math.max(0, Math.min(8, (s.data[s.session.symbol]?.scale ?? 1e5).toString().length - 1)) : 5));
   useEffect(() => {
@@ -76,17 +76,13 @@ export function DrawingDialog({ d }: { d: Editable }) {
   );
 
   return (
-    <div ref={win.winRef} style={win.style} className={`tvd ${win.min ? 'min' : ''}`} onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+    <div className="modal-bg" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+    <div ref={win.winRef} style={win.style} role="dialog" aria-label={TITLES[d.type]} className="tvd">
       <div className="tvd-head" {...win.headProps}>
         <b>{TITLES[d.type]}</b>
-        <span className="tvd-head-btns">
-          <button className="icon-btn" title={win.min ? 'Büyüt' : 'Küçült (çizimi görmek için)'} onClick={win.toggleMin}>
-            {win.min ? '▢' : '–'}
-          </button>
-          <button className="icon-btn tvd-x" title="Kapat (Esc: iptal)" onClick={cancel}>
-            <Icons.close />
-          </button>
-        </span>
+        <button className="modal-x" aria-label="Kapat" title="Kapat (Esc: iptal)" onClick={cancel}>
+          <Icons.close />
+        </button>
       </div>
       <div className="tvd-tabs">
         {tabs.map((t) => (
@@ -166,6 +162,7 @@ export function DrawingDialog({ d }: { d: Editable }) {
           Tamam
         </button>
       </div>
+    </div>
     </div>
   );
 }

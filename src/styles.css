@@ -654,29 +654,66 @@ tbody tr:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
+  background: transparent; /* TradingView: karartma yok, ama tıklamayı tutar */
 }
 .modal {
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 32px);
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow: hidden;
   background: var(--bg1);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
-.modal-head {
+.modal-head,
+.tvd-head {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px 10px 16px;
-  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  height: 68px;
+  padding: 0 20px;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  user-select: none;
+}
+.modal-head b,
+.tvd-head b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.modal-x {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-right: -7px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.modal-x:hover {
+  background: var(--bg3);
 }
 .modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 14px 16px 16px;
+  padding: 0 20px 20px;
 }
 .modal-foot {
   display: flex;
@@ -1411,46 +1448,10 @@ tbody tr:hover {
   cursor: default;
 }
 
-/* Renk ayarı gibi canlı önizleme gereken pencereler: arka plan karartılmaz, grafik görünür kalır. */
-.modal-bg.bare {
-  justify-content: flex-end;
-  padding-right: 70px;
-  background: transparent;
-  pointer-events: none;
-}
-/* Küçültülmüş pencere: arka perde kalkar, grafik kullanılabilir kalır */
-.modal-bg.min {
-  background: transparent;
-  pointer-events: none;
-}
-.modal-bg.min .modal {
-  pointer-events: auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-}
-.modal.min .modal-body,
-.tvd.min .tvd-tabs,
-.tvd.min .tvd-body,
-.tvd.min .tvd-foot {
-  display: none;
-}
-.tvd.min {
-  width: 260px;
-}
-.modal.min {
-  width: 260px !important;
-}
 .tvd-head-btns {
   display: flex;
   align-items: center;
   gap: 2px;
-}
-.modal-head,
-.tvd-head {
-  user-select: none;
-}
-.modal-bg.bare .modal {
-  pointer-events: auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
 
 /* ---------------------------------------------------------------- çoklu ekran */
@@ -1617,43 +1618,38 @@ tbody tr:hover {
 }
 
 /* TradingView tarzı çizim ayar penceresi */
+/* TradingView çizim / gösterge ayar penceresi: en az 380 px, genişlik ve yükseklik sekme içeriğine göre, ortada. */
 .tvd {
-  position: fixed;
-  left: 14px;
-  top: 14px;
-  width: 400px;
-  max-height: calc(100vh - 28px);
+  position: relative;
+  min-width: 380px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
   display: flex;
   flex-direction: column;
   background: #2b3040;
   color: #f1f3f6;
-  border-radius: 10px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
-  z-index: 60;
-  font-size: 13px;
-}
-.tvd-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px 6px;
-  font-size: 17px;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  font-size: 14px;
 }
 .tvd-tabs {
+  flex: none;
   display: flex;
-  gap: 18px;
-  padding: 0 16px;
-  border-bottom: 3px solid #4b5263;
-  margin: 8px 0 0;
+  gap: 24px;
+  padding: 0 20px;
+  border-bottom: 1px solid #4b5263;
+  margin: 0;
 }
 .tvd-tabs button {
   background: none;
   border: 0;
+  border-radius: 4px 4px 0 0;
   color: #cdd1db;
   font-weight: 600;
-  font-size: 14px;
-  padding: 8px 0 7px;
-  margin-bottom: -3px;
+  font-size: 16px;
+  height: 32px;
+  padding: 0 0 2px;
+  margin-bottom: -1px;
   border-bottom: 3px solid transparent;
   cursor: pointer;
 }
@@ -1662,7 +1658,9 @@ tbody tr:hover {
   border-bottom-color: #fff;
 }
 .tvd-body {
-  padding: 14px 16px;
+  flex: 1;
+  min-height: 0;
+  padding: 20px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -1740,20 +1738,26 @@ tbody tr:hover {
 .tvd-tog.on {
   background: #4b5263;
 }
+/* TradingView alt çubuk: 16/20 px boşluk, 34 px düğmeler, aralarında 12 px */
 .tvd-foot {
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid #4b5263;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
 }
 .tvd-btn {
+  height: 34px;
+  padding: 0 11px;
   background: transparent;
   color: #f1f3f6;
   border: 1px solid #fff;
   border-radius: 8px;
-  padding: 7px 14px;
+  font: inherit;
+  font-size: 16px;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
 .tvd-btn.primary {
@@ -2664,4 +2668,104 @@ tbody tr:hover {
   flex: none;
   width: 44px;
   height: 28px;
+}
+
+/* ---- Grafik ayarları: TradingView 750x563, solda 206 px dikey sekmeler, sağda kayan içerik */
+.modal-body.tvs {
+  flex-direction: row;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.tvs-side {
+  flex: 0 0 206px;
+  display: flex;
+  flex-direction: column;
+  margin: 8px 10px 0 20px;
+}
+.tvs-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+  padding: 0 16px 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+.tvs-tab:hover {
+  background: var(--bg2);
+}
+.tvs-tab.on {
+  font-weight: 600;
+  background: var(--bg3);
+}
+.tvs-ico {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+.tvs-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 16px 20px 16px 10px;
+  font-size: 14px;
+}
+.tvs-sec {
+  height: 22px;
+  line-height: 22px;
+  margin: 10px 0 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tvs-row + .tvs-sec,
+.theme-presets + .tvs-sec {
+  margin-top: 26px;
+}
+.tvs-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  margin-bottom: 16px;
+}
+.tvs-label {
+  flex: 0 0 125px;
+}
+.tvs-check {
+  cursor: pointer;
+}
+.tvs-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--blue);
+}
+.tvs .tvc-box {
+  width: 34px;
+}
+.tvs-select {
+  width: 150px;
+  height: 34px;
+  padding: 0 10px;
+}
+.tvs .num {
+  width: 70px;
+  height: 34px;
+}
+.jump-row input[type='date'] {
+  flex: 1;
+  min-width: 0;
 }

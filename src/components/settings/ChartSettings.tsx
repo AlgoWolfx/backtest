@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { setChartTheme, toast, useStore } from '../../store';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { setChartTheme, setSessionSettings, toast, useStore } from '../../store';
+import { type SessionSettings } from '../../core/sessions';
+import { Icons } from '../common/icons';
 import {
   DEFAULT_THEME, THEME_PRESETS, deleteChartTemplate, loadChartTemplates, saveChartTemplate, themeFromTemplate, withColors, type ChartTheme, type ChartType, type ThemeColors,
 } from '../../prefs/chartTheme';
@@ -23,147 +25,180 @@ export function ChartSettings() {
   const t = useStore((s) => s.chartTheme);
   const wantedTab = useStore((s) => s.chartSettingsTab);
   const [tab, setTab] = useState<SettingsTab>('symbol');
+  // İptal için açılıştaki ayarlar (TradingView: değişiklikler canlı görünür, İptal / Esc / × geri alır).
+  const initial = useRef<{ theme: ChartTheme; sessions: SessionSettings } | null>(null);
   useEffect(() => {
-    if (open && wantedTab) {
+    if (!open) return;
+    const st = useStore.getState();
+    initial.current = { theme: st.chartTheme, sessions: st.sessionSettings };
+    if (wantedTab) {
       setTab(wantedTab as SettingsTab);
       useStore.setState({ chartSettingsTab: null });
     }
   }, [open, wantedTab]);
   if (!open) return null;
+  const close = () => useStore.setState({ chartSettingsOpen: false });
+  const cancel = () => {
+    const i = initial.current;
+    if (i) {
+      if (useStore.getState().chartTheme !== i.theme) setChartTheme(i.theme);
+      if (useStore.getState().sessionSettings !== i.sessions) setSessionSettings(i.sessions);
+    }
+    close();
+  };
   const upd = (patch: Partial<ChartTheme>) => setChartTheme({ ...t, ...patch });
-  const color = (label: string, key: keyof ChartTheme) => (
-    <div className="form-row">
-      <span>{label}</span>
-      <TvColor color={t[key] as string} withAlpha={false} onChange={(c) => upd({ [key]: c } as Partial<ChartTheme>)} />
-      <span className="muted">{(t[key] as string).toUpperCase()}</span>
+  const sec = (title: string) => <div className="tvs-sec">{title}</div>;
+  const swatch = (key: keyof ChartTheme) => <TvColor color={t[key] as string} withAlpha={false} onChange={(c) => upd({ [key]: c } as Partial<ChartTheme>)} />;
+  const color = (label: string, ...keys: (keyof ChartTheme)[]) => (
+    <div className="tvs-row">
+      <span className="tvs-label">{label}</span>
+      {keys.map((k) => (
+        <span key={k}>{swatch(k)}</span>
+      ))}
     </div>
   );
   const check = (label: string, key: keyof ChartTheme) => (
-    <label className="form-row check">
+    <label className="tvs-row tvs-check">
       <input type="checkbox" checked={!!t[key]} onChange={(e) => upd({ [key]: e.target.checked } as Partial<ChartTheme>)} />
       <span>{label}</span>
     </label>
   );
-  const seg = <V extends string | number>(label: string, key: keyof ChartTheme, opts: { id: V; label: string }[]) => (
-    <div className="form-row">
-      <span>{label}</span>
-      <div className="seg">
+  const pick = <V extends string | number>(label: string, key: keyof ChartTheme, opts: { id: V; label: string }[]) => (
+    <div className="tvs-row">
+      <span className="tvs-label">{label}</span>
+      <select
+        className="tvd-select tvs-select"
+        value={String(t[key])}
+        onChange={(e) => {
+          const o = opts.find((x) => String(x.id) === e.target.value);
+          if (o) upd({ [key]: o.id } as Partial<ChartTheme>);
+        }}
+      >
         {opts.map((o) => (
-          <button key={String(o.id)} className={t[key] === o.id ? 'on' : ''} onClick={() => upd({ [key]: o.id } as Partial<ChartTheme>)}>
+          <option key={String(o.id)} value={String(o.id)}>
             {o.label}
-          </button>
+          </option>
         ))}
-      </div>
+      </select>
     </div>
   );
   const num = (label: string, key: keyof ChartTheme, min: number, max: number, unit = '') => (
-    <div className="form-row">
-      <span>{label}</span>
+    <div className="tvs-row">
+      <span className="tvs-label">{label}</span>
       <NumberInput value={t[key] as number} min={min} onChange={(v) => upd({ [key]: Math.min(max, Math.max(min, v)) } as Partial<ChartTheme>)} />
       <span className="muted">{unit}</span>
     </div>
   );
-  const TABS: { id: SettingsTab; label: string }[] = [
-    { id: 'symbol', label: 'Semboller' },
-    { id: 'status', label: 'Durum çubuğu' },
-    { id: 'scales', label: 'Ölçekler ve çizgiler' },
-    { id: 'canvas', label: 'Tuval' },
-    { id: 'sessions', label: 'Seanslar' },
+  const candles = t.chartType === 'candles' || t.chartType === 'hollow';
+  const TABS: { id: SettingsTab; label: string; icon: () => ReactElement }[] = [
+    { id: 'symbol', label: 'Sembol', icon: Icons.chart },
+    { id: 'status', label: 'Durum çubuğu', icon: Icons.list },
+    { id: 'scales', label: 'Ölçekler ve çizgiler', icon: Icons.ruler },
+    { id: 'canvas', label: 'Tuval', icon: Icons.layers },
+    { id: 'sessions', label: 'Seanslar', icon: Icons.sessions },
   ];
   return (
-    <Modal title="Grafik ayarları" wkey="chart-settings" width={460} bare onClose={() => useStore.setState({ chartSettingsOpen: false })}>
-      <div className="seg tabs">
+    <Modal
+      title="Grafik ayarları"
+      wkey="chart-settings"
+      width={750}
+      height={563}
+      bodyClass="tvs"
+      onClose={cancel}
+      footer={
+        <>
+          <ChartTemplateMenu t={t} />
+          <div className="spacer" />
+          <button className="tvd-btn" onClick={cancel}>
+            İptal
+          </button>
+          <button className="tvd-btn primary" onClick={close}>
+            Tamam
+          </button>
+        </>
+      }
+    >
+      <nav className="tvs-side" role="tablist" aria-orientation="vertical">
         {TABS.map((x) => (
-          <button key={x.id} className={tab === x.id ? 'on' : ''} onClick={() => setTab(x.id)}>
+          <button key={x.id} role="tab" aria-selected={tab === x.id} className={`tvs-tab ${tab === x.id ? 'on' : ''}`} onClick={() => setTab(x.id)}>
+            <span className="tvs-ico" aria-hidden="true">
+              <x.icon />
+            </span>
             {x.label}
           </button>
         ))}
-      </div>
-      {tab === 'symbol' && (
-        <>
-          {seg('Grafik türü', 'chartType', CHART_TYPES)}
-          {(t.chartType === 'line' || t.chartType === 'area') && color('Çizgi rengi', 'lineColor')}
-          {(t.chartType === 'candles' || t.chartType === 'hollow' || t.chartType === 'bars') && (
-            <>
-              {color('Yükselen gövde', 'upBody')}
-              {color('Düşen gövde', 'downBody')}
-            </>
-          )}
-          {(t.chartType === 'candles' || t.chartType === 'hollow') && (
-            <>
-              {color('Yükselen fitil', 'upWick')}
-              {color('Düşen fitil', 'downWick')}
-              {t.chartType === 'candles' && check('Mum kenarlığı', 'borderVisible')}
-              {(t.chartType === 'hollow' || t.borderVisible) && (
-                <>
-                  {color('Yükselen kenarlık', 'upBorder')}
-                  {color('Düşen kenarlık', 'downBorder')}
-                </>
-              )}
-            </>
-          )}
-          <h4 className="sub">Hazır renk temaları</h4>
-          <div className="theme-presets">
-            {THEME_PRESETS.map((p) => (
-              <button key={p.name} className="theme-preset" title={`${p.name} renklerini uygula`} onClick={() => setChartTheme(withColors(t, p.colors))}>
-                <PresetPreview c={p.colors} />
-                <span>{p.name}</span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-      {tab === 'sessions' && <SessionSettingsTab />}
-      {tab === 'status' && (
-        <>
-          {check('Sembol adı', 'showSymbol')}
-          {check('Veri kaynağı (Dukascopy bid …)', 'showSource')}
-          {check('OHLC değerleri', 'showOhlc')}
-          {check('Mum değişimi (fark ve %)', 'showChange')}
-          {check('Filigran (büyük sembol ve zaman dilimi)', 'watermark')}
-        </>
-      )}
-      {tab === 'scales' && (
-        <>
-          {seg('Fiyat ölçeği', 'priceMode', [
-            { id: 'normal', label: 'Normal' },
-            { id: 'percent', label: '%' },
-            { id: 'indexed', label: '100\'e indeks' },
-            { id: 'log', label: 'Logaritmik' },
-          ])}
-          {check('Ölçeği ters çevir', 'invert')}
-          {check('Son fiyat çizgisi', 'lastLine')}
-          {check('Son fiyat etiketi (fiyat ekseninde)', 'lastLabel')}
-          {check('Mum kapanışına kalan süre', 'countdown')}
-          {num('Üst boşluk', 'marginTop', 0, 40, '%')}
-          {num('Alt boşluk', 'marginBottom', 0, 40, '%')}
-          {num('Sağ boşluk', 'rightOffset', 0, 100, 'mum')}
-          {num('Yazı boyutu', 'fontSize', 9, 16, 'px')}
-          {color('Yazı / eksen rengi', 'text')}
-        </>
-      )}
-      {tab === 'canvas' && (
-        <>
-          {color('Arka plan', 'background')}
-          {color('Ölçek çizgileri', 'scaleLine')}
-          <h4 className="sub">Artı imleç</h4>
-          {color('Renk', 'crosshair')}
-          {seg('Stil', 'crosshairStyle', [
-            { id: 'solid', label: 'Düz' },
-            { id: 'dashed', label: 'Kesik' },
-            { id: 'dotted', label: 'Noktalı' },
-          ])}
-          {seg('Kalınlık', 'crosshairWidth', [1, 2, 3, 4].map((w) => ({ id: w, label: `${w}px` })))}
-          {check('Mumun OHLC değerine yapış (mıknatıs)', 'crosshairMagnet')}
-        </>
-      )}
-      <p className="hint">Ayarlar bu tarayıcıda otomatik kaydedilir ve tüm oturumlarda geçerlidir.</p>
-      <div className="form-row">
-        <ChartTemplateMenu t={t} />
-        <div className="spacer" />
-        <button className="btn small ghost" onClick={() => setChartTheme({ ...DEFAULT_THEME })}>
-          Varsayılana dön
-        </button>
+      </nav>
+      <div className="tvs-content" role="tabpanel">
+        {tab === 'symbol' && (
+          <>
+            {sec('Mumlar')}
+            {pick('Grafik türü', 'chartType', CHART_TYPES)}
+            {(t.chartType === 'line' || t.chartType === 'area') && color('Çizgi', 'lineColor')}
+            {(candles || t.chartType === 'bars') && color('Gövde', 'upBody', 'downBody')}
+            {t.chartType === 'candles' && check('Kenarlıklar', 'borderVisible')}
+            {candles && (t.chartType === 'hollow' || t.borderVisible) && color('Kenarlık', 'upBorder', 'downBorder')}
+            {candles && color('Fitil', 'upWick', 'downWick')}
+            {sec('Hazır renk temaları')}
+            <div className="theme-presets">
+              {THEME_PRESETS.map((p) => (
+                <button key={p.name} className="theme-preset" title={`${p.name} renklerini uygula`} onClick={() => setChartTheme(withColors(t, p.colors))}>
+                  <PresetPreview c={p.colors} />
+                  <span>{p.name}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {tab === 'status' && (
+          <>
+            {sec('Sembol')}
+            {check('Sembol adı', 'showSymbol')}
+            {check('Veri kaynağı (Dukascopy bid …)', 'showSource')}
+            {check('OHLC değerleri', 'showOhlc')}
+            {check('Mum değişimi (fark ve %)', 'showChange')}
+            {sec('Görünüm')}
+            {check('Filigran (büyük sembol ve zaman dilimi)', 'watermark')}
+          </>
+        )}
+        {tab === 'scales' && (
+          <>
+            {sec('Fiyat ölçeği')}
+            {pick('Ölçek türü', 'priceMode', [
+              { id: 'normal', label: 'Normal' },
+              { id: 'percent', label: 'Yüzde' },
+              { id: 'indexed', label: "100'e indeks" },
+              { id: 'log', label: 'Logaritmik' },
+            ])}
+            {check('Ölçeği ters çevir', 'invert')}
+            {check('Son fiyat çizgisi', 'lastLine')}
+            {check('Son fiyat etiketi (fiyat ekseninde)', 'lastLabel')}
+            {check('Mum kapanışına kalan süre', 'countdown')}
+            {sec('Boşluklar')}
+            {num('Üst', 'marginTop', 0, 40, '%')}
+            {num('Alt', 'marginBottom', 0, 40, '%')}
+            {num('Sağ', 'rightOffset', 0, 100, 'mum')}
+          </>
+        )}
+        {tab === 'canvas' && (
+          <>
+            {sec('Grafik temel stilleri')}
+            {color('Arka plan', 'background')}
+            {color('Ölçek çizgileri', 'scaleLine')}
+            {sec('Ölçekler')}
+            {color('Yazı rengi', 'text')}
+            {num('Yazı boyutu', 'fontSize', 9, 16, 'px')}
+            {sec('Artı imleç')}
+            {color('Renk', 'crosshair')}
+            {pick('Stil', 'crosshairStyle', [
+              { id: 'solid', label: 'Düz' },
+              { id: 'dashed', label: 'Kesik' },
+              { id: 'dotted', label: 'Noktalı' },
+            ])}
+            {pick('Kalınlık', 'crosshairWidth', [1, 2, 3, 4].map((w) => ({ id: w, label: `${w} px` })))}
+            {check('Mumun OHLC değerine yapış (mıknatıs)', 'crosshairMagnet')}
+          </>
+        )}
+        {tab === 'sessions' && <SessionSettingsTab />}
       </div>
     </Modal>
   );
@@ -201,7 +236,7 @@ function ChartTemplateMenu({ t }: { t: ChartTheme }) {
   const list = open ? loadChartTemplates() : [];
   return (
     <div className="tvd-tpl" ref={ref}>
-      <button className="btn small" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button className="tvd-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
         Şablon ▾
       </button>
       {open && (
@@ -243,6 +278,15 @@ function ChartTemplateMenu({ t }: { t: ChartTheme }) {
             }}
           >
             Şablonu farklı kaydet…
+          </button>
+          <button
+            className="tvd-menuitem"
+            onClick={() => {
+              setChartTheme({ ...DEFAULT_THEME });
+              setOpen(false);
+            }}
+          >
+            Varsayılanları uygula
           </button>
         </div>
       )}

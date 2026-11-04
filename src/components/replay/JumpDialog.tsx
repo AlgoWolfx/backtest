@@ -33,9 +33,25 @@ export function JumpDialog() {
     close();
   };
   return (
-    <Modal title="Replay tarihini değiştir" wkey="jump" onClose={close}>
+    <Modal
+      title="Replay tarihini değiştir"
+      wkey="jump"
+      width={302}
+      onClose={close}
+      footer={
+        <>
+          <div className="spacer" />
+          <button className="tvd-btn" onClick={close}>
+            İptal
+          </button>
+          <button className="tvd-btn primary" onClick={go}>
+            Git
+          </button>
+        </>
+      }
+    >
       <p className="hint">Seçilen New York saatinden sonraki mumlar gizlenir. Açık pozisyon varken yalnızca ileri gidilebilir; aradaki mumlar SL/TP için işlenir.</p>
-      <div className="form-row">
+      <div className="form-row jump-row">
         <input type="date" value={v.date} onChange={(e) => setV({ ...v, date: e.target.value })} onKeyDown={(e) => e.stopPropagation()} />
         <input type="time" value={v.time} onChange={(e) => setV({ ...v, time: e.target.value })} onKeyDown={(e) => e.key === 'Enter' ? go() : e.stopPropagation()} />
         <span className="muted">NY</span>
@@ -45,15 +61,6 @@ export function JumpDialog() {
           Veri aralığı: {fmtNy(d.meta.from)} → {fmtNy(d.meta.to)}
         </p>
       )}
-      <div className="modal-foot">
-        <div className="spacer" />
-        <button className="btn" onClick={close}>
-          Vazgeç
-        </button>
-        <button className="btn primary" onClick={go}>
-          Git
-        </button>
-      </div>
     </Modal>
   );
 }
