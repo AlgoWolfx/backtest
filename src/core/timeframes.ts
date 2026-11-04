@@ -1,6 +1,6 @@
 // Zaman dilimleri ve New York saatine göre mum kovaları.
 //
-// Kurallar (TradingView / OANDA forex grafikleriyle aynı):
+// Kurallar (TradingView forex grafikleriyle aynı):
 //   - Dakikalık ve 1H mumlar saat başına hizalıdır (NY farkı tam saat olduğu için UTC ile aynı).
 //   - 4H mumlar NY saatiyle 01, 05, 09, 13, 17, 21'de başlar.
 //   - Günlük mum NY 17:00'de başlar (Pazar 17:00 açılışı Pazartesi mumuna aittir).

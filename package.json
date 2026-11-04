@@ -4,17 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "data": "node scripts/data.mjs",
+    "data": "node scripts/dukascopy-full.mjs",
     "dev": "node server/index.mjs --dev",
     "build": "vite build",
     "start": "vite build && node server/index.mjs",
     "serve": "node server/index.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "fetch:dukascopy": "node scripts/fetch-dukascopy.mjs",
-    "verify": "vitest run --config vitest.verify.config.ts",
-    "data:oanda": "node scripts/oanda.mjs",
-    "data:dukascopy": "node scripts/dukascopy-full.mjs"
+    "verify": "vitest run --config vitest.verify.config.ts"
   },
   "dependencies": {
     "dukascopy-node": "1.50.0",

@@ -7,7 +7,7 @@
 import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import type { IPrimitivePaneView, ISeriesPrimitive, SeriesAttachedParameter, Time } from 'lightweight-charts';
 import { alphaOf, computeOverlay, type LabelSize, type LineStyleName, type Overlay, type SessionSettings } from '../core/sessions';
-import { fmtPrice } from '../format';
+import { fmtPrice } from '../lib/format';
 import { useStore } from '../store';
 import { hexToRgba } from './DrawingLayer';
 import type { ChartController } from './ChartController';

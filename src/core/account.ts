@@ -75,13 +75,86 @@ export interface Account {
   state: AccountState;
 }
 
-export const ACCOUNT_PRESETS: { id: string; label: string; rules: AccountRules }[] = [
-  { id: 'personal', label: 'Kişisel hesap', rules: { type: 'personal', profitTargetPct: null, dailyLossPct: null, maxLossPct: null, drawdownType: 'static', minTradingDays: 0 } },
-  { id: 'prop-2s-p1', label: 'Fon · 2 adım · Faz 1 (genel örnek)', rules: { type: 'prop', profitTargetPct: 10, dailyLossPct: 5, maxLossPct: 10, drawdownType: 'static', minTradingDays: 4 } },
-  { id: 'prop-2s-p2', label: 'Fon · 2 adım · Faz 2 (genel örnek)', rules: { type: 'prop', profitTargetPct: 5, dailyLossPct: 5, maxLossPct: 10, drawdownType: 'static', minTradingDays: 4 } },
-  { id: 'prop-1s', label: 'Fon · 1 adım trailing (genel örnek)', rules: { type: 'prop', profitTargetPct: 10, dailyLossPct: 3, maxLossPct: 6, drawdownType: 'trailing', minTradingDays: 0 } },
-  { id: 'prop-funded', label: 'Fonlu hesap, hedef yok (genel örnek)', rules: { type: 'prop', profitTargetPct: null, dailyLossPct: 5, maxLossPct: 10, drawdownType: 'static', minTradingDays: 0 } },
+/** Hazır hesap türleri: gruplara ayrılır (kişisel / değerlendirme / fonlu). Genel örneklerdir, belirli bir firmanın kuralı değildir. */
+export type AccountGroup = 'personal' | 'eval' | 'funded';
+export interface AccountPreset {
+  id: string;
+  label: string;
+  group: AccountGroup;
+  desc: string;
+  rules: AccountRules;
+}
+
+export const ACCOUNT_GROUPS: { id: AccountGroup; label: string; desc: string }[] = [
+  { id: 'personal', label: 'Kişisel', desc: 'Kural yok: hesap patlamaz, hedef yok.' },
+  { id: 'eval', label: 'Fon değerlendirmesi', desc: 'Kâr hedefi + günlük / maks. kayıp limiti. Hedefe ulaşınca geçersin, limite değince patlar.' },
+  { id: 'funded', label: 'Fonlu hesap', desc: 'Hedef yok; yalnızca günlük / maks. kayıp limitlerine uymak gerekir.' },
 ];
+
+const prop = (r: Partial<AccountRules>): AccountRules => ({ type: 'prop', profitTargetPct: null, dailyLossPct: null, maxLossPct: null, drawdownType: 'static', minTradingDays: 0, ...r });
+
+export const ACCOUNT_PRESETS: AccountPreset[] = [
+  {
+    id: 'personal',
+    label: 'Kişisel hesap',
+    group: 'personal',
+    desc: 'Limit ve hedef yok.',
+    rules: { type: 'personal', profitTargetPct: null, dailyLossPct: null, maxLossPct: null, drawdownType: 'static', minTradingDays: 0 },
+  },
+  { id: 'prop-2s-p1', label: '2 adım · Faz 1', group: 'eval', desc: 'Klasik ilk faz: %10 hedef, statik %10 maks. kayıp.', rules: prop({ profitTargetPct: 10, dailyLossPct: 5, maxLossPct: 10, minTradingDays: 4 }) },
+  { id: 'prop-2s-p2', label: '2 adım · Faz 2', group: 'eval', desc: 'Doğrulama fazı: %5 hedef, aynı limitler.', rules: prop({ profitTargetPct: 5, dailyLossPct: 5, maxLossPct: 10, minTradingDays: 4 }) },
+  { id: 'prop-1s-static', label: '1 adım · statik', group: 'eval', desc: 'Tek faz, sabit taban; minimum gün şartı yok.', rules: prop({ profitTargetPct: 8, dailyLossPct: 4, maxLossPct: 8 }) },
+  { id: 'prop-1s', label: '1 adım · trailing', group: 'eval', desc: 'Tek faz; taban kapanmış bakiye zirvesiyle yükselir (başlangıç seviyesine kadar).', rules: prop({ profitTargetPct: 10, dailyLossPct: 3, maxLossPct: 6, drawdownType: 'trailing' }) },
+  { id: 'prop-funded', label: 'Fonlu · statik', group: 'funded', desc: 'Hedef yok, sabit %10 maks. kayıp.', rules: prop({ dailyLossPct: 5, maxLossPct: 10 }) },
+  { id: 'prop-funded-trailing', label: 'Fonlu · trailing', group: 'funded', desc: 'Hedef yok, zirveden %6 trailing kayıp.', rules: prop({ dailyLossPct: 3, maxLossPct: 6, drawdownType: 'trailing' }) },
+];
+
+/** Bir kural setine uyan hazır hesap (yoksa özel). */
+export function presetOf(rules: AccountRules): AccountPreset | undefined {
+  return ACCOUNT_PRESETS.find((p) => JSON.stringify({ ...p.rules, resetMode: p.rules.resetMode ?? 'ny17' }) === JSON.stringify({ ...rules, resetMode: rules.resetMode ?? 'ny17' }));
+}
+
+/** Kurallara göre hesabın hangi grupta olduğu. */
+export function groupOf(rules: AccountRules): AccountGroup {
+  if (rules.type === 'personal') return 'personal';
+  return rules.profitTargetPct != null ? 'eval' : 'funded';
+}
+
+/** Kuralların başlangıç bakiyesine göre dolar karşılıkları (formda özet için). */
+export function ruleAmounts(r: AccountRules, balance: number) {
+  const amt = (pct: number | null) => (pct == null ? null : cents((balance * pct) / 100));
+  return {
+    target: r.profitTargetPct == null ? null : cents(balance * (1 + r.profitTargetPct / 100)),
+    targetGain: amt(r.profitTargetPct),
+    dailyLoss: amt(r.dailyLossPct),
+    maxLoss: amt(r.maxLossPct),
+    /** Başlangıçta equity'nin düşebileceği en düşük seviye (hesap patlama tabanı) */
+    floor: r.maxLossPct == null ? null : cents(balance - (balance * r.maxLossPct) / 100),
+  };
+}
+
+export interface RuleCheck {
+  errors: string[];
+  warnings: string[];
+}
+
+/** Hesap kurallarının tutarlılığı: hatalar oturum açmayı engeller, uyarılar bilgi verir. */
+export function validateRules(r: AccountRules, balance: number): RuleCheck {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  if (!Number.isFinite(balance) || balance < 100) errors.push('Başlangıç bakiyesi en az $100 olmalı.');
+  for (const [label, v] of [['Kâr hedefi', r.profitTargetPct], ['Günlük kayıp', r.dailyLossPct], ['Maks. kayıp', r.maxLossPct]] as const) {
+    if (v != null && !(v > 0 && v < 100)) errors.push(`${label} % 0 ile 100 arasında olmalı.`);
+  }
+  if (r.drawdownType === 'trailing' && r.maxLossPct == null) errors.push('Trailing düşüş için maks. kayıp % gerekli.');
+  if (!Number.isInteger(r.minTradingDays) || r.minTradingDays < 0) errors.push('Min. işlem günü 0 veya pozitif tam sayı olmalı.');
+  if (r.type === 'prop') {
+    if (r.dailyLossPct == null && r.maxLossPct == null) warnings.push('Fon hesabında günlük veya maks. kayıp limiti yok: hesap hiç patlamaz.');
+    if (r.dailyLossPct != null && r.maxLossPct != null && r.dailyLossPct >= r.maxLossPct) warnings.push('Günlük limit maks. kayıptan büyük veya eşit: günlük limit fiilen devreye girmez.');
+    if (r.minTradingDays > 0 && r.profitTargetPct == null) warnings.push('Min. işlem günü yalnızca kâr hedefiyle birlikte anlamlı.');
+  }
+  return { errors, warnings };
+}
 
 export function newAccount(rules: AccountRules, initial: number, startTime: number): Account {
   return {
