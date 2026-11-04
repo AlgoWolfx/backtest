@@ -19,6 +19,8 @@ export interface SessionSummary {
   initialBalance: number;
   balance: number;
   trades: number;
+  /** Kapanmış işlemler: giriş ekranında oturum istatistikleri (computeStats) için */
+  closedTrades?: Trade[];
   accountStatus: 'active' | 'failed' | 'passed' | null;
   accountType: 'personal' | 'prop' | null;
 }
