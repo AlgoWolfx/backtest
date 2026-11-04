@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { exec } from 'node:child_process';
 import { SYMBOLS } from '../shared/symbols.js';
+import { isStaleWrite } from '../shared/sessionWrite.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA_DIR = process.env.BACKTEST_DATA_DIR || path.join(ROOT, 'data');
@@ -153,6 +154,15 @@ async function handleApi(req, res, url) {
       const body = await readBody(req);
       const parsed = JSON.parse(body);
       if (parsed.id !== id) return sendJson(res, 400, { error: 'Kimlik uyuşmuyor' });
+      // ?base=: sekmenin devam ettiği sürüm. Araya başka sekme yazdıysa bu eski kopya üstüne yazmaz.
+      let stored = null;
+      try {
+        stored = JSON.parse(fs.readFileSync(file, 'utf8'));
+      } catch {
+        /* dosya yok / bozuk: yaz */
+      }
+      const base = url.searchParams.has('base') ? Number(url.searchParams.get('base')) : null;
+      if (isStaleWrite(stored, base)) return sendJson(res, 409, { error: 'Oturum başka bir sekmede daha yeni kaydedildi', updatedAt: stored.updatedAt });
       fs.writeFileSync(file + '.tmp', body);
       fs.renameSync(file + '.tmp', file);
       return sendJson(res, 200, { ok: true });

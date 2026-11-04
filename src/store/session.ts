@@ -85,6 +85,8 @@ export async function createSession(p: { name: string; symbol: string; startTime
 
 export async function openSession(id: string, preloaded?: Session) {
   const session: Session = preloaded ?? (await fetch(`/api/sessions/${id}`).then((r) => r.json()));
+  base = { id, at: session.updatedAt };
+  staleId = null;
   session.fibDefaults ??= DEFAULT_FIB;
   session.source = 'dukascopy'; // eski oturumlar (HistData / OANDA) aynı Dukascopy verisiyle açılır
   if (!isLayoutId(session.layout)) session.layout = '1'; // bilinmeyen düzen kimliği çökertmesin
@@ -119,9 +121,23 @@ let lastSavedAt = 0;
 
 const MAX_SAVE_WAIT_MS = 10_000;
 
+/** Bu sekmenin devam ettiği disk sürümü (updatedAt). Sunucu, diskte daha yenisi varsa kaydı reddeder (eski sekme koruması). */
+let base: { id: string; at: number } | null = null;
+/** Bu sekmedeki kopya eskidi (başka sekme daha yeni kaydetti): artık kaydedilmez, yenilenmesi gerekir. */
+let staleId: string | null = null;
+
+const saveUrl = (s: Session) => `/api/sessions/${s.id}${base?.id === s.id ? `?base=${base.at}` : ''}`;
+
 async function saveNow(s: Session) {
+  if (staleId === s.id) return;
   lastSavedAt = Date.now();
-  await fetch(`/api/sessions/${s.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) });
+  const url = saveUrl(s);
+  base = { id: s.id, at: s.updatedAt }; // gönderilen sürüm artık bu sekmenin tabanı (ardışık kayıtlar birbirini reddetmesin)
+  const r = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) });
+  if (r.status === 409) {
+    staleId = s.id;
+    toast('Bu oturum başka bir sekmede daha yeni kaydedildi. Bu sekmedeki değişiklikler kaydedilmiyor: sayfayı yenileyin (F5).', 'error');
+  }
 }
 
 useStore.subscribe((state, prev) => {
@@ -135,5 +151,5 @@ useStore.subscribe((state, prev) => {
 
 window.addEventListener('beforeunload', () => {
   const s = get().session;
-  if (s) navigator.sendBeacon?.(`/api/sessions/${s.id}`, new Blob([JSON.stringify(s)], { type: 'application/json' }));
+  if (s && staleId !== s.id) navigator.sendBeacon?.(saveUrl(s), new Blob([JSON.stringify(s)], { type: 'application/json' }));
 });
