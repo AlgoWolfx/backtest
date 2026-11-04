@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react';
 import { getSymbol } from '../../../shared/symbols.js';
 import { liquidationPnl } from '../../core/trading';
 import { snapshot } from '../../core/account';
@@ -47,6 +48,8 @@ export function AccountMeters() {
   const { session, balance, floating } = b;
   const snap = snapshot(session.account!, session.initialBalance, session.replayTime, balance, balance + floating);
   const pct = (v: number) => ((v / session.initialBalance) * 100).toFixed(2);
+  const signed = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${pct(Math.abs(v))}`;
+  const tone = (v: number) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '');
   if (!snap.target && !snap.daily && !snap.max) return null;
   return (
     <div className="meters">
@@ -54,17 +57,31 @@ export function AccountMeters() {
         <Meter label="Hedef" title={`Kâr hedefi: ${fmtMoney(snap.target.have, true)} / ${fmtMoney(snap.target.need)}`} value={snap.target.have} max={snap.target.need} text={`${pct(snap.target.have)} / ${pct(snap.target.need)}%`} tone="good" />
       )}
       {snap.daily && (
-        <Meter label="Günlük" title={`Bugünkü kayıp (equity): ${fmtMoney(snap.daily.used)} / limit ${fmtMoney(snap.daily.limit)} · NY 17:00'de sıfırlanır`} value={snap.daily.used} max={snap.daily.limit} text={`${pct(snap.daily.used)} / ${pct(snap.daily.limit)}%`} tone="bad" />
+        <Meter
+          label="Günlük"
+          title={`Bugünkü K/Z (equity): ${fmtMoney(snap.daily.pnl, true)} · günlük kayıp limiti ${fmtMoney(snap.daily.limit)} · bugün kalan kayıp payı ${fmtMoney(snap.daily.limit + snap.daily.pnl)} · gün başında sıfırlanır`}
+          value={snap.daily.used}
+          max={snap.daily.limit}
+          text={<><span className={tone(snap.daily.pnl)}>{signed(snap.daily.pnl)}</span> / −{pct(snap.daily.limit)}%</>}
+          tone="bad"
+        />
       )}
       {snap.max && (
-        <Meter label="Patlama" title={`Maks. kayıp limitinden kullanılan: ${fmtMoney(snap.max.used)} / ${fmtMoney(snap.max.limit)}`} value={snap.max.used} max={snap.max.limit} text={`${pct(snap.max.used)} / ${pct(snap.max.limit)}%`} tone="bad" />
+        <Meter
+          label="Patlama"
+          title={`Toplam K/Z (equity, limitin ölçüldüğü noktaya göre): ${fmtMoney(snap.max.pnl, true)} · maks. kayıp limiti ${fmtMoney(snap.max.limit)} · patlamaya kalan ${fmtMoney(snap.max.limit + snap.max.pnl)}`}
+          value={snap.max.used}
+          max={snap.max.limit}
+          text={<><span className={tone(snap.max.pnl)}>{signed(snap.max.pnl)}</span> / −{pct(snap.max.limit)}%</>}
+          tone="bad"
+        />
       )}
     </div>
   );
 }
 
 /** Küçük ilerleme göstergesi (hedef / limit kullanımı). */
-function Meter({ label, title, value, max, text, tone }: { label: string; title: string; value: number; max: number; text: string; tone: 'good' | 'bad' }) {
+function Meter({ label, title, value, max, text, tone }: { label: string; title: string; value: number; max: number; text: ReactNode; tone: 'good' | 'bad' }) {
   const ratio = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
   const level = tone === 'good' ? 'good' : ratio >= 0.8 ? 'crit' : ratio >= 0.5 ? 'warn' : 'ok';
   return (

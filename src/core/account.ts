@@ -262,10 +262,10 @@ export interface AccountSnapshot {
   status: AccountState['status'];
   /** Hedefe ilerleme: kazanılan / gereken (para) */
   target: { have: number; need: number } | null;
-  /** Bugünkü kayıp / günlük limit (para) */
-  daily: { used: number; limit: number } | null;
-  /** Maks. kayıp limitinden kullanılan / toplam (para) */
-  max: { used: number; limit: number } | null;
+  /** Bugünkü kayıp / günlük limit (para); pnl: gün başından bu yana equity farkı (kârda pozitif) */
+  daily: { used: number; limit: number; pnl: number } | null;
+  /** Maks. kayıp limitinden kullanılan / toplam (para); pnl: limitin ölçüldüğü noktaya (başlangıç ya da zirve) göre equity farkı */
+  max: { used: number; limit: number; pnl: number } | null;
   tradingDays: number;
 }
 
@@ -279,8 +279,8 @@ export function snapshot(a: Account, initial: number, t: number, balance: number
   return {
     status: a.state.status,
     target: lv.target != null ? { have: balance - initial, need: lv.target - initial } : null,
-    daily: lv.daily != null ? { used: Math.max(0, st.dayStartBalance - equity), limit: (initial * (r.dailyLossPct ?? 0)) / 100 } : null,
-    max: lv.maxLoss != null ? { used: Math.max(0, maxAmt - (equity - lv.maxLoss)), limit: maxAmt } : null,
+    daily: lv.daily != null ? { used: Math.max(0, st.dayStartBalance - equity), limit: (initial * (r.dailyLossPct ?? 0)) / 100, pnl: equity - st.dayStartBalance } : null,
+    max: lv.maxLoss != null ? { used: Math.max(0, maxAmt - (equity - lv.maxLoss)), limit: maxAmt, pnl: equity - lv.maxLoss - maxAmt } : null,
     tradingDays: st.tradingDays.length,
   };
 }
