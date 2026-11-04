@@ -103,3 +103,107 @@ export const rectTemplateOf = (d: Rect): RectTemplate => templateOf(d) as RectTe
 export const loadRectTemplate = (): RectTemplate => loadTemplate('rect') as RectTemplate;
 export const saveRectTemplate = (t: RectTemplate) => saveTemplate('rect', t as DrawingTemplate);
 export const clearRectTemplate = () => clearTemplate('rect');
+
+// ---- Adlı şablonlar (TradingView "Şablonu farklı kaydet…"): stil + etiket metni, tür başına birden çok.
+// Liste hazır ICT / SMC şablonlarıyla başlar, sonra tamamen kullanıcınındır (değiştir / üzerine yaz / sil); tarayıcıda saklanır.
+
+export interface NamedTemplate {
+  name: string;
+  style: DrawingTemplate;
+}
+
+/** Adlı şablon = stil alanları + etiket metni (çizgiye "PDH", "SIBI" gibi ad yazar). */
+export function namedTemplateOf(d: Drawing): DrawingTemplate {
+  const out = templateOf(d);
+  const text = (d as { text?: string }).text;
+  if (text !== undefined) out.text = text;
+  return out;
+}
+
+const HIGH = '#f23645';
+const LOW = '#089981';
+
+/** Yatay ışın etiketi: sağda, çizginin üstünde, çizgi renginde. */
+const hl = (name: string, color: string, style: 'solid' | 'dashed' | 'dotted' = 'solid'): NamedTemplate => ({
+  name,
+  style: { color, width: 1, style, lineAlpha: 1, text: name, textColor: color, textSize: 11, hAlign: 'right', vAlign: 'top' },
+});
+/** Yapı kırılımı (trend çizgisi): kırılan tepe/dipten kıran muma, etiket ortada. */
+const st = (name: string, color: string, style: 'solid' | 'dashed' | 'dotted' = 'dashed'): NamedTemplate => ({
+  name,
+  style: { color, width: 1, style, lineAlpha: 1, text: name, textColor: color, textSize: 11, hAlign: 'center', vAlign: 'top' },
+});
+/** Bölge (dikdörtgen): dolgu + %50 orta çizgi (CE / mean threshold), etiket sağ üstte. */
+const zone = (name: string, color: string, alpha = 0.18, midline = true): NamedTemplate => ({
+  name,
+  style: {
+    color, width: 1, fillColor: color, fillAlpha: alpha, fillOn: true, fill: hexToRgba(color, alpha),
+    midline, midColor: color, midStyle: 'dashed', midWidth: 1,
+    text: name, textColor: color, textSize: 11, hAlign: 'right', vAlign: 'top',
+  },
+});
+
+const STRUCTURE = [st('MSS', '#ff9800'), st('CHoCH', '#e91e63'), st('BOS', '#2962ff'), st('CISD', '#9c27b0')];
+
+export const BUILTIN_TEMPLATES: Partial<Record<TemplateType, NamedTemplate[]>> = {
+  hline: [
+    hl('PDH', HIGH), hl('PDL', LOW), hl('PWH', HIGH), hl('PWL', LOW), hl('PMH', HIGH), hl('PML', LOW),
+    hl('BSL', HIGH, 'dashed'), hl('SSL', LOW, 'dashed'), hl('EQH', HIGH, 'dotted'), hl('EQL', LOW, 'dotted'),
+    hl('ERL', '#ff9800', 'dashed'), hl('IRL', '#00bcd4', 'dashed'), hl('Midnight Open', '#787b86', 'dotted'),
+    ...STRUCTURE.map((t) => ({ ...t, style: { ...t.style, hAlign: 'right' } })),
+  ],
+  trend: STRUCTURE,
+  rect: [
+    zone('+OB', LOW), zone('-OB', HIGH), zone('BISI', '#00bcd4'), zone('SIBI', '#e91e63'),
+    zone('+BB', '#2962ff'), zone('-BB', '#ff9800'), zone('IFVG', '#9c27b0'), zone('BPR', '#787b86'),
+    zone('Premium', HIGH, 0.08, false), zone('Discount', LOW, 0.08, false),
+  ],
+};
+
+const namedKey = (type: TemplateType) => `backtest.drawTemplates.${type}`;
+
+/**
+ * Türün şablon listesi. Hiç kaydedilmemişse hazır şablonlarla başlar; sonra liste tamamen kullanıcınındır
+ * (hazırlar da değiştirilebilir / silinebilir, TradingView gibi). Bozuk kayıtta hazırlara döner.
+ */
+export function loadNamed(type: TemplateType): NamedTemplate[] {
+  const builtins = () => structuredClone(BUILTIN_TEMPLATES[type] ?? []);
+  try {
+    const raw = localStorage.getItem(namedKey(type));
+    if (raw == null) return builtins();
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((t) => t && typeof t.name === 'string' && t.style && typeof t.style === 'object') : builtins();
+  } catch {
+    return builtins();
+  }
+}
+
+function writeNamed(type: TemplateType, list: NamedTemplate[]) {
+  try {
+    localStorage.setItem(namedKey(type), JSON.stringify(list));
+  } catch {
+    /* kaydedilemedi */
+  }
+}
+
+export const hasNamed = (type: TemplateType, name: string) => loadNamed(type).some((t) => t.name === name);
+
+/** Aynı adlı şablon varsa yerinde üzerine yazar, yoksa sona ekler. */
+export function saveNamed(type: TemplateType, name: string, style: DrawingTemplate) {
+  const list = loadNamed(type);
+  const i = list.findIndex((t) => t.name === name);
+  if (i >= 0) list[i] = { name, style };
+  else list.push({ name, style });
+  writeNamed(type, list);
+}
+
+export function deleteNamed(type: TemplateType, name: string) {
+  writeNamed(type, loadNamed(type).filter((t) => t.name !== name));
+}
+
+/** Hazır şablonları geri yükler: değiştirilen / silinen hazırlar eski hâline döner, kullanıcının eklediği şablonlar kalır. */
+export function restoreBuiltins(type: TemplateType) {
+  const builtins = structuredClone(BUILTIN_TEMPLATES[type] ?? []);
+  const names = new Set(builtins.map((t) => t.name));
+  writeNamed(type, [...builtins, ...loadNamed(type).filter((t) => !names.has(t.name))]);
+}

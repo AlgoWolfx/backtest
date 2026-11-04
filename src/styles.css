@@ -1791,6 +1791,65 @@ tbody tr:hover {
 .tvd-menuitem:hover {
   background: #4b5263;
 }
+.tvd-menu.down {
+  bottom: auto;
+  top: calc(100% + 6px);
+  max-height: 70vh;
+  overflow-y: auto;
+  color: #d1d4dc;
+}
+.tvd-chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+  min-width: 260px;
+}
+.tvd-chip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px 6px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.tvd-chip span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tvd-chip:hover {
+  border-color: currentColor;
+}
+.tvd-chipdel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 2px 4px;
+  font-size: 12px;
+  line-height: 1;
+  color: #9598a1;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+.tvd-chip:hover .tvd-chipdel {
+  opacity: 1;
+}
+.tvd-chipdel:hover {
+  color: #f23645;
+}
+.tvd-menusep {
+  height: 1px;
+  margin: 4px 6px;
+  background: #4a4a4a;
+}
 .tvd-vis {
   display: grid;
   grid-template-columns: 1fr 1fr;
