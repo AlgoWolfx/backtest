@@ -2,6 +2,7 @@ import { chartRef } from '../../chart/chartRef';
 import { hexToRgba } from '../../chart/drawUtil';
 import type { LineStyleName, Position } from '../../core/types';
 import { SizeControl } from './SizeControl';
+import { TemplateMenu } from './TemplateMenu';
 import { closeTradeManual, cloneDrawing, deleteDrawing, drawingsOf, placeOrderFromDrawing, updateDrawing, useStore } from '../../store';
 import { TvColor } from '../common/TvColor';
 import { Icons } from '../common/icons';
@@ -43,6 +44,7 @@ export function DrawingToolbar() {
           <TvColor color={color} alpha={alpha} onChange={onColor} withAlpha={d.type !== 'fib'} />
         </span>
       )}
+      {!isPos && <TemplateMenu d={d} set={set} inToolbar />}
       {!isPos && d.type !== 'text' && (
         <select className="dt-select" disabled={locked} title="Kalınlık" value={d.width} onChange={(e) => set({ width: Number(e.target.value) })}>
           {[1, 2, 3, 4].map((w) => (
