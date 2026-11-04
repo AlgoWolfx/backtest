@@ -47,8 +47,12 @@ function baseOf(el: HTMLElement, ox: number, oy: number) {
   return { left: r.left - ox, top: r.top - oy, width: r.width };
 }
 
-export function useWindow(key: string) {
-  const [state, setState] = useState<Saved>(() => load(key));
+/**
+ * dialog: TradingView diyaloğu davranışı: her açılışta ortada başlar (konum hatırlanmaz), küçültme yok,
+ * yalnızca başlıktan sürüklenir.
+ */
+export function useWindow(key: string, dialog = false) {
+  const [state, setState] = useState<Saved>(() => (dialog ? { x: 0, y: 0, min: false } : load(key)));
   const winRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
   const latest = useRef(state);
@@ -86,8 +90,8 @@ export function useWindow(key: string) {
   const onPointerUp = useCallback(() => {
     if (!drag.current) return;
     drag.current = null;
-    save(key, latest.current);
-  }, [key]);
+    if (!dialog) save(key, latest.current);
+  }, [key, dialog]);
 
   const toggleMin = useCallback(() => {
     setState((s) => {
@@ -105,6 +109,7 @@ export function useWindow(key: string) {
   }, [key]);
 
   const style: CSSProperties = { transform: `translate(${state.x}px, ${state.y}px)` };
-  const headProps = { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp, onDoubleClick: toggleMin, style: { cursor: 'move', touchAction: 'none' } as CSSProperties, title: 'Sürükle: taşı · Çift tık: küçült / büyüt' };
+  const drag$ = { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp, style: { cursor: dialog ? 'grab' : 'move', touchAction: 'none' } as CSSProperties };
+  const headProps = dialog ? drag$ : { ...drag$, onDoubleClick: toggleMin, title: 'Sürükle: taşı · Çift tık: küçült / büyüt' };
   return { winRef, style, min: state.min, toggleMin, reset, headProps };
 }
