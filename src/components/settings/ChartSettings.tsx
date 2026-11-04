@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react';
-import { setChartTheme, useStore } from '../../store';
-import { DEFAULT_THEME, THEME_PRESETS, withColors, type ChartTheme, type ChartType } from '../../prefs/chartTheme';
+import { useEffect, useRef, useState } from 'react';
+import { setChartTheme, toast, useStore } from '../../store';
+import {
+  DEFAULT_THEME, THEME_PRESETS, deleteChartTemplate, loadChartTemplates, saveChartTemplate, themeFromTemplate, withColors, type ChartTheme, type ChartType, type ThemeColors,
+} from '../../prefs/chartTheme';
+import { TvColor } from '../common/TvColor';
 import { NumberInput } from '../common/NumberInput';
 import { SessionSettingsTab } from './SessionSettingsTab';
 import { Modal } from '../common/Modal';
@@ -31,7 +34,7 @@ export function ChartSettings() {
   const color = (label: string, key: keyof ChartTheme) => (
     <div className="form-row">
       <span>{label}</span>
-      <input type="color" className="color-input" value={t[key] as string} onChange={(e) => upd({ [key]: e.target.value } as Partial<ChartTheme>)} />
+      <TvColor color={t[key] as string} withAlpha={false} onChange={(c) => upd({ [key]: c } as Partial<ChartTheme>)} />
       <span className="muted">{(t[key] as string).toUpperCase()}</span>
     </div>
   );
@@ -100,11 +103,11 @@ export function ChartSettings() {
             </>
           )}
           <h4 className="sub">Hazır renk temaları</h4>
-          <div className="presets">
+          <div className="theme-presets">
             {THEME_PRESETS.map((p) => (
-              <button key={p.name} className="btn small" onClick={() => setChartTheme(withColors(t, p.colors))}>
-                <span className="preset-dot" style={{ background: p.colors.background, borderColor: p.colors.upBody }} />
-                {p.name}
+              <button key={p.name} className="theme-preset" title={`${p.name} renklerini uygula`} onClick={() => setChartTheme(withColors(t, p.colors))}>
+                <PresetPreview c={p.colors} />
+                <span>{p.name}</span>
               </button>
             ))}
           </div>
@@ -142,15 +145,7 @@ export function ChartSettings() {
       {tab === 'canvas' && (
         <>
           {color('Arka plan', 'background')}
-          {color('Izgara', 'grid')}
-          <div className="form-row check">
-            <label>
-              <input type="checkbox" checked={t.gridV} onChange={(e) => upd({ gridV: e.target.checked })} /> Dikey ızgara
-            </label>
-            <label>
-              <input type="checkbox" checked={t.gridH} onChange={(e) => upd({ gridH: e.target.checked })} /> Yatay ızgara
-            </label>
-          </div>
+          {color('Ölçek çizgileri', 'scaleLine')}
           <h4 className="sub">Artı imleç</h4>
           {color('Renk', 'crosshair')}
           {seg('Stil', 'crosshairStyle', [
@@ -164,11 +159,93 @@ export function ChartSettings() {
       )}
       <p className="hint">Ayarlar bu tarayıcıda otomatik kaydedilir ve tüm oturumlarda geçerlidir.</p>
       <div className="form-row">
+        <ChartTemplateMenu t={t} />
         <div className="spacer" />
         <button className="btn small ghost" onClick={() => setChartTheme({ ...DEFAULT_THEME })}>
           Varsayılana dön
         </button>
       </div>
     </Modal>
+  );
+}
+
+/** Hazır temanın küçük önizlemesi: arka plan + iki yükselen, bir düşen mum. */
+function PresetPreview({ c }: { c: ThemeColors }) {
+  const candle = (x: number, up: boolean, top: number, bot: number, hi: number, lo: number) => (
+    <g>
+      <line x1={x + 3} x2={x + 3} y1={hi} y2={lo} stroke={up ? c.upWick : c.downWick} />
+      <rect x={x} y={top} width={6} height={bot - top} fill={up ? c.upBody : c.downBody} stroke={c.borderVisible ? (up ? c.upBorder : c.downBorder) : 'none'} />
+    </g>
+  );
+  return (
+    <svg className="theme-preview" viewBox="0 0 44 28" aria-hidden="true">
+      <rect width="44" height="28" rx="3" fill={c.background} />
+      {candle(6, true, 12, 20, 8, 23)}
+      {candle(19, false, 9, 17, 5, 20)}
+      {candle(32, true, 6, 14, 3, 17)}
+    </svg>
+  );
+}
+
+/** TradingView "Şablon" düğmesi: tüm grafik ayarlarını adla kaydet, uygula, sil. */
+function ChartTemplateMenu({ t }: { t: ChartTheme }) {
+  const [open, setOpen] = useState(false);
+  const [, refresh] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    window.addEventListener('mousedown', h, true);
+    return () => window.removeEventListener('mousedown', h, true);
+  }, [open]);
+  const list = open ? loadChartTemplates() : [];
+  return (
+    <div className="tvd-tpl" ref={ref}>
+      <button className="btn small" aria-expanded={open} onClick={() => setOpen(!open)}>
+        Şablon ▾
+      </button>
+      {open && (
+        <div className="tvd-menu">
+          {list.map((x) => (
+            <div key={x.name} className="tvd-menurow">
+              <button
+                className="tvd-menuitem"
+                onClick={() => {
+                  setChartTheme(themeFromTemplate(x));
+                  setOpen(false);
+                }}
+              >
+                {x.name}
+              </button>
+              <button
+                className="tvd-menudel"
+                title="Şablonu sil"
+                aria-label={`${x.name} şablonunu sil`}
+                onClick={() => {
+                  deleteChartTemplate(x.name);
+                  refresh((n) => n + 1);
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {list.length > 0 && <div className="tvd-menusep" />}
+          <button
+            className="tvd-menuitem"
+            onClick={() => {
+              setOpen(false);
+              const name = window.prompt('Grafik şablonu adı (aynı ad yazılırsa güncellenir):')?.trim();
+              if (!name) return;
+              if (loadChartTemplates().some((x) => x.name === name) && !window.confirm(`"${name}" şablonu zaten var. Üzerine yazılsın mı?`)) return;
+              saveChartTemplate(name, t);
+              toast(`"${name}" grafik şablonu kaydedildi.`);
+            }}
+          >
+            Şablonu farklı kaydet…
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

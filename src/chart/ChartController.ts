@@ -76,7 +76,7 @@ export class ChartController {
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         attributionLogo: false,
       },
-      grid: { vertLines: { color: 'rgba(255,255,255,0.035)' }, horzLines: { color: 'rgba(255,255,255,0.035)' } },
+      grid: { vertLines: { visible: false }, horzLines: { visible: false } }, // ızgara yok (kullanıcı isteği)
       crosshair: {
         mode: CrosshairMode.Normal,
         vertLine: { color: '#5d606b', style: LineStyle.Dashed, labelBackgroundColor: '#2a2e39' },
@@ -450,10 +450,9 @@ export class ChartController {
     const mode = { normal: PriceScaleMode.Normal, log: PriceScaleMode.Logarithmic, percent: PriceScaleMode.Percentage, indexed: PriceScaleMode.IndexedTo100 }[t.priceMode];
     this.chart.applyOptions({
       layout: { background: { type: ColorType.Solid, color: t.background }, textColor: t.text, fontSize: t.fontSize },
-      grid: { vertLines: { color: t.grid, visible: t.gridV }, horzLines: { color: t.grid, visible: t.gridH } },
       crosshair: { mode: t.crosshairMagnet ? CrosshairMode.Magnet : CrosshairMode.Normal, vertLine: cross, horzLine: cross },
-      rightPriceScale: { mode, invertScale: t.invert, scaleMargins: { top: t.marginTop / 100, bottom: t.marginBottom / 100 } },
-      timeScale: { rightOffset: t.rightOffset },
+      rightPriceScale: { mode, invertScale: t.invert, borderColor: t.scaleLine, scaleMargins: { top: t.marginTop / 100, bottom: t.marginBottom / 100 } },
+      timeScale: { rightOffset: t.rightOffset, borderColor: t.scaleLine },
     });
     this.ensureAlt(t);
     // Mum benzeri türlerde mum serisi çizer; diğerlerinde yalnızca koordinat / ölçek için görünmez kalır.

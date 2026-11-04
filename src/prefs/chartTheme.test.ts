@@ -1,0 +1,41 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_THEME, THEME_PRESETS, deleteChartTemplate, loadChartTemplates, loadTheme, saveChartTemplate, themeFromTemplate } from './chartTheme';
+
+const mem = new Map<string, string>();
+const stub = () => {
+  mem.clear();
+  vi.stubGlobal('localStorage', { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) });
+};
+afterEach(() => vi.unstubAllGlobals());
+
+describe('grafik teması: ızgara yok', () => {
+  it('varsayılan ve hazır temalarda ızgara alanı yok', () => {
+    for (const k of ['grid', 'gridV', 'gridH']) {
+      expect(k in DEFAULT_THEME).toBe(false);
+      for (const p of THEME_PRESETS) expect(k in p.colors, p.name).toBe(false);
+    }
+  });
+  it('eski kayıttaki ızgara ayarları atılır, diğer ayarlar korunur', () => {
+    stub();
+    mem.set('backtest.chartTheme', JSON.stringify({ grid: '#111', gridV: true, gridH: true, upBody: '#ffffff' }));
+    const t = loadTheme();
+    expect('gridV' in t).toBe(false);
+    expect(t.upBody).toBe('#ffffff');
+    expect(t.scaleLine).toBe(DEFAULT_THEME.scaleLine);
+  });
+});
+
+describe('grafik şablonları', () => {
+  it('kaydet, aynı adla üzerine yaz, uygula, sil', () => {
+    stub();
+    saveChartTemplate('ICT', { ...DEFAULT_THEME, upBody: '#ffffff' });
+    saveChartTemplate('ICT', { ...DEFAULT_THEME, upBody: '#000000' });
+    const list = loadChartTemplates();
+    expect(list).toHaveLength(1);
+    expect(themeFromTemplate(list[0]).upBody).toBe('#000000');
+    // eski şablon: eksik alanlar varsayılandan, ızgara yok sayılır
+    expect(themeFromTemplate({ name: 'eski', theme: { gridV: true, downBody: '#123456' } as never })).toEqual({ ...DEFAULT_THEME, downBody: '#123456' });
+    deleteChartTemplate('ICT');
+    expect(loadChartTemplates()).toEqual([]);
+  });
+});
