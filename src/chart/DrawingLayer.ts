@@ -962,7 +962,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
 
     if (this.creating) {
       const pt = this.point(x, y, true);
-      if (pt) updateDrawing(this.creating.id, { b: { t: this.c.logicalToTime(pt.L), p: pt.p } } as Partial<Drawing>, false);
+      if (pt) updateDrawing(this.creating.id, { b: this.creatingB(pt, e.shiftKey) } as Partial<Drawing>, false);
       this.finishCreate();
       return block();
     }
@@ -977,7 +977,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       return block();
     }
 
-    if (st.tool === 'measure' || e.shiftKey) {
+    // Shift+sürükle imleç modunda ölçümdür; çizim aracı seçiliyken Shift çizgiyi yatay tutar (aşağıda)
+    if (st.tool === 'measure' || (e.shiftKey && st.tool === 'cursor')) {
       const pt = this.point(x, y, true);
       if (!pt) return;
       this.measure = { L0: pt.L, p0: pt.p, L1: pt.L, p1: pt.p, dragging: true };
@@ -1066,6 +1067,16 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     this.requestUpdate();
   }
 
+  /** Oluşturulan çizimin ikinci noktası. Shift basılıysa trend / ışın tam yatay olur (TradingView gibi): fiyat ilk noktanınki. */
+  private creatingB(pt: { L: number; p: number }, shift: boolean): Pt {
+    const t = this.c.logicalToTime(pt.L);
+    if (shift) {
+      const d = drawingsOf(useStore.getState().session).find((x) => x.id === this.creating?.id);
+      if (d?.type === 'trend') return { t, p: d.a.p };
+    }
+    return { t, p: pt.p };
+  }
+
   private finishCreate() {
     const c = this.creating;
     this.creating = null;
@@ -1100,7 +1111,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     }
     if (this.creating) {
       const pt = this.point(x, y, true);
-      if (pt) updateDrawing(this.creating.id, { b: { t: this.c.logicalToTime(pt.L), p: pt.p } } as Partial<Drawing>, false);
+      if (pt) updateDrawing(this.creating.id, { b: this.creatingB(pt, e.shiftKey) } as Partial<Drawing>, false);
       return;
     }
     if (this.measure?.dragging) {
@@ -1117,7 +1128,7 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       if (!pt) return;
       if (!this.drag.moved) recordUndo(); // sürükleme başına tek geri alma kaydı
       this.drag.moved = true;
-      this.applyDrag(pt);
+      this.applyDrag(pt, e.shiftKey);
       return;
     }
     if (e.buttons) return;
@@ -1156,7 +1167,8 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
     useStore.setState({ selectedId: h.id, editingId: h.id });
   };
 
-  private applyDrag(pt: { L: number; p: number }) {
+  /** shift: trend çizgisinin ucu sürüklenirken çizgi tam yatay kalır (uç, diğer ucun fiyatına kilitlenir). */
+  private applyDrag(pt: { L: number; p: number }, shift = false) {
     const { hit, orig, L0, p0 } = this.drag!;
     const c = this.c;
     const dL = Math.round(pt.L - L0);
@@ -1173,7 +1185,9 @@ export class DrawingLayer implements ISeriesPrimitive<Time> {
       case 'trend':
       case 'rect':
       case 'fib':
-        if (hit.part === 'a') patch = { a: at() };
+        if (shift && orig.type === 'trend' && (hit.part === 'a' || hit.part === 'b')) {
+          patch = hit.part === 'a' ? { a: { t: at().t, p: orig.b.p } } : { b: { t: at().t, p: orig.a.p } };
+        } else if (hit.part === 'a') patch = { a: at() };
         else if (hit.part === 'b') patch = { b: at() };
         else if (hit.part === 'c1') patch = { a: { t: at().t, p: orig.a.p }, b: { t: orig.b.t, p: pt.p } };
         else if (hit.part === 'c2') patch = { a: { t: orig.a.t, p: pt.p }, b: { t: at().t, p: orig.b.p } };
