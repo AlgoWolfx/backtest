@@ -2930,3 +2930,52 @@ tbody tr:hover {
   white-space: nowrap;
   color: var(--muted);
 }
+
+/* ---------------------------------------------------------------- grafik ayarları: şablon menüsü, hazır temalar */
+.tvd-menurow {
+  display: flex;
+  align-items: center;
+}
+.tvd-menudel {
+  padding: 4px 8px;
+  font-size: 15px;
+  color: #9598a1;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.tvd-menudel:hover {
+  color: #f23645;
+}
+.tvd-menusep {
+  height: 1px;
+  margin: 4px 6px;
+  background: #4a4a4a;
+}
+.theme-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+}
+.theme-preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  font-size: 12px;
+  text-align: left;
+  color: var(--text);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: border-color 0.15s;
+}
+.theme-preset:hover,
+.theme-preset:focus-visible {
+  border-color: var(--blue);
+}
+.theme-preview {
+  flex: none;
+  width: 44px;
+  height: 28px;
+}
