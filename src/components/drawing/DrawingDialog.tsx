@@ -76,7 +76,14 @@ export function DrawingDialog({ d }: { d: Editable }) {
   );
 
   return (
-    <div className="modal-bg" onMouseDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+    <div
+      className="modal-bg"
+      onMouseDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') cancel(); // odak penceredeyken olay window'a ulaşmaz
+        e.stopPropagation();
+      }}
+    >
     <div ref={win.winRef} style={win.style} role="dialog" aria-label={TITLES[d.type]} className="tvd">
       <div className="tvd-head" {...win.headProps}>
         <b>{TITLES[d.type]}</b>
