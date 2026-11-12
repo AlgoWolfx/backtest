@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_THEME, THEME_PRESETS, deleteChartTemplate, loadChartTemplates, loadTheme, saveChartTemplate, themeFromTemplate } from './chartTheme';
+import { BUILTIN_CHART_TEMPLATES, DEFAULT_THEME, THEME_PRESETS, deleteChartTemplate, loadChartTemplates, loadTheme, saveChartTemplate, themeFromTemplate } from './chartTheme';
 
 const mem = new Map<string, string>();
 const stub = () => {
@@ -37,5 +37,14 @@ describe('grafik şablonları', () => {
     expect(themeFromTemplate({ name: 'eski', theme: { gridV: true, downBody: '#123456' } as never })).toEqual({ ...DEFAULT_THEME, downBody: '#123456' });
     deleteChartTemplate('ICT');
     expect(loadChartTemplates()).toEqual([]);
+  });
+});
+
+describe('hazır grafik şablonu', () => {
+  it('"TradingView ayarım" tam bir tema verir: gri arka plan, mavi / siyah mum, siyah kenar ve fitil', () => {
+    const tpl = BUILTIN_CHART_TEMPLATES.find((x) => x.name === 'TradingView ayarım')!;
+    const t = themeFromTemplate(tpl);
+    expect(t).toMatchObject({ background: '#636363', upBody: '#2962ff', downBody: '#000000', borderVisible: true, upWick: '#000000', text: '#000000', fontSize: 14, marginTop: 10, marginBottom: 8, rightOffset: 10 });
+    expect(Object.keys(t).sort()).toEqual(Object.keys(DEFAULT_THEME).sort());
   });
 });
