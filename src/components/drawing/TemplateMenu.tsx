@@ -9,7 +9,7 @@ import { toast, useStore } from '../../store';
 import { type Any, TITLES } from './dialogParts';
 
 /**
- * Şablon (TradingView gibi): şablon listesi (hazır ICT şablonlarıyla başlar: PDH, BSL, +OB, BISI, MSS…; hepsi
+ * Şablon (TradingView gibi): şablon listesi (hazır ICT şablonlarıyla başlar: P.Day High, Buy-side Liq, Bull OB, BISI, MSS…; hepsi
  * değiştirilebilir), şablonu farklı kaydet (aynı ad = üzerine yaz), sil, varsayılan olarak kaydet / uygula / fabrika ayarları.
  * Bir şablonu değiştirmek: uygula → ayarlardan rengi / stili / metni değiştir → aynı adla "farklı kaydet".
  * inToolbar: grafiğin üstündeki çubukta, menü aşağı açılır.
@@ -38,7 +38,7 @@ export function TemplateMenu({ d, set, inToolbar }: { d: Drawing; set: (p: Any) 
   const hasBuiltins = (BUILTIN_TEMPLATES[type]?.length ?? 0) > 0;
   return (
     <div className="tvd-tpl" ref={ref}>
-      <button className={inToolbar ? 'btn small' : 'tvd-btn'} disabled={inToolbar && d.locked} title="Şablon: kayıtlı stiller (PDH, BSL, +OB, BISI, MSS…)" onClick={() => setOpen(!open)}>
+      <button className={inToolbar ? 'btn small' : 'tvd-btn'} disabled={inToolbar && d.locked} title="Şablon: kayıtlı stiller (P.Day High, P.Week Low, Bull OB, BISI, MSS…)" onClick={() => setOpen(!open)}>
         Şablon ▾
       </button>
       {open && (

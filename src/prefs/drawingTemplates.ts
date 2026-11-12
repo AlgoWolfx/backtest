@@ -126,12 +126,12 @@ const LOW = '#089981';
 /** Yatay ışın etiketi: sağda, çizginin üstünde, çizgi renginde. */
 const hl = (name: string, color: string, style: 'solid' | 'dashed' | 'dotted' = 'solid'): NamedTemplate => ({
   name,
-  style: { color, width: 1, style, lineAlpha: 1, text: name, textColor: color, textSize: 11, hAlign: 'right', vAlign: 'top' },
+  style: { color, width: 1, style, lineAlpha: 1, text: name, textColor: color, textSize: 12, hAlign: 'right', vAlign: 'top' },
 });
 /** Yapı kırılımı (trend çizgisi): kırılan tepe/dipten kıran muma, etiket ortada. */
 const st = (name: string, color: string, style: 'solid' | 'dashed' | 'dotted' = 'dashed'): NamedTemplate => ({
   name,
-  style: { color, width: 1, style, lineAlpha: 1, text: name, textColor: color, textSize: 11, hAlign: 'center', vAlign: 'top' },
+  style: { color, width: 1, style, lineAlpha: 1, text: name, textColor: color, textSize: 12, hAlign: 'center', vAlign: 'top' },
 });
 /** Bölge (dikdörtgen): dolgu + %50 orta çizgi (CE / mean threshold), etiket sağ üstte. */
 const zone = (name: string, color: string, alpha = 0.18, midline = true): NamedTemplate => ({
@@ -139,7 +139,7 @@ const zone = (name: string, color: string, alpha = 0.18, midline = true): NamedT
   style: {
     color, width: 1, fillColor: color, fillAlpha: alpha, fillOn: true, fill: hexToRgba(color, alpha),
     midline, midColor: color, midStyle: 'dashed', midWidth: 1,
-    text: name, textColor: color, textSize: 11, hAlign: 'right', vAlign: 'top',
+    text: name, textColor: color, textSize: 12, hAlign: 'right', vAlign: 'top',
   },
 });
 
@@ -147,42 +147,42 @@ const STRUCTURE = [st('MSS', '#ff9800'), st('CHoCH', '#e91e63'), st('BOS', '#296
 
 export const BUILTIN_TEMPLATES: Partial<Record<TemplateType, NamedTemplate[]>> = {
   hline: [
-    hl('PDH', HIGH), hl('PDL', LOW), hl('PWH', HIGH), hl('PWL', LOW), hl('PMH', HIGH), hl('PML', LOW),
-    hl('BSL', HIGH, 'dashed'), hl('SSL', LOW, 'dashed'), hl('EQH', HIGH, 'dotted'), hl('EQL', LOW, 'dotted'),
-    hl('ERL', '#ff9800', 'dashed'), hl('IRL', '#00bcd4', 'dashed'), hl('Midnight Open', '#787b86', 'dotted'),
+    hl('P.Day High', HIGH), hl('P.Day Low', LOW), hl('P.Week High', HIGH), hl('P.Week Low', LOW), hl('P.Month High', HIGH), hl('P.Month Low', LOW),
+    hl('Buy-side Liq', HIGH, 'dashed'), hl('Sell-side Liq', LOW, 'dashed'), hl('Equal Highs', HIGH, 'dotted'), hl('Equal Lows', LOW, 'dotted'),
+    hl('External Liq', '#ff9800', 'dashed'), hl('Internal Liq', '#00bcd4', 'dashed'), hl('Midnight Open', '#787b86', 'dotted'),
     ...STRUCTURE.map((t) => ({ ...t, style: { ...t.style, hAlign: 'right' } })),
   ],
   trend: STRUCTURE,
   rect: [
-    zone('+OB', LOW), zone('-OB', HIGH), zone('BISI', '#00bcd4'), zone('SIBI', '#e91e63'),
-    zone('+BB', '#2962ff'), zone('-BB', '#ff9800'), zone('IFVG', '#9c27b0'), zone('BPR', '#787b86'),
+    zone('Bull OB', LOW), zone('Bear OB', HIGH), zone('BISI', '#00bcd4'), zone('SIBI', '#e91e63'),
+    zone('Bull Breaker', '#2962ff'), zone('Bear Breaker', '#ff9800'), zone('IFVG', '#9c27b0'), zone('BPR', '#787b86'),
     zone('Premium', HIGH, 0.08, false), zone('Discount', LOW, 0.08, false),
   ],
 };
 
 /** Şablon menüsü: hazır şablonların ne çizdiği (açıklama) ve grubu. Ada göre bulunur; değiştirilen hazırlar da açıklamasını korur. */
 export const TEMPLATE_INFO: Record<string, { group: string; desc: string }> = {
-  PDH: { group: 'Önceki gün / hafta / ay', desc: 'Önceki günün yükseği' },
-  PDL: { group: 'Önceki gün / hafta / ay', desc: 'Önceki günün düşüğü' },
-  PWH: { group: 'Önceki gün / hafta / ay', desc: 'Önceki haftanın yükseği' },
-  PWL: { group: 'Önceki gün / hafta / ay', desc: 'Önceki haftanın düşüğü' },
-  PMH: { group: 'Önceki gün / hafta / ay', desc: 'Önceki ayın yükseği' },
-  PML: { group: 'Önceki gün / hafta / ay', desc: 'Önceki ayın düşüğü' },
+  'P.Day High': { group: 'Önceki gün / hafta / ay', desc: 'Önceki günün yükseği' },
+  'P.Day Low': { group: 'Önceki gün / hafta / ay', desc: 'Önceki günün düşüğü' },
+  'P.Week High': { group: 'Önceki gün / hafta / ay', desc: 'Önceki haftanın yükseği' },
+  'P.Week Low': { group: 'Önceki gün / hafta / ay', desc: 'Önceki haftanın düşüğü' },
+  'P.Month High': { group: 'Önceki gün / hafta / ay', desc: 'Önceki ayın yükseği' },
+  'P.Month Low': { group: 'Önceki gün / hafta / ay', desc: 'Önceki ayın düşüğü' },
   'Midnight Open': { group: 'Önceki gün / hafta / ay', desc: 'NY gece yarısı (00:00) açılışı' },
-  BSL: { group: 'Likidite', desc: 'Buy-side likidite: tepelerin üstü' },
-  SSL: { group: 'Likidite', desc: 'Sell-side likidite: diplerin altı' },
-  EQH: { group: 'Likidite', desc: 'Eşit tepeler' },
-  EQL: { group: 'Likidite', desc: 'Eşit dipler' },
-  ERL: { group: 'Likidite', desc: 'Dış aralık likiditesi (swing tepe / dip)' },
-  IRL: { group: 'Likidite', desc: 'İç aralık likiditesi (FVG)' },
+  'Buy-side Liq': { group: 'Likidite', desc: 'Buy-side likidite: tepelerin üstü' },
+  'Sell-side Liq': { group: 'Likidite', desc: 'Sell-side likidite: diplerin altı' },
+  'Equal Highs': { group: 'Likidite', desc: 'Eşit tepeler' },
+  'Equal Lows': { group: 'Likidite', desc: 'Eşit dipler' },
+  'External Liq': { group: 'Likidite', desc: 'Dış aralık likiditesi (swing tepe / dip)' },
+  'Internal Liq': { group: 'Likidite', desc: 'İç aralık likiditesi (FVG)' },
   MSS: { group: 'Piyasa yapısı', desc: 'Market structure shift: yapı kayması' },
   CHoCH: { group: 'Piyasa yapısı', desc: 'Change of character: karakter değişimi' },
   BOS: { group: 'Piyasa yapısı', desc: 'Break of structure: yapı kırılımı' },
   CISD: { group: 'Piyasa yapısı', desc: 'Change in state of delivery' },
-  '+OB': { group: 'Order block / breaker', desc: 'Boğa order block' },
-  '-OB': { group: 'Order block / breaker', desc: 'Ayı order block' },
-  '+BB': { group: 'Order block / breaker', desc: 'Boğa breaker block' },
-  '-BB': { group: 'Order block / breaker', desc: 'Ayı breaker block' },
+  'Bull OB': { group: 'Order block / breaker', desc: 'Boğa order block' },
+  'Bear OB': { group: 'Order block / breaker', desc: 'Ayı order block' },
+  'Bull Breaker': { group: 'Order block / breaker', desc: 'Boğa breaker block' },
+  'Bear Breaker': { group: 'Order block / breaker', desc: 'Ayı breaker block' },
   BISI: { group: 'Fair value gap', desc: 'Boğa FVG (buy-side imbalance)' },
   SIBI: { group: 'Fair value gap', desc: 'Ayı FVG (sell-side imbalance)' },
   IFVG: { group: 'Fair value gap', desc: 'Ters çevrilmiş (inverse) FVG' },
@@ -207,6 +207,35 @@ export function groupNamed(list: NamedTemplate[]): { group: string; items: Named
 
 const namedKey = (type: TemplateType) => `backtest.drawTemplates.${type}`;
 
+/** Eski kısaltma adlar -> okunur adlar (kayıtlı listeler yüklenirken taşınır; kullanıcının renk / stil değişiklikleri korunur). */
+export const RENAMED_TEMPLATES: Record<string, string> = {
+  PDH: 'P.Day High',
+  PDL: 'P.Day Low',
+  PWH: 'P.Week High',
+  PWL: 'P.Week Low',
+  PMH: 'P.Month High',
+  PML: 'P.Month Low',
+  BSL: 'Buy-side Liq',
+  SSL: 'Sell-side Liq',
+  EQH: 'Equal Highs',
+  EQL: 'Equal Lows',
+  ERL: 'External Liq',
+  IRL: 'Internal Liq',
+  '+OB': 'Bull OB',
+  '-OB': 'Bear OB',
+  '+BB': 'Bull Breaker',
+  '-BB': 'Bear Breaker'
+};
+
+function migrateNames(list: NamedTemplate[]): NamedTemplate[] {
+  const names = new Set(list.map((t) => t.name));
+  return list.map((t) => {
+    const n = RENAMED_TEMPLATES[t.name];
+    if (!n || names.has(n)) return t;
+    return { name: n, style: t.style.text === t.name ? { ...t.style, text: n } : t.style };
+  });
+}
+
 /**
  * Türün şablon listesi. Hiç kaydedilmemişse hazır şablonlarla başlar; sonra liste tamamen kullanıcınındır
  * (hazırlar da değiştirilebilir / silinebilir, TradingView gibi). Bozuk kayıtta hazırlara döner.
@@ -217,7 +246,7 @@ export function loadNamed(type: TemplateType): NamedTemplate[] {
     const raw = localStorage.getItem(namedKey(type));
     if (raw == null) return builtins();
     const v = JSON.parse(raw);
-    return Array.isArray(v) ? v.filter((t) => t && typeof t.name === 'string' && t.style && typeof t.style === 'object') : builtins();
+    return Array.isArray(v) ? migrateNames(v.filter((t) => t && typeof t.name === 'string' && t.style && typeof t.style === 'object')) : builtins();
   } catch {
     return builtins();
   }
