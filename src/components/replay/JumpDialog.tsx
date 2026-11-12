@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { nyLocalToUtc, toNyLocal } from '../../../shared/nytime.js';
 import { fmtNy, pad } from '../../lib/format';
-import { currentData, jumpTo, useStore } from '../../store';
+import { currentData, jumpTo, toast, useStore } from '../../store';
 import { Modal } from '../common/Modal';
+import { randomTradingDay } from '../../lib/randomDay';
 
 export function toNyInputs(utc: number) {
   const d = new Date(toNyLocal(utc) * 1000);
@@ -26,6 +27,15 @@ export function JumpDialog() {
   if (!open) return null;
   const d = currentData();
   const close = () => useStore.setState({ jumpOpen: false });
+  // İşlem varken geçmişe dönülemez (kronoloji): rastgele gün yalnızca replay zamanından sonra seçilir.
+  const s = useStore.getState().session;
+  const randomFrom = d ? (s?.trades.length ? Math.max(s.replayTime, d.meta.from) : d.meta.from) : 0;
+  const randomDate = () => {
+    if (!d) return;
+    const date = randomTradingDay(randomFrom, d.meta.to, v.time, Math.random, s?.trades.length ? 86400 : undefined);
+    if (date) setV({ ...v, date });
+    else toast('Rastgele gün için uygun aralık yok (açık / kapanmış işlem varken yalnızca ileri gidilebilir).', 'error');
+  };
   const go = () => {
     const utc = fromNyInputs(v.date, v.time);
     if (utc == null) return;
@@ -56,6 +66,9 @@ export function JumpDialog() {
         <input type="time" value={v.time} onChange={(e) => setV({ ...v, time: e.target.value })} onKeyDown={(e) => e.key === 'Enter' ? go() : e.stopPropagation()} />
         <span className="muted">NY</span>
       </div>
+      <button type="button" className="tvd-btn" title="Verinin olduğu rastgele bir hafta içi gün seç (saat aynı kalır)" onClick={randomDate}>
+        Rastgele gün
+      </button>
       {d && (
         <p className="hint">
           Veri aralığı: {fmtNy(d.meta.from)} → {fmtNy(d.meta.to)}
