@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_FIB, type Drawing } from '../../core/types';
 import {
-  BUILTIN_TEMPLATES, clearTemplate, deleteNamed, factoryReset, hasNamed, loadNamed, loadTemplate, namedTemplateOf, restoreBuiltins, saveNamed, saveTemplate, templateOf,
+  BUILTIN_TEMPLATES, TEMPLATE_INFO, clearTemplate, deleteNamed, factoryReset, groupNamed, hasNamed, loadNamed, loadTemplate, namedTemplateOf, restoreBuiltins, saveNamed, saveTemplate, templateOf,
+  type NamedTemplate,
 } from '../../prefs/drawingTemplates';
+import { hexToRgba } from '../../chart/drawUtil';
 import { toast, useStore } from '../../store';
 import { type Any, TITLES } from './dialogParts';
 
@@ -42,21 +44,39 @@ export function TemplateMenu({ d, set, inToolbar }: { d: Drawing; set: (p: Any) 
       {open && (
         <div className={`tvd-menu ${inToolbar ? 'down' : ''}`}>
           {list.length > 0 && (
-            <div className="tvd-chips">
-              {list.map((t) => (
-                <div key={t.name} className="tvd-chip" title={`${t.name} uygula`} style={{ color: (t.style.textColor ?? t.style.color) as string }} onClick={run(() => set({ borderColor: undefined, ...t.style }))}>
-                  <span>{t.name}</span>
-                  <button
-                    className="tvd-chipdel"
-                    title="Şablonu sil"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteNamed(type, t.name);
-                      refresh((n) => n + 1);
-                    }}
-                  >
-                    ×
-                  </button>
+            <div className="tpl-list" role="menu">
+              {groupNamed(list).map((g) => (
+                <div key={g.group} className="tpl-group">
+                  <div className="tpl-group-head">{g.group}</div>
+                  {g.items.map((t) => (
+                    <div
+                      key={t.name}
+                      role="menuitem"
+                      tabIndex={0}
+                      className="tpl-row"
+                      title={`${t.name} uygula`}
+                      onClick={run(() => set({ borderColor: undefined, ...t.style }))}
+                      onKeyDown={(e) => e.key === 'Enter' && run(() => set({ borderColor: undefined, ...t.style }))()}
+                    >
+                      <TemplatePreview type={type} t={t} />
+                      <span className="tpl-text">
+                        <span className="tpl-name">{t.name}</span>
+                        {TEMPLATE_INFO[t.name] && <span className="tpl-desc">{TEMPLATE_INFO[t.name].desc}</span>}
+                      </span>
+                      <button
+                        className="tpl-del"
+                        title="Şablonu sil"
+                        aria-label={`${t.name} şablonunu sil`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteNamed(type, t.name);
+                          refresh((n) => n + 1);
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
@@ -86,5 +106,30 @@ export function TemplateMenu({ d, set, inToolbar }: { d: Drawing; set: (p: Any) 
         </div>
       )}
     </div>
+  );
+}
+
+const DASH: Record<string, string | undefined> = { dashed: '4 3', dotted: '1.5 2.5' };
+
+/** Şablonun ne çizdiğinin küçük önizlemesi: çizgi rengi / stili ya da bölge dolgusu + orta çizgi. */
+function TemplatePreview({ type, t }: { type: string; t: NamedTemplate }) {
+  const st = t.style as Record<string, unknown>;
+  const color = (st.color as string) ?? '#2962ff';
+  const dash = DASH[st.style as string];
+  if (type === 'rect') {
+    const fill = (st.fillColor as string) ?? color;
+    const alpha = st.fillOn === false ? 0 : ((st.fillAlpha as number) ?? 0.15);
+    return (
+      <svg className="tpl-prev" viewBox="0 0 32 18" aria-hidden="true">
+        <rect x="1.5" y="2.5" width="29" height="13" rx="1" fill={hexToRgba(fill, Math.max(alpha, 0.12))} stroke={st.borderOn === false ? 'none' : color} strokeDasharray={dash} />
+        {Boolean(st.midline) && <line x1="2" x2="30" y1="9" y2="9" stroke={(st.midColor as string) ?? color} strokeDasharray="3 2" />}
+      </svg>
+    );
+  }
+  const w = Math.min(3, Math.max(1, Number(st.width) || 1));
+  return (
+    <svg className="tpl-prev" viewBox="0 0 32 18" aria-hidden="true">
+      {type === 'trend' ? <line x1="3" y1="14" x2="29" y2="4" stroke={color} strokeWidth={w} strokeDasharray={dash} /> : <line x1="2" y1="9" x2="30" y2="9" stroke={color} strokeWidth={w} strokeDasharray={dash} />}
+    </svg>
   );
 }

@@ -45,3 +45,17 @@ describe('şablon listesi kullanıcınındır', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('şablon menüsü grupları', () => {
+  it('her hazır şablonun açıklaması ve grubu var', async () => {
+    const { TEMPLATE_INFO } = await import('./drawingTemplates');
+    for (const list of Object.values(BUILTIN_TEMPLATES)) for (const t of list!) expect(TEMPLATE_INFO[t.name]?.desc, t.name).toBeTruthy();
+  });
+  it('kendi şablonlarım en üstte, hazırlar gruplarında sırası korunarak', async () => {
+    const { groupNamed, MY_GROUP } = await import('./drawingTemplates');
+    const g = groupNamed([...BUILTIN_TEMPLATES.hline!, { name: 'Asya high', style: {} }]);
+    expect(g.map((x) => x.group)).toEqual([MY_GROUP, 'Önceki gün / hafta / ay', 'Likidite', 'Piyasa yapısı']);
+    expect(g[0].items.map((t) => t.name)).toEqual(['Asya high']);
+    expect(g[1].items.map((t) => t.name)).toEqual(['PDH', 'PDL', 'PWH', 'PWL', 'PMH', 'PML', 'Midnight Open']);
+  });
+});
