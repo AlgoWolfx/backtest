@@ -7,6 +7,7 @@ import { fmtMoney, fmtNy, fmtR } from '../../lib/format';
 import { SessionCard, summaryStats } from './SessionCard';
 import type { SessionSummary } from '../../store';
 import { fromNyInputs } from '../replay/JumpDialog';
+import { randomTradingDay } from '../../lib/randomDay';
 import { Icons } from '../common/icons';
 
 /** Kuralları sade bir cümleyle özetler. */
@@ -42,6 +43,11 @@ export function SessionScreen() {
   };
 
   const invalid = validateRules(rules, form.balance).errors.length > 0;
+  const range = symbols.find((s) => s.id === form.symbol)?.sources?.dukascopy;
+  const randomDate = () => {
+    const date = range && randomTradingDay(range.from, range.to, form.time);
+    if (date) setForm({ ...form, date });
+  };
 
   const create = async () => {
     const startTime = fromNyInputs(form.date, form.time);
@@ -105,6 +111,9 @@ export function SessionScreen() {
                 <div className="row">
                   <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
                   <input type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />
+                  <button type="button" className="btn" disabled={!range} title="Verinin olduğu rastgele bir hafta içi gün seç (saat aynı kalır)" onClick={randomDate}>
+                    Rastgele
+                  </button>
                 </div>
               </label>
             </div>
