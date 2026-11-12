@@ -29,16 +29,16 @@ describe('şablon listesi kullanıcınındır', () => {
     const { loadNamed, saveNamed, deleteNamed, restoreBuiltins } = await import('./drawingTemplates');
     const n0 = BUILTIN_TEMPLATES.hline!.length;
     expect(loadNamed('hline').map((t) => t.name)).toEqual(BUILTIN_TEMPLATES.hline!.map((t) => t.name));
-    saveNamed('hline', 'PDH', { color: '#ffffff', text: 'PDH' }); // hazırı değiştir: yerinde güncellenir
-    expect(loadNamed('hline')[0]).toEqual({ name: 'PDH', style: { color: '#ffffff', text: 'PDH' } });
+    saveNamed('hline', 'P.Day High', { color: '#ffffff', text: 'P.Day High' }); // hazırı değiştir: yerinde güncellenir
+    expect(loadNamed('hline')[0]).toEqual({ name: 'P.Day High', style: { color: '#ffffff', text: 'P.Day High' } });
     saveNamed('hline', 'London Low', { color: '#000000', text: 'London Low' });
-    deleteNamed('hline', 'SSL');
+    deleteNamed('hline', 'Sell-side Liq');
     expect(loadNamed('hline').length).toBe(n0); // +1 eklendi, -1 silindi
     restoreBuiltins('hline');
     const after = loadNamed('hline');
     expect(after.length).toBe(n0 + 1);
     expect(after[0].style.color).toBe('#f23645');
-    expect(after.some((t) => t.name === 'SSL')).toBe(true);
+    expect(after.some((t) => t.name === 'Sell-side Liq')).toBe(true);
     expect(after.at(-1)!.name).toBe('London Low');
     // hazırların kendisi bozulmaz
     expect(BUILTIN_TEMPLATES.hline![0].style.color).toBe('#f23645');
@@ -56,6 +56,26 @@ describe('şablon menüsü grupları', () => {
     const g = groupNamed([...BUILTIN_TEMPLATES.hline!, { name: 'Asya high', style: {} }]);
     expect(g.map((x) => x.group)).toEqual([MY_GROUP, 'Önceki gün / hafta / ay', 'Likidite', 'Piyasa yapısı']);
     expect(g[0].items.map((t) => t.name)).toEqual(['Asya high']);
-    expect(g[1].items.map((t) => t.name)).toEqual(['PDH', 'PDL', 'PWH', 'PWL', 'PMH', 'PML', 'Midnight Open']);
+    expect(g[1].items.map((t) => t.name)).toEqual(['P.Day High', 'P.Day Low', 'P.Week High', 'P.Week Low', 'P.Month High', 'P.Month Low', 'Midnight Open']);
+  });
+});
+
+describe('okunur şablon adları', () => {
+  it('kayıtlı eski kısaltmalar yeni adlara taşınır, kullanıcının rengi ve kendi etiketi korunur', async () => {
+    const mem = new Map<string, string>();
+    const { vi } = await import('vitest');
+    vi.stubGlobal('localStorage', { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) });
+    mem.set('backtest.drawTemplates.hline', JSON.stringify([
+      { name: 'PWL', style: { color: '#123456', text: 'PWL' } },
+      { name: 'PDH', style: { color: '#ffffff', text: 'Dün tepe' } },
+      { name: 'London Low', style: { text: 'London Low' } },
+    ]));
+    const { loadNamed } = await import('./drawingTemplates');
+    expect(loadNamed('hline')).toEqual([
+      { name: 'P.Week Low', style: { color: '#123456', text: 'P.Week Low' } },
+      { name: 'P.Day High', style: { color: '#ffffff', text: 'Dün tepe' } },
+      { name: 'London Low', style: { text: 'London Low' } },
+    ]);
+    vi.unstubAllGlobals();
   });
 });
