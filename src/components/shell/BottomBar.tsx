@@ -1,5 +1,5 @@
 import { getSymbol } from '../../../shared/symbols.js';
-import { cancelTicket, marketOrder, startTicket, type OrderKind, setAutoOrder, setLots, setRiskPct, setSlBuffer, useStore } from '../../store';
+import { cancelTicket, marketOrder, startTicket, type OrderKind, setAutoOrder, setLots, setRiskPct, setSizing, setSlBuffer, useStore } from '../../store';
 import { ReplayClock, ReplayControls } from '../replay/ReplayControls';
 import { NumberInput } from '../common/NumberInput';
 
@@ -44,12 +44,9 @@ export function BottomBar() {
             Çizince emir
           </button>
         </div>
-        <div className="seg" title="Emir boyutu: bakiyenin risk yüzdesi veya sabit lot">
-          <button className={sizing === 'risk' ? 'on' : ''} onClick={() => useStore.setState({ sizing: 'risk' })}>
-            Risk %
-          </button>
-          <button className={sizing === 'lots' ? 'on' : ''} onClick={() => useStore.setState({ sizing: 'lots' })}>
-            Lot
+        <div className="seg" title="Sabit lot açıkken lot hep aynı kalır: stopu daraltınca da genişletince de lot değişmez, riske edilen tutar değişir. Kapalıyken (Risk %) lot stop mesafesine göre hesaplanır. Seçim hatırlanır.">
+          <button className={sizing === 'lots' ? 'on' : ''} aria-pressed={sizing === 'lots'} onClick={() => setSizing(sizing === 'lots' ? 'risk' : 'lots')}>
+            Sabit lot
           </button>
         </div>
         {sizing === 'risk' ? (

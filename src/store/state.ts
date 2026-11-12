@@ -9,6 +9,10 @@ import { type Side, type Trade } from '../core/trading';
 import { balanceOf } from '../core/simulate';
 import { type Session, type Tool } from '../core/types';
 
+// Store oluşturulurken okunur: aşağıdaki create() çağrısından önce tanımlı olmalı (yoksa TDZ hatası, ayar hiç hatırlanmaz).
+const AUTO_ORDER_KEY = 'backtest.autoOrder';
+const SIZING_KEY = 'backtest.sizing';
+
 export interface SessionSummary {
   id: string;
   name: string;
@@ -110,7 +114,7 @@ export const useStore = create<State>(() => ({
   sessionSettings: loadSessionSettings(),
   orderKind: 'market',
   autoOrder: loadAutoOrder(),
-  sizing: 'risk',
+  sizing: loadSizing(),
   ticket: null,
 }));
 
@@ -181,13 +185,29 @@ export function lastBarTime(symbol?: string): number | null {
 
 export { balanceOf };
 
-const AUTO_ORDER_KEY = 'backtest.autoOrder';
-
 function loadAutoOrder(): boolean {
   try {
     return localStorage.getItem(AUTO_ORDER_KEY) !== '0'; // varsayılan açık
   } catch {
     return true;
+  }
+}
+
+function loadSizing(): 'risk' | 'lots' {
+  try {
+    return localStorage.getItem(SIZING_KEY) === 'lots' ? 'lots' : 'risk';
+  } catch {
+    return 'risk';
+  }
+}
+
+/** Sabit lot açık ('lots'): stop yaklaşsa da uzasa da lot aynı kalır, risk değişir. Kapalı ('risk'): lot stopa göre hesaplanır. */
+export function setSizing(sizing: 'risk' | 'lots') {
+  set({ sizing });
+  try {
+    localStorage.setItem(SIZING_KEY, sizing);
+  } catch {
+    /* kaydedilemedi */
   }
 }
 
