@@ -144,6 +144,37 @@ export interface ChartTemplate {
 
 const TPL_KEY = 'backtest.chartTemplates';
 
+/**
+ * Hazır grafik şablonları. Kullanıcı aynı adla kaydederse onun kopyası geçerli olur; kopyayı silince hazır hali döner.
+ * "TradingView ayarım": kullanıcının TradingView'deki ayarı (gri arka plan, mavi / siyah mum, siyah kenar ve fitil, ızgarasız).
+ */
+export const BUILTIN_CHART_TEMPLATES: ChartTemplate[] = [
+  {
+    name: 'TradingView ayarım',
+    theme: {
+      background: '#636363',
+      text: '#000000',
+      scaleLine: '#636363', // TradingView'de ölçek çizgileri saydam
+      crosshair: '#9598a1',
+      crosshairStyle: 'dashed',
+      crosshairWidth: 1,
+      fontSize: 14,
+      watermark: false,
+      chartType: 'candles',
+      upBody: '#2962ff',
+      downBody: '#000000',
+      borderVisible: true,
+      upBorder: '#000000',
+      downBorder: '#000000',
+      upWick: '#000000',
+      downWick: '#000000',
+      marginTop: 10,
+      marginBottom: 8,
+      rightOffset: 10,
+    },
+  },
+];
+
 export function loadChartTemplates(): ChartTemplate[] {
   try {
     const v = JSON.parse(localStorage.getItem(TPL_KEY) ?? '[]');

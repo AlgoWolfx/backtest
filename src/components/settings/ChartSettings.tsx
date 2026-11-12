@@ -3,7 +3,7 @@ import { setChartTheme, setSessionSettings, toast, useStore } from '../../store'
 import { type SessionSettings } from '../../core/sessions';
 import { Icons } from '../common/icons';
 import {
-  DEFAULT_THEME, THEME_PRESETS, deleteChartTemplate, loadChartTemplates, saveChartTemplate, themeFromTemplate, withColors, type ChartTheme, type ChartType, type ThemeColors,
+  BUILTIN_CHART_TEMPLATES, DEFAULT_THEME, THEME_PRESETS, deleteChartTemplate, loadChartTemplates, saveChartTemplate, themeFromTemplate, withColors, type ChartTheme, type ChartType, type ThemeColors,
 } from '../../prefs/chartTheme';
 import { TvColor } from '../common/TvColor';
 import { NumberInput } from '../common/NumberInput';
@@ -233,7 +233,10 @@ function ChartTemplateMenu({ t }: { t: ChartTheme }) {
     window.addEventListener('mousedown', h, true);
     return () => window.removeEventListener('mousedown', h, true);
   }, [open]);
-  const list = open ? loadChartTemplates() : [];
+  const mine = open ? loadChartTemplates() : [];
+  // Hazırlar önce; kullanıcı aynı adla kaydettiyse onun kopyası gösterilir (× ile silince hazır hali döner).
+  const list = [...BUILTIN_CHART_TEMPLATES.filter((b) => !mine.some((m) => m.name === b.name)), ...mine];
+  const builtin = (name: string) => BUILTIN_CHART_TEMPLATES.some((b) => b.name === name);
   return (
     <div className="tvd-tpl" ref={ref}>
       <button className="tvd-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
@@ -252,9 +255,10 @@ function ChartTemplateMenu({ t }: { t: ChartTheme }) {
               >
                 {x.name}
               </button>
+              {mine.includes(x) && (
               <button
                 className="tvd-menudel"
-                title="Şablonu sil"
+                title={builtin(x.name) ? 'Değişikliği sil (hazır hale dön)' : 'Şablonu sil'}
                 aria-label={`${x.name} şablonunu sil`}
                 onClick={() => {
                   deleteChartTemplate(x.name);
@@ -263,6 +267,7 @@ function ChartTemplateMenu({ t }: { t: ChartTheme }) {
               >
                 ×
               </button>
+              )}
             </div>
           ))}
           {list.length > 0 && <div className="tvd-menusep" />}
