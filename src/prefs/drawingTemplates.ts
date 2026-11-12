@@ -160,6 +160,51 @@ export const BUILTIN_TEMPLATES: Partial<Record<TemplateType, NamedTemplate[]>> =
   ],
 };
 
+/** Şablon menüsü: hazır şablonların ne çizdiği (açıklama) ve grubu. Ada göre bulunur; değiştirilen hazırlar da açıklamasını korur. */
+export const TEMPLATE_INFO: Record<string, { group: string; desc: string }> = {
+  PDH: { group: 'Önceki gün / hafta / ay', desc: 'Önceki günün yükseği' },
+  PDL: { group: 'Önceki gün / hafta / ay', desc: 'Önceki günün düşüğü' },
+  PWH: { group: 'Önceki gün / hafta / ay', desc: 'Önceki haftanın yükseği' },
+  PWL: { group: 'Önceki gün / hafta / ay', desc: 'Önceki haftanın düşüğü' },
+  PMH: { group: 'Önceki gün / hafta / ay', desc: 'Önceki ayın yükseği' },
+  PML: { group: 'Önceki gün / hafta / ay', desc: 'Önceki ayın düşüğü' },
+  'Midnight Open': { group: 'Önceki gün / hafta / ay', desc: 'NY gece yarısı (00:00) açılışı' },
+  BSL: { group: 'Likidite', desc: 'Buy-side likidite: tepelerin üstü' },
+  SSL: { group: 'Likidite', desc: 'Sell-side likidite: diplerin altı' },
+  EQH: { group: 'Likidite', desc: 'Eşit tepeler' },
+  EQL: { group: 'Likidite', desc: 'Eşit dipler' },
+  ERL: { group: 'Likidite', desc: 'Dış aralık likiditesi (swing tepe / dip)' },
+  IRL: { group: 'Likidite', desc: 'İç aralık likiditesi (FVG)' },
+  MSS: { group: 'Piyasa yapısı', desc: 'Market structure shift: yapı kayması' },
+  CHoCH: { group: 'Piyasa yapısı', desc: 'Change of character: karakter değişimi' },
+  BOS: { group: 'Piyasa yapısı', desc: 'Break of structure: yapı kırılımı' },
+  CISD: { group: 'Piyasa yapısı', desc: 'Change in state of delivery' },
+  '+OB': { group: 'Order block / breaker', desc: 'Boğa order block' },
+  '-OB': { group: 'Order block / breaker', desc: 'Ayı order block' },
+  '+BB': { group: 'Order block / breaker', desc: 'Boğa breaker block' },
+  '-BB': { group: 'Order block / breaker', desc: 'Ayı breaker block' },
+  BISI: { group: 'Fair value gap', desc: 'Boğa FVG (buy-side imbalance)' },
+  SIBI: { group: 'Fair value gap', desc: 'Ayı FVG (sell-side imbalance)' },
+  IFVG: { group: 'Fair value gap', desc: 'Ters çevrilmiş (inverse) FVG' },
+  BPR: { group: 'Fair value gap', desc: 'Balanced price range: üst üste binen FVG’ler' },
+  Premium: { group: 'Dealing range', desc: 'Aralığın üst yarısı: satış bölgesi' },
+  Discount: { group: 'Dealing range', desc: 'Aralığın alt yarısı: alım bölgesi' },
+};
+
+/** Kullanıcının kendi kaydettiği (hazır olmayan) şablonların grubu. */
+export const MY_GROUP = 'Şablonlarım';
+
+/** Listeyi menü gruplarına ayırır: önce kullanıcının kendi şablonları, sonra hazır gruplar (her grupta liste sırası korunur). */
+export function groupNamed(list: NamedTemplate[]): { group: string; items: NamedTemplate[] }[] {
+  const out = new Map<string, NamedTemplate[]>([[MY_GROUP, []]]);
+  for (const t of list) {
+    const g = TEMPLATE_INFO[t.name]?.group ?? MY_GROUP;
+    if (!out.has(g)) out.set(g, []);
+    out.get(g)!.push(t);
+  }
+  return [...out].filter(([, items]) => items.length).map(([group, items]) => ({ group, items }));
+}
+
 const namedKey = (type: TemplateType) => `backtest.drawTemplates.${type}`;
 
 /**
