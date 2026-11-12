@@ -47,7 +47,8 @@ export async function ensureData(symbol: string): Promise<M1Data | null> {
     if (noAsk > 0) toast(`${symbol}: ${noAsk.toLocaleString('tr-TR')} dakikada ask verisi yok (ask = bid, spread 0 sayılır); bu dakikalardaki işlemlerde spread maliyeti eksik olabilir.`, 'error');
     return d;
   } catch (err) {
-    toast((err as Error).message, 'error');
+    // fetch ağ hatası (TypeError "Failed to fetch"): sunucu kapalı. Ham İngilizce mesaj yerine ne yapılacağını söyle.
+    toast(err instanceof TypeError ? `${symbol} verisi yüklenemedi: sunucuya ulaşılamıyor (kapanmış olabilir). Sunucuyu yeniden başlatıp sayfayı yenileyin (F5).` : (err as Error).message, 'error');
     return null;
   } finally {
     set({ loading: null });
