@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { type Tool } from '../../core/types';
-import { confirmClearDrawings, drawingsOf, setAllLocked, useStore } from '../../store';
+import { clearUnlockedDrawings, drawingsOf, setAllLocked, useStore } from '../../store';
 import { Icons } from '../common/icons';
 import { FAV_CANDIDATES, setFavBarVisible, toggleFavTool, useFavBar } from '../../prefs/favTools';
 
@@ -183,7 +183,7 @@ export function LeftToolbar() {
       <button
         className="tool"
         title="Grafiği temizle: kilitli olmayan çizimleri sil (kilitliler ve aktif işleme bağlı olanlar kalır)"
-        onClick={confirmClearDrawings}
+        onClick={clearUnlockedDrawings}
       >
         <Icons.trash />
       </button>

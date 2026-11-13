@@ -5,7 +5,7 @@ import { paneControllers } from '../../chart/chartRef';
 import { type M1Data } from '../../core/data';
 import { tfInfo } from '../../core/timeframes';
 import { fmtPrice } from '../../lib/format';
-import { activatePane, confirmClearDrawings, pendingKindAt, placePendingAt, hasClipboard, paneCfg, pasteClipboard, setChartTheme, toggleMaxPane, useStore } from '../../store';
+import { activatePane, clearUnlockedDrawings, pendingKindAt, placePendingAt, hasClipboard, paneCfg, pasteClipboard, setChartTheme, toggleMaxPane, useStore } from '../../store';
 import type { ChartTheme } from '../../prefs/chartTheme';
 import { LAYOUTS } from '../../core/types';
 import { type PaneRect } from '../../core/layouts';
@@ -186,7 +186,7 @@ export function ChartView({ pane, rect }: { pane: number; rect: PaneRect | null 
             </button>
           )}
           <div className="menu-sep" />
-          <button className="menu-item" onClick={() => (setMenu(null), activatePane(pane), confirmClearDrawings())}>
+          <button className="menu-item" onClick={() => (setMenu(null), activatePane(pane), clearUnlockedDrawings())}>
             Grafiği temizle <span>kilitliler kalır</span>
           </button>
           {menu.price != null && <div className="menu-sep" />}
