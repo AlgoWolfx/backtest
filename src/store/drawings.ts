@@ -236,6 +236,16 @@ export function clearDrawings() {
   set({ selectedId: null, editingId: null });
 }
 
+/** Onaylı temizleme (çöp kutusu ve grafik sağ tık menüsü): sayıları sorar, silinecek yoksa uyarır. */
+export function confirmClearDrawings() {
+  const s = get().session;
+  if (!s) return;
+  const all = drawingsOf(s).length;
+  const kept = keptOnClear(s).size;
+  if (all === kept) return toast(all ? 'Silinecek çizim yok: hepsi kilitli veya aktif işleme bağlı.' : 'Grafikte çizim yok.');
+  if (window.confirm(`Kilitli olmayan ${all - kept} çizim silinsin mi?${kept ? ` (${kept} kilitli / aktif işlem çizimi kalır)` : ''}`)) clearDrawings();
+}
+
 export function validLevels(side: Side, entry: number, sl: number, tp: number) {
   return side === 'long' ? sl < entry && tp > entry : sl > entry && tp < entry;
 }
