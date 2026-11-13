@@ -1,9 +1,11 @@
 import { ChartController } from '../../chart/ChartController';
+import { useFitInView } from '../../lib/useFitInView';
 import { cloneDrawing, deleteDrawing, drawingsOf, reorderDrawing, updateDrawing, useStore } from '../../store';
 
 /** Çizime sağ tık menüsü: ayarlar, kopyala, kilitle, bu zaman diliminde gizle, öne/arkaya, sil. */
 export function DrawingMenu({ c, menu, onClose }: { c: ChartController; menu: { x: number; y: number; drawingId?: string }; onClose: () => void }) {
   const session = useStore((s) => s.session);
+  const ref = useFitInView<HTMLDivElement>(menu);
   const d = drawingsOf(session).find((x) => x.id === menu.drawingId);
   if (!d) return null;
   const isPos = d.type === 'long' || d.type === 'short';
@@ -22,7 +24,7 @@ export function DrawingMenu({ c, menu, onClose }: { c: ChartController; menu: { 
     </button>
   );
   return (
-    <div className="menu context" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
+    <div ref={ref} className="menu context" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
       {item('Ayarlar…', () => useStore.setState({ editingId: d.id, selectedId: d.id }), 'çift tık')}
       {item('Kopyala', () => cloneDrawing(d.id, (t) => c.logicalToTime(c.timeToLogical(t) + 5)), undefined, isPos)}
       {item(d.locked ? 'Kilidi aç' : 'Kilitle', () => updateDrawing(d.id, { locked: !d.locked }))}
