@@ -220,12 +220,19 @@ export function deleteDrawing(id: string, record = true) {
   set({ selectedId: get().selectedId === id ? null : get().selectedId, editingId: null });
 }
 
+/** Temizlemede kalan çizimler: kilitliler ve aktif (açık / bekleyen) işleme bağlı olanlar. */
+export function keptOnClear(s: Session): Set<string> {
+  const activeIds = new Set(activeTrades(s).map((t) => t.drawingId));
+  return new Set(drawingsOf(s).filter((d) => d.locked || activeIds.has(d.id)).map((d) => d.id));
+}
+
+/** Bu sembolün çizimlerini temizler; kilitli çizimler ve aktif işleme bağlı olanlar kalır. */
 export function clearDrawings() {
   const s = get().session;
   if (!s) return;
-  const activeIds = new Set(activeTrades(s).map((t) => t.drawingId));
+  const keep = keptOnClear(s);
   recordUndo();
-  patchSession((s) => ({ drawings: { ...s.drawings, [s.symbol]: drawingsOf(s).filter((d) => activeIds.has(d.id)) } }));
+  patchSession((s) => ({ drawings: { ...s.drawings, [s.symbol]: drawingsOf(s).filter((d) => keep.has(d.id)) } }));
   set({ selectedId: null, editingId: null });
 }
 

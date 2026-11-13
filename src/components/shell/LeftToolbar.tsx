@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { type Tool } from '../../core/types';
-import { clearDrawings, drawingsOf, setAllLocked, useStore } from '../../store';
+import { clearDrawings, drawingsOf, keptOnClear, setAllLocked, toast, useStore } from '../../store';
 import { Icons } from '../common/icons';
 import { FAV_CANDIDATES, setFavBarVisible, toggleFavTool, useFavBar } from '../../prefs/favTools';
 
@@ -182,17 +182,18 @@ export function LeftToolbar() {
       </button>
       <button
         className="tool"
-        title="Bu sembolün tüm çizimlerini sil (aktif işlemlere bağlı olanlar hariç)"
+        title="Grafiği temizle: kilitli olmayan çizimleri sil (kilitliler ve aktif işleme bağlı olanlar kalır)"
         onClick={() => {
-          if (confirmDelete()) clearDrawings();
+          const s = useStore.getState().session;
+          if (!s) return;
+          const all = drawingsOf(s).length;
+          const kept = keptOnClear(s).size;
+          if (all === kept) return toast(all ? 'Silinecek çizim yok: hepsi kilitli veya aktif işleme bağlı.' : 'Grafikte çizim yok.');
+          if (window.confirm(`Kilitli olmayan ${all - kept} çizim silinsin mi?${kept ? ` (${kept} kilitli / aktif işlem çizimi kalır)` : ''}`)) clearDrawings();
         }}
       >
         <Icons.trash />
       </button>
     </nav>
   );
-}
-
-function confirmDelete() {
-  return window.confirm('Bu sembolün tüm çizimleri silinsin mi?');
 }
