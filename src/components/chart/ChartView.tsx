@@ -13,6 +13,7 @@ import { broadcastCrosshair, broadcastRange } from '../../chart/paneSync';
 import { DrawingToolbar } from '../drawing/DrawingToolbar';
 import { AccountMeters } from '../shell/AccountMeters';
 import { DrawingMenu } from './DrawingMenu';
+import { useFitInView } from '../../lib/useFitInView';
 import { ChartLegend } from './ChartLegend';
 import { exportVisible, BarInspector } from './BarInspector';
 import { AccountBanner, DataNotice } from './ChartNotices';
@@ -27,6 +28,7 @@ export function ChartView({ pane, rect }: { pane: number; rect: PaneRect | null 
   const [c, setC] = useState<ChartController | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; L: number | null; price: number | null; drawingId?: string } | null>(null);
   const [inspectL, setInspectL] = useState<number | null>(null);
+  const menuRef = useFitInView<HTMLDivElement>(menu);
   const [scrolledAway, setScrolledAway] = useState(false);
 
   useEffect(() => {
@@ -141,7 +143,7 @@ export function ChartView({ pane, rect }: { pane: number; rect: PaneRect | null 
         <DrawingMenu c={c} menu={menu} onClose={() => setMenu(null)} />
       )}
       {menu && c && !menu.drawingId && (
-        <div className="menu context" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
+        <div ref={menuRef} className="menu context" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
           <button className="menu-item" onClick={() => (c.resetView(), setMenu(null))}>
             Grafiği yenile <span>ölçek + konum sıfırla</span>
           </button>

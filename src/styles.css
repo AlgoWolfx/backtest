@@ -363,6 +363,9 @@ select:focus {
 .menu.context {
   top: auto;
   width: 250px;
+  /* Pencereden uzunsa kaydırılır (useFitInView yukarı kaydırır, yine sığmazsa kendi içinde kayar) */
+  max-height: calc(100vh - 8px);
+  overflow-y: auto;
 }
 .menu-item span:last-child:not(:first-child) {
   margin-left: auto;
